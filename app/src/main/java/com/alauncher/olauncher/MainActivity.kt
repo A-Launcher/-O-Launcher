@@ -1,15 +1,39 @@
 package com.alauncher.olauncher
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CardGiftcard
+import androidx.compose.material.icons.filled.Checkroom
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,8 +41,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -29,39 +58,86 @@ private val Muted = Color(0xFF766E64)
 private val Gold = Color(0xFFFFC64D)
 private val Border = Color(0xFFEADBC8)
 
+private data class LauncherImages(
+    val hero: ImageBitmap,
+    val logo: ImageBitmap,
+    val avatar: ImageBitmap,
+    val whatsNew: ImageBitmap,
+    val spring: ImageBitmap,
+    val trials: ImageBitmap,
+    val camel: ImageBitmap,
+    val realms: ImageBitmap
+)
+
+private fun readBitmap(context: android.content.Context, file: String): Bitmap {
+    return context.assets.open(file).use { BitmapFactory.decodeStream(it) }
+}
+
+private fun cropBitmap(source: Bitmap, x: Int, y: Int, width: Int, height: Int): ImageBitmap =
+    Bitmap.createBitmap(source, x, y, width, height).asImageBitmap()
+
+@Composable
+private fun rememberLauncherImages(): LauncherImages {
+    val context = LocalContext.current
+    return remember(context) {
+        val atlas = readBitmap(context, "ui_atlas.webp")
+        LauncherImages(
+            hero = cropBitmap(atlas, 0, 0, 720, 319),
+            whatsNew = cropBitmap(atlas, 0, 329, 257, 110),
+            spring = cropBitmap(atlas, 267, 329, 240, 87),
+            trials = cropBitmap(atlas, 0, 449, 239, 90),
+            camel = cropBitmap(atlas, 249, 449, 240, 87),
+            realms = cropBitmap(atlas, 499, 449, 110, 130),
+            avatar = cropBitmap(atlas, 620, 449, 62, 64),
+            logo = readBitmap(context, "brand_logo.webp").asImageBitmap()
+        )
+    }
+}
+
 class MainActivity : ComponentActivity() {
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(246, 235, 221)
-        window.navigationBarColor = android.graphics.Color.rgb(246, 235, 221)
-        window.decorView.systemUiVisibility = 0
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        )
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         setContent { OLauncherApp() }
     }
 }
 
 @Composable
 private fun OLauncherApp() {
+    val images = rememberLauncherImages()
     var tab by remember { mutableIntStateOf(0) }
     var showPlayInfo by remember { mutableStateOf(false) }
+
     MaterialTheme(colorScheme = lightColorScheme(
         background = Cream, surface = Panel, primary = Gold,
         onPrimary = Ink, onBackground = Ink, onSurface = Ink
     )) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Cream)) {
-            // Keep the complete desktop-style dashboard on every supported landscape phone.
-            // At 1000dp+ the reference proportions are used; narrower phones compact the rails.
-            val roomy = maxWidth >= 1000.dp
-            val sidebarWidth = if (roomy) 116.dp else 78.dp
-            val rightRailWidth = if (roomy) 310.dp else (maxWidth * 0.29f).coerceIn(190.dp, 260.dp)
-            val gap = if (roomy) 14.dp else 8.dp
+            // Width proportions follow the supplied PC reference instead of squeezing the center column.
+            val sidebarWidth = maxWidth * 0.095f
+            val rightRailWidth = maxWidth * 0.235f
+            val gap = (maxWidth * 0.009f).coerceIn(8.dp, 16.dp)
+            val heroHeight = maxHeight * 0.505f
+            val newsHeight = maxHeight * 0.325f
+
             Row(
-                Modifier.fillMaxSize().padding(if (roomy) 12.dp else 7.dp),
+                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
                 horizontalArrangement = Arrangement.spacedBy(gap)
             ) {
-                Sidebar(tab, { tab = it }, Modifier.width(sidebarWidth).fillMaxHeight())
+                Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    TopBar(Modifier.height(if (roomy) 64.dp else 48.dp))
+                    TopBar(images, Modifier.fillMaxWidth().height(maxHeight * 0.095f).padding(top = 12.dp))
                     Spacer(Modifier.height(gap))
                     Row(
                         Modifier.weight(1f).fillMaxWidth(),
@@ -72,26 +148,40 @@ private fun OLauncherApp() {
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
                             if (tab == 0) {
-                                HeroBanner(Modifier.fillMaxWidth().height(if (roomy) 390.dp else 205.dp)) { showPlayInfo = true }
-                                FeaturedNews()
-                            } else Destination(tab)
+                                HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
+                                FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
+                            } else {
+                                Destination(tab)
+                            }
                         }
                         Column(
                             Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
-                            WhatsNew()
-                            QuickLinks()
-                            RealmsCard()
+                            WhatsNew(images, Modifier.fillMaxWidth().height(maxHeight * 0.35f))
+                            QuickLinks(Modifier.fillMaxWidth().height(maxHeight * 0.245f))
+                            RealmsCard(images, Modifier.fillMaxWidth().height(maxHeight * 0.225f))
                         }
                     }
                 }
             }
+
+            // The reference includes desktop window controls at the top-right edge.
+            Row(
+                Modifier.align(Alignment.TopEnd).padding(top = 0.dp, end = 13.dp),
+                horizontalArrangement = Arrangement.spacedBy(15.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("—", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("□", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("×", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            }
+
             if (showPlayInfo) {
                 AlertDialog(
                     onDismissRequest = { showPlayInfo = false },
                     title = { Text("Minecraft runtime not ready") },
-                    text = { Text("The launcher UI is in development. Game launch will be enabled after Microsoft sign-in, version downloads, an Android-compatible Java runtime, rendering, and touch controls are implemented.") },
+                    text = { Text("The launcher interface is ready for the next development stage. Game launch still needs Microsoft sign-in, version downloads, an Android-compatible Java runtime, rendering and touch controls.") },
                     confirmButton = {
                         TextButton(onClick = { showPlayInfo = false }) { Text("Got it") }
                     }
@@ -102,188 +192,248 @@ private fun OLauncherApp() {
 }
 
 @Composable
-private fun TopBar(modifier: Modifier = Modifier) {
+private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth(),
+        modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("🟩", fontSize = 27.sp)
-        Text("MINECRAFT\nJAVA EDITION", fontSize = 16.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, color = Ink)
+        Image(
+            images.logo,
+            contentDescription = "Minecraft Java Edition",
+            modifier = Modifier.width(190.dp).height(48.dp),
+            contentScale = ContentScale.Fit
+        )
         Surface(
-            Modifier.weight(1f).height(44.dp),
+            Modifier.weight(1f).height(46.dp),
             color = Color(0xFFFFF8F0),
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(30.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
         ) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("⌕", fontSize = 25.sp, color = Muted)
+                Icon(Icons.Filled.Search, contentDescription = "Search", tint = Ink, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Search for anything...", color = Muted, fontSize = 13.sp)
+                var query by remember { mutableStateOf("") }
+                BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(color = Ink, fontSize = 13.sp),
+                    decorationBox = { inner ->
+                        Box {
+                            if (query.isEmpty()) Text("Search for anything...", color = Muted, fontSize = 13.sp)
+                            inner()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
-        Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(42.dp)) {
-            Box(contentAlignment = Alignment.Center) { Text("♟", fontSize = 21.sp) }
+        Box {
+            Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Ink, modifier = Modifier.size(22.dp))
+                }
+            }
+            Box(
+                Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp)
+                    .size(19.dp).clip(CircleShape).background(Color(0xFFD83228)),
+                contentAlignment = Alignment.Center
+            ) { Text("3", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
         }
-        Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(42.dp)) {
-            Box(contentAlignment = Alignment.Center) { Text("🎮", fontSize = 19.sp) }
+        Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(44.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.SportsEsports, contentDescription = "Game", tint = Ink, modifier = Modifier.size(22.dp))
+            }
         }
-        Surface(color = Panel, shape = RoundedCornerShape(28.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("🟩  ", fontSize = 19.sp)
-                Text("CreeperFan  ⌄", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Surface(
+            color = Panel,
+            shape = RoundedCornerShape(28.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Border)
+        ) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(images.avatar, contentDescription = "Creeper avatar", modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
+                Spacer(Modifier.width(8.dp))
+                Text("CreeperFan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Spacer(Modifier.width(7.dp))
+                Icon(Icons.Filled.ExpandMore, contentDescription = "Profile menu", tint = Ink, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
 
 @Composable
-private fun Sidebar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("🟩", fontSize = 36.sp, modifier = Modifier.padding(vertical = 14.dp))
-        listOf("⌂" to "Home", "▦" to "Installations", "♟" to "Skins", "▣" to "Marketplace", "⚙" to "Settings", "ⓘ" to "About").forEachIndexed { i, item ->
-            val selected = (i == tab)
+private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modifier: Modifier = Modifier) {
+    val entries = listOf(
+        Triple(Icons.Filled.Home, "Home", 0),
+        Triple(Icons.Filled.Inventory2, "Installations", 1),
+        Triple(Icons.Filled.Checkroom, "Skins", 2),
+        Triple(Icons.Filled.Storefront, "Marketplace", 3),
+        Triple(Icons.Filled.Settings, "Settings", 4),
+        Triple(Icons.Filled.Info, "About", 5)
+    )
+    Column(
+        modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Image(images.avatar, contentDescription = "O Launcher Creeper icon", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)))
+        Spacer(Modifier.height(8.dp))
+        entries.forEach { (icon, label, index) ->
+            val selected = tab == index
             Surface(
-                onClick = { onTab(i) },
+                onClick = { onTab(index) },
                 color = if (selected) Color(0xFFFFE5A5) else Color.Transparent,
                 shape = RoundedCornerShape(18.dp),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
             ) {
-                Column(Modifier.padding(vertical = 11.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(item.first, fontSize = 23.sp, color = Ink)
-                    Text(item.second, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Ink, maxLines = 1)
+                Column(
+                    Modifier.padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.height(3.dp))
+                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Ink, maxLines = 1)
                 }
             }
         }
         Spacer(Modifier.weight(1f))
-        Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(9.dp)) {
-                Text("🟩 CreeperFan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text("🟢 Online", fontSize = 10.sp, color = Color(0xFF4C8B43))
-                Text("Latest Release\n1.21.10", fontSize = 10.sp, color = Muted)
+        Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(17.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(images.avatar, contentDescription = null, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
+                    Spacer(Modifier.width(5.dp))
+                    Column {
+                        Text("CreeperFan", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("● Online", fontSize = 9.sp, color = Color(0xFF4C8B43))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(16.dp))
+                }
+                Divider(color = Border)
+                Text("● Latest Release", fontSize = 9.sp, color = Color(0xFF4C8B43))
+                Text("1.21.10  ⌄", fontSize = 10.sp, color = Ink)
             }
         }
     }
 }
 
 @Composable
-private fun HeroBanner(modifier: Modifier = Modifier, onPlay: () -> Unit) {
-    Box(modifier.clip(RoundedCornerShape(28.dp)).background(
-        Brush.linearGradient(listOf(Color(0xFF351D2A), Color(0xFF8D352F), Color(0xFFE47A38), Color(0xFF311D35)))
-    )) {
-        // Stylized block-world silhouettes keep the hero self-contained until final licensed art is supplied.
-        Row(Modifier.align(Alignment.BottomEnd).padding(end = 22.dp, bottom = 28.dp), verticalAlignment = Alignment.Bottom) {
-            repeat(5) { i ->
-                Box(Modifier.padding(horizontal = 3.dp).size((42 + i * 12).dp).background(
-                    listOf(Color(0xFF442B35), Color(0xFF5A3440), Color(0xFF8B4436), Color(0xFF382B43), Color(0xFF6D3A35))[i]
-                ))
-            }
-        }
-        Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.82f).padding(24.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("MINECRAFT", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = (-1).sp)
-            Text("JAVA EDITION", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(6.dp))
-            Text("The End", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-            Text("awaits...", color = Gold, fontSize = 35.sp, fontWeight = FontWeight.Black)
-            Text("Face the Nether, explore new challenges and discover more!", color = Color(0xFFFFEBDD), fontSize = 14.sp, lineHeight = 19.sp)
-            Spacer(Modifier.height(5.dp))
-            Button(
-                onClick = onPlay,
-                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
-                shape = RoundedCornerShape(28.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 13.dp)
-            ) { Text("▶  Play Now", fontSize = 17.sp, fontWeight = FontWeight.Black) }
-            Text("PLAY FEATURE COMING SOON", color = Color(0xFFFFE4B8), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-        }
-        Text("◆  ◆  ◆  ◆", Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp), color = Color.White.copy(alpha = .85f), fontSize = 12.sp)
-    }
-}
-
-@Composable
-private fun WhatsNew() {
-    PanelCard("✨  What's New?", "View all  →") {
-        Box(Modifier.fillMaxWidth().height(112.dp).clip(RoundedCornerShape(16.dp)).background(
-            Brush.linearGradient(listOf(Color(0xFF512B43), Color(0xFFE06C3B), Color(0xFF311E3A)))
-        ), contentAlignment = Alignment.Center) {
-            Text("THE NETHER UPDATE", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
-        }
-        Text("The Nether Update", fontWeight = FontWeight.Black, fontSize = 16.sp)
-        Text("New biomes, new features!", color = Muted, fontSize = 13.sp)
-        Text("▦   Jun 30, 2024", color = Muted, fontSize = 11.sp)
-    }
-}
-
-@Composable
-private fun QuickLinks() {
-    PanelCard("🔗  Quick Links") {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuickLink("◎", "Official\nWebsite", Modifier.weight(1f))
-            QuickLink("▤", "Patch\nNotes", Modifier.weight(1f))
-            QuickLink("🎮", "Discord", Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuickLink("🛒", "Marketplace", Modifier.weight(1f))
-            QuickLink("♟", "Skins", Modifier.weight(1f))
-            QuickLink("🎁", "Gift Codes", Modifier.weight(1f))
+private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
+    Box(modifier.clip(RoundedCornerShape(27.dp))) {
+        Image(images.hero, contentDescription = "The End awaits Minecraft Nether hero", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        // Invisible hit target sits exactly over the Play Now button baked into the supplied reference art.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            Box(
+                Modifier.align(Alignment.BottomStart)
+                    .padding(start = maxWidth * 0.018f, bottom = maxHeight * 0.095f)
+                    .size(width = maxWidth * 0.255f, height = maxHeight * 0.16f)
+                    .clickable(onClick = onPlay)
+            )
         }
     }
 }
 
 @Composable
-private fun QuickLink(icon: String, label: String, modifier: Modifier = Modifier) {
+private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
+    PanelCard("What's New?", "View all  →", modifier) {
+        Image(images.whatsNew, contentDescription = "The Nether Update artwork", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp)), contentScale = ContentScale.Crop)
+        Text("The Nether Update", fontWeight = FontWeight.Black, fontSize = 15.sp)
+        Text("New biomes, new features!", color = Muted, fontSize = 12.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(7.dp))
+            Text("Jun 30, 2024", color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun QuickLinks(modifier: Modifier = Modifier) {
+    PanelCard("Quick Links", null, modifier) {
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
+            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.weight(1f))
+            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.weight(1f))
+            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
+            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.weight(1f))
+            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.weight(1f))
+            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier) {
     Surface(modifier = modifier, color = Color(0xFFFFF0DA), shape = RoundedCornerShape(15.dp)) {
-        Column(Modifier.padding(vertical = 11.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(icon, fontSize = 21.sp)
-            Text(label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = Ink)
+        Column(Modifier.fillMaxSize().padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(23.dp))
+            Spacer(Modifier.height(4.dp))
+            Text(label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
 
 @Composable
-private fun FeaturedNews() {
-    PanelCard("▤  Featured News", "View all  →") {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NewsCard("🌸", "Spring to Life", "A fresh new look for Minecraft!", "Mar 25, 2025", Color(0xFFF0B8C9))
-            NewsCard("🔥", "The Tricky Trials Update", "Take on new challenges!", "Jun 13, 2024", Color(0xFFE9A35B))
-            NewsCard("🐪", "Camel! Ride in Style", "Explore the desert with camels.", "Apr 3, 2024", Color(0xFFE5C18D))
+private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) {
+    PanelCard("Featured News", "View all  →", modifier) {
+        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            NewsCard(images.spring, "Spring to Life", "A fresh new look for Minecraft!", "Mar 25, 2025", Modifier.weight(1f))
+            NewsCard(images.trials, "The Tricky Trials Update", "Take on new challenges!", "Jun 13, 2024", Modifier.weight(1f))
+            NewsCard(images.camel, "Camel! Ride in Style", "Explore the desert with camels.", "Apr 3, 2024", Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun NewsCard(emoji: String, title: String, description: String, date: String, art: Color) {
-    Surface(color = Color(0xFFFFF4E6), shape = RoundedCornerShape(18.dp), modifier = Modifier.width(218.dp)) {
-        Column {
-            Box(Modifier.fillMaxWidth().height(95.dp).background(Brush.linearGradient(listOf(art, Color(0xFF9C7759)))), contentAlignment = Alignment.Center) {
-                Text(emoji, fontSize = 44.sp)
+private fun NewsCard(image: ImageBitmap, title: String, description: String, date: String, modifier: Modifier = Modifier) {
+    Surface(color = Color(0xFFFFF4E6), shape = RoundedCornerShape(18.dp), modifier = modifier) {
+        Column(Modifier.fillMaxSize()) {
+            Image(image, contentDescription = title, modifier = Modifier.fillMaxWidth().height(82.dp), contentScale = ContentScale.Crop)
+            Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, fontWeight = FontWeight.Black, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(description, color = Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(date, color = Muted, fontSize = 9.sp)
+                }
             }
-            Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(title, fontWeight = FontWeight.Black, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(description, color = Muted, fontSize = 11.sp, maxLines = 2)
-                Text("▦  $date     →", color = Muted, fontSize = 10.sp)
-            }
         }
     }
 }
 
 @Composable
-private fun RealmsCard() {
-    Surface(color = Color(0xFFFFF0D9), shape = RoundedCornerShape(22.dp)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
+    Surface(color = Color(0xFFFFF0D9), shape = RoundedCornerShape(22.dp), modifier = modifier) {
+        Row(Modifier.fillMaxSize().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("👑  Join Realms", fontWeight = FontWeight.Black, fontSize = 16.sp)
-                Text("Play with friends anywhere, anytime!", fontSize = 12.sp, color = Muted)
-                Text("Learn More  →", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text("♛  Join Realms", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Text("Play with friends anywhere, anytime!", fontSize = 11.sp, color = Ink)
+                Surface(color = Ink, shape = RoundedCornerShape(25.dp)) {
+                    Text("Learn More  →", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+                }
             }
-            Text("🏰", fontSize = 50.sp)
+            Image(images.realms, contentDescription = "Minecraft floating island castle", modifier = Modifier.width(92.dp).fillMaxHeight(), contentScale = ContentScale.Fit)
         }
     }
 }
 
 @Composable
-private fun PanelCard(title: String, action: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    Surface(color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .7f)), shadowElevation = 3.dp) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+private fun PanelCard(
+    title: String,
+    action: String?,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        color = Panel,
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .7f)),
+        shadowElevation = 3.dp,
+        modifier = modifier
+    ) {
+        Column(Modifier.fillMaxSize().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp)
                 if (action != null) {
