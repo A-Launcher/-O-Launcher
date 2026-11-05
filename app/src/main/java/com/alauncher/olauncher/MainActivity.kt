@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
         window.statusBarColor = android.graphics.Color.rgb(246, 235, 221)
         window.navigationBarColor = android.graphics.Color.rgb(246, 235, 221)
         window.decorView.systemUiVisibility = 0
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         setContent { OLauncherApp() }
     }
 }
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun OLauncherApp() {
     var tab by remember { mutableIntStateOf(0) }
+    var showPlayInfo by remember { mutableStateOf(false) }
     MaterialTheme(colorScheme = lightColorScheme(
         background = Cream, surface = Panel, primary = Gold,
         onPrimary = Ink, onBackground = Ink, onSurface = Ink
@@ -70,7 +72,7 @@ private fun OLauncherApp() {
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
                             if (tab == 0) {
-                                HeroBanner(Modifier.fillMaxWidth().height(if (roomy) 390.dp else 205.dp))
+                                HeroBanner(Modifier.fillMaxWidth().height(if (roomy) 390.dp else 205.dp)) { showPlayInfo = true }
                                 FeaturedNews()
                             } else Destination(tab)
                         }
@@ -84,6 +86,16 @@ private fun OLauncherApp() {
                         }
                     }
                 }
+            }
+            if (showPlayInfo) {
+                AlertDialog(
+                    onDismissRequest = { showPlayInfo = false },
+                    title = { Text("Minecraft runtime not ready") },
+                    text = { Text("The launcher UI is in development. Game launch will be enabled after Microsoft sign-in, version downloads, an Android-compatible Java runtime, rendering, and touch controls are implemented.") },
+                    confirmButton = {
+                        TextButton(onClick = { showPlayInfo = false }) { Text("Got it") }
+                    }
+                )
             }
         }
     }
@@ -132,7 +144,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifie
         listOf("⌂" to "Home", "▦" to "Installations", "♟" to "Skins", "▣" to "Marketplace", "⚙" to "Settings", "ⓘ" to "About").forEachIndexed { i, item ->
             val selected = (i == tab)
             Surface(
-                onClick = { onTab(i.coerceAtMost(3)) },
+                onClick = { onTab(i) },
                 color = if (selected) Color(0xFFFFE5A5) else Color.Transparent,
                 shape = RoundedCornerShape(18.dp),
                 modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
@@ -155,7 +167,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, modifier: Modifier = Modifie
 }
 
 @Composable
-private fun HeroBanner(modifier: Modifier = Modifier) {
+private fun HeroBanner(modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(28.dp)).background(
         Brush.linearGradient(listOf(Color(0xFF351D2A), Color(0xFF8D352F), Color(0xFFE47A38), Color(0xFF311D35)))
     )) {
@@ -176,7 +188,7 @@ private fun HeroBanner(modifier: Modifier = Modifier) {
             Text("Face the Nether, explore new challenges and discover more!", color = Color(0xFFFFEBDD), fontSize = 14.sp, lineHeight = 19.sp)
             Spacer(Modifier.height(5.dp))
             Button(
-                onClick = { },
+                onClick = onPlay,
                 colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
                 shape = RoundedCornerShape(28.dp),
                 contentPadding = PaddingValues(horizontal = 24.dp, vertical = 13.dp)
