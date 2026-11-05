@@ -128,8 +128,9 @@ private fun OLauncherApp() {
             val sidebarWidth = maxWidth * 0.095f
             val rightRailWidth = maxWidth * 0.235f
             val gap = (maxWidth * 0.009f).coerceIn(8.dp, 16.dp)
-            val heroHeight = maxHeight * 0.505f
-            val newsHeight = maxHeight * 0.325f
+            val dashboardHeight = maxHeight
+            val heroHeight = dashboardHeight * 0.505f
+            val newsHeight = dashboardHeight * 0.325f
 
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
@@ -137,7 +138,7 @@ private fun OLauncherApp() {
             ) {
                 Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    TopBar(images, Modifier.fillMaxWidth().height(maxHeight * 0.095f).padding(top = 12.dp))
+                    TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp))
                     Spacer(Modifier.height(gap))
                     Row(
                         Modifier.weight(1f).fillMaxWidth(),
@@ -158,9 +159,9 @@ private fun OLauncherApp() {
                             Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
-                            WhatsNew(images, Modifier.fillMaxWidth().height(maxHeight * 0.35f))
-                            QuickLinks(Modifier.fillMaxWidth().height(maxHeight * 0.245f))
-                            RealmsCard(images, Modifier.fillMaxWidth().height(maxHeight * 0.225f))
+                            WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
+                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.245f))
+                            RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.225f))
                         }
                     }
                 }
