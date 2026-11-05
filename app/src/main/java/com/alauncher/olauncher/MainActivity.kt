@@ -69,27 +69,49 @@ private data class LauncherImages(
     val realms: ImageBitmap
 )
 
-private fun readBitmap(context: android.content.Context, file: String): Bitmap {
-    return context.assets.open(file).use { BitmapFactory.decodeStream(it) }
+private fun fallbackBitmap(color: Int): Bitmap =
+    Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+
+private fun readBitmap(context: android.content.Context, file: String, fallbackColor: Int): Bitmap {
+    return try {
+        context.assets.open(file).use { input ->
+            BitmapFactory.decodeStream(input) ?: fallbackBitmap(fallbackColor)
+        }
+    } catch (_: Exception) {
+        // A missing or unreadable decorative asset must never prevent the launcher from opening.
+        fallbackBitmap(fallbackColor)
+    }
 }
 
-private fun cropBitmap(source: Bitmap, x: Int, y: Int, width: Int, height: Int): ImageBitmap =
-    Bitmap.createBitmap(source, x, y, width, height).asImageBitmap()
+private fun cropBitmapSafe(
+    source: Bitmap, x: Int, y: Int, width: Int, height: Int, fallbackColor: Int
+): ImageBitmap {
+    val left = x.coerceIn(0, (source.width - 1).coerceAtLeast(0))
+    val top = y.coerceIn(0, (source.height - 1).coerceAtLeast(0))
+    val cropWidth = width.coerceAtMost(source.width - left).coerceAtLeast(1)
+    val cropHeight = height.coerceAtMost(source.height - top).coerceAtLeast(1)
+    return try {
+        Bitmap.createBitmap(source, left, top, cropWidth, cropHeight).asImageBitmap()
+    } catch (_: Exception) {
+        fallbackBitmap(fallbackColor).asImageBitmap()
+    }
+}
 
 @Composable
 private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
     return remember(context) {
-        val atlas = readBitmap(context, "ui_atlas.webp")
+        val atlas = readBitmap(context, "ui_atlas.webp", android.graphics.Color.DKGRAY)
+        val logo = readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY)
         LauncherImages(
-            hero = cropBitmap(atlas, 0, 0, 720, 319),
-            whatsNew = cropBitmap(atlas, 0, 329, 257, 110),
-            spring = cropBitmap(atlas, 267, 329, 240, 87),
-            trials = cropBitmap(atlas, 0, 449, 239, 90),
-            camel = cropBitmap(atlas, 249, 449, 240, 87),
-            realms = cropBitmap(atlas, 499, 449, 110, 130),
-            avatar = cropBitmap(atlas, 620, 449, 62, 64),
-            logo = readBitmap(context, "brand_logo.webp").asImageBitmap()
+            hero = cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
+            whatsNew = cropBitmapSafe(atlas, 0, 329, 257, 110, android.graphics.Color.LTGRAY),
+            spring = cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
+            trials = cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
+            camel = cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
+            realms = cropBitmapSafe(atlas, 499, 449, 110, 130, android.graphics.Color.GREEN),
+            avatar = cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
+            logo = logo.asImageBitmap()
         )
     }
 }
