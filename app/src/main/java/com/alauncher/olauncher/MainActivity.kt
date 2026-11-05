@@ -43,62 +43,44 @@ class MainActivity : ComponentActivity() {
 private fun OLauncherApp() {
     var tab by remember { mutableIntStateOf(0) }
     MaterialTheme(colorScheme = lightColorScheme(
-        background = Cream,
-        surface = Panel,
-        primary = Gold,
-        onPrimary = Ink,
-        onBackground = Ink,
-        onSurface = Ink
+        background = Cream, surface = Panel, primary = Gold,
+        onPrimary = Ink, onBackground = Ink, onSurface = Ink
     )) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Cream)) {
-            val desktop = maxWidth >= 850.dp
-            if (desktop) {
-                Row(Modifier.fillMaxSize().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Sidebar(tab, { tab = it }, Modifier.width(116.dp).fillMaxHeight())
-                    Column(Modifier.weight(1f).fillMaxHeight()) {
-                        TopBar()
-                        Spacer(Modifier.height(14.dp))
-                        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())) {
-                                if (tab == 0) {
-                                    HeroBanner(Modifier.fillMaxWidth().height(390.dp))
-                                    Spacer(Modifier.height(14.dp))
-                                    FeaturedNews()
-                                } else Destination(tab)
-                            }
-                            Column(Modifier.width(310.dp).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                WhatsNew()
-                                QuickLinks()
-                                RealmsCard()
-                            }
-                        }
-                    }
-                }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    TopBar(Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
-                    Column(
-                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+            // Keep the complete desktop-style dashboard on every supported landscape phone.
+            // At 1000dp+ the reference proportions are used; narrower phones compact the rails.
+            val roomy = maxWidth >= 1000.dp
+            val sidebarWidth = if (roomy) 116.dp else 78.dp
+            val rightRailWidth = if (roomy) 310.dp else (maxWidth * 0.29f).coerceIn(190.dp, 260.dp)
+            val gap = if (roomy) 14.dp else 8.dp
+            Row(
+                Modifier.fillMaxSize().padding(if (roomy) 12.dp else 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(gap)
+            ) {
+                Sidebar(tab, { tab = it }, Modifier.width(sidebarWidth).fillMaxHeight())
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    TopBar(Modifier.height(if (roomy) 64.dp else 48.dp))
+                    Spacer(Modifier.height(gap))
+                    Row(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(gap)
                     ) {
-                        if (tab == 0) {
-                            HeroBanner(Modifier.fillMaxWidth().height(360.dp))
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(gap)
+                        ) {
+                            if (tab == 0) {
+                                HeroBanner(Modifier.fillMaxWidth().height(if (roomy) 390.dp else 205.dp))
+                                FeaturedNews()
+                            } else Destination(tab)
+                        }
+                        Column(
+                            Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(gap)
+                        ) {
                             WhatsNew()
                             QuickLinks()
-                            FeaturedNews()
                             RealmsCard()
-                        } else Destination(tab)
-                    }
-                    NavigationBar(containerColor = Panel, tonalElevation = 8.dp) {
-                        val labels = listOf("Home", "Installations", "Skins", "Settings")
-                        val icons = listOf("⌂", "▦", "♟", "⚙")
-                        labels.forEachIndexed { index, label ->
-                            NavigationBarItem(
-                                selected = tab == index,
-                                onClick = { tab = index },
-                                icon = { Text(icons[index], fontSize = 21.sp) },
-                                label = { Text(label, fontSize = 10.sp) }
-                            )
                         }
                     }
                 }
@@ -109,14 +91,35 @@ private fun OLauncherApp() {
 
 @Composable
 private fun TopBar(modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text("🟩", fontSize = 27.sp)
         Text("MINECRAFT\nJAVA EDITION", fontSize = 16.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, color = Ink)
-        Spacer(Modifier.weight(1f))
-        Surface(color = Panel, shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("🔔   🎮   ", fontSize = 17.sp)
-                Text("CreeperFan  ⌄", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Surface(
+            Modifier.weight(1f).height(44.dp),
+            color = Color(0xFFFFF8F0),
+            shape = RoundedCornerShape(28.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Border)
+        ) {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("⌕", fontSize = 25.sp, color = Muted)
+                Spacer(Modifier.width(10.dp))
+                Text("Search for anything...", color = Muted, fontSize = 13.sp)
+            }
+        }
+        Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(42.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text("♟", fontSize = 21.sp) }
+        }
+        Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(42.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text("🎮", fontSize = 19.sp) }
+        }
+        Surface(color = Panel, shape = RoundedCornerShape(28.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("🟩  ", fontSize = 19.sp)
+                Text("CreeperFan  ⌄", fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }
@@ -283,18 +286,19 @@ private fun PanelCard(title: String, action: String? = null, content: @Composabl
 
 @Composable
 private fun Destination(tab: Int) {
-    val title = listOf("Home", "Installations", "Skins", "Settings")[tab.coerceIn(0, 3)]
+    val title = listOf("Home", "Installations", "Skins", "Marketplace", "Settings", "About")[tab.coerceIn(0, 5)]
     Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, fontSize = 27.sp, fontWeight = FontWeight.Black)
             Text(
                 when (tab) {
-                    1 -> "Your Minecraft versions and game profiles will appear here."
+                    1 -> "Your Minecraft versions, game profiles and installations will appear here."
                     2 -> "Preview and manage your player skins here."
-                    else -> "Customize O Launcher preferences here."
+                    3 -> "Browse community content and launcher add-ons here."
+                    4 -> "Customize O Launcher preferences here."
+                    else -> "O Launcher information and credits."
                 },
-                color = Muted,
-                fontSize = 14.sp
+                color = Muted, fontSize = 14.sp
             )
             Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
         }
