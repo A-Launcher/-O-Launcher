@@ -101,8 +101,8 @@ private fun cropBitmapSafe(
 private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
     return remember(context) {
-        val atlas = readBitmap(context, "ui_atlas.webp", android.graphics.Color.DKGRAY)
-        val logo = readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY)
+        val atlas = readBitmap(context, "ui_atlas.png", android.graphics.Color.DKGRAY)
+        val logo = readBitmap(context, "brand_logo.png", android.graphics.Color.DKGRAY)
         LauncherImages(
             hero = cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
             whatsNew = cropBitmapSafe(atlas, 0, 329, 257, 110, android.graphics.Color.LTGRAY),
