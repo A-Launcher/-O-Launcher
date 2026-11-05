@@ -124,8 +124,7 @@ private fun HomeContent() {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("YOUR NEXT ADVENTURE", color = Color(0xFFFFE4B8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text("Ready to
-return home?", color = Color.White, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
+                Text("Ready to\\nreturn home?", color = Color.White, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Text("A cozy home for your Minecraft Java worlds.", color = Color(0xFFFFEBDD), fontSize = 14.sp)
                 Spacer(Modifier.height(4.dp))
                 Button(
