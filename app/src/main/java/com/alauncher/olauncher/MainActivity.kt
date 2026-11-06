@@ -1878,7 +1878,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release, File(context.filesDir, "minecraft")
                                         )
-                                        launchPlanStatus = "Prepared ${plan.version}: ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Runtime execution is not connected yet."
+                                        launchPlanStatus = "Prepared ${plan.version}: Java ${plan.javaMajorVersion} required • ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Compatible Android runtime and graphics bridge are still required."
                                     } catch (error: Exception) {
                                         launchPlanStatus = error.message ?: "Could not prepare launch configuration."
                                     } finally {
