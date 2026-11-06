@@ -20,3 +20,18 @@ O Engine's Rust native library.
 
 LTW remains an upstream component; O Engine's launcher orchestration and native
 LWJGL loader hook are separate O Launcher code.
+
+## GL4ES Android compatibility library
+
+O Launcher packages the four ABI-specific `libgl4es_114.so` binaries from
+[MojoLauncher/MojoLauncher](https://github.com/MojoLauncher/MojoLauncher), pinned
+to source commit `1b8d90424c1cb791321d45f60ac62c54f4b013fa`. The CI workflow
+verifies each downloaded binary against its upstream Git blob SHA before packaging.
+
+GL4ES is distributed under the MIT license. The corresponding upstream license
+text is included as `assets/licenses/LICENSE-gl4es.txt`. Upstream source and
+binary paths are recorded in `ENGINE_UPSTREAM_COMPONENTS.md`.
+
+The libraries are packaged as Android ABI-specific native dependencies, but O
+Engine has not yet activated GL4ES as a renderer or connected it to LWJGL 2's
+native loading path. Packaging is not a claim of successful game rendering.
