@@ -191,14 +191,14 @@ class OEngineGameProcessClient(
     }
 
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
-        val target = messenger ?: return false
+        val target = serviceMessenger ?: return false
         val data = Bundle().apply {
             putString(OEngineGameProcessService.KEY_MAIN_CLASS, mainClass)
             putStringArray(OEngineGameProcessService.KEY_GAME_ARGUMENTS, arguments.toTypedArray())
         }
         val reply = Message.obtain(null, OEngineGameProcessService.MSG_INVOKE_MAIN).apply {
             this.data = data
-            replyTo = responseMessenger
+            replyTo = replyMessenger
         }
         return try {
             target.send(reply)
