@@ -31,7 +31,8 @@ class OEngineJvmBootstrapPlanTest {
                 workingDirectory = game,
                 mainClass = "net.minecraft.client.main.Main",
                 requestedVmOptions = listOf("-Xmx2G", "-Djava.home=/old/path", "-Duser.home=/old/home"),
-                applicationArguments = listOf("--username", "Player")
+                applicationArguments = listOf("--username", "Player"),
+                androidRelease = "15"
             )
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
@@ -42,6 +43,7 @@ class OEngineJvmBootstrapPlanTest {
             assertTrue(plan.vmOptions.any { it == "-Duser.home=" + game.canonicalPath })
             assertTrue(plan.vmOptions.contains("-Djdk.lang.Process.launchMechanism=FORK"))
             assertTrue(plan.vmOptions.contains("-Dos.name=Linux"))
+            assertTrue(plan.vmOptions.contains("-Dos.version=Android-15"))
             assertTrue(plan.vmOptions.contains("-Duser.language=en"))
             assertTrue(plan.vmOptions.contains("-Duser.country=US"))
             assertTrue(plan.vmOptions.contains("-Dlog4j2.formatMsgNoLookups=true"))
