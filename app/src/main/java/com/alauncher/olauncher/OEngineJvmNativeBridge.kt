@@ -1,6 +1,6 @@
 package com.alauncher.olauncher
 
-/** Result of a real Android linker probe; it does not create or start a Java VM. */
+/** Result of an Android linker probe; it retains libjvm in-process but does not create or start a VM. */
 data class OEngineJvmLibraryProbe(
     val successful: Boolean,
     val status: String,
@@ -8,8 +8,8 @@ data class OEngineJvmLibraryProbe(
 )
 
 /**
- * Small native diagnostic bridge for the selected Android JRE's Invocation API.
- * The library is loaded lazily, only when this diagnostic is explicitly requested.
+ * Small native bridge for the selected Android JRE's Invocation API.
+ * The diagnostic maps and retains one validated libjvm for process lifetime. It never creates a VM.
  */
 object OEngineJvmNativeBridge {
     private val nativeLibraryLoaded: Boolean by lazy {
