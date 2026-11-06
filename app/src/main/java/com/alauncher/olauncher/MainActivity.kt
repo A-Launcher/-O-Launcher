@@ -1720,6 +1720,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var dependencyStatus by remember { mutableStateOf("Libraries and assets are not installed yet.") }
     var launchPlanStatus by remember { mutableStateOf("Launch configuration has not been prepared.") }
     var preparingLaunchPlan by remember { mutableStateOf(false) }
+    var preparedLaunchPlan by remember { mutableStateOf<MinecraftVersionInstaller.LaunchPlan?>(null) }
+    var commandPreviewStatus by remember { mutableStateOf("O Engine command preview has not been generated.") }
     var requiredJavaMajor by remember { mutableStateOf(17) }
     var downloadingRuntime by remember { mutableStateOf(false) }
     var installingRuntime by remember { mutableStateOf(false) }
@@ -1887,6 +1889,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release, File(context.filesDir, "minecraft")
                                         )
+                                        preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
                                         launchPlanStatus = "Prepared ${plan.version}: Java ${plan.javaMajorVersion} required • ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Compatible Android runtime and graphics bridge are still required."
                                     } catch (error: Exception) {
@@ -1902,6 +1905,27 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (preparingLaunchPlan) "PREPARING…" else "PREPARE LAUNCH CONFIG", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(launchPlanStatus, color = Muted, fontSize = 11.sp)
+                        Button(
+                            enabled = preparedLaunchPlan != null,
+                            onClick = {
+                                val plan = preparedLaunchPlan ?: return@Button
+                                val preview = OLauncherEngine.prepareCommandPreview(
+                                    File(context.filesDir, "minecraft"), plan
+                                )
+                                commandPreviewStatus = buildString {
+                                    append("O ENGINE COMMAND PREVIEW • ")
+                                    append(preview.arguments.size)
+                                    append(" arguments • ")
+                                    append(if (preview.launchable) "READY" else preview.blockers.size.toString() + " BLOCKERS")
+                                    preview.blockers.forEach { append("\\n• "); append(it) }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF514A78), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("BUILD O ENGINE COMMAND PREVIEW", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(commandPreviewStatus, color = Muted, fontSize = 11.sp)
                         Button(
                             enabled = !downloadingRuntime,
                             onClick = {
