@@ -386,7 +386,7 @@ object MinecraftVersionInstaller {
             "auth_access_token" to accessToken,
             "clientid" to "",
             "auth_xuid" to "",
-            "user_type" to "legacy",
+            "user_type" to if (accessToken.isNotBlank() && accessToken != "0") "msa" else "legacy",
             "version_type" to metadata.optString("type", "release"),
             "user_properties" to "{}",
             "classpath" to classpath.joinToString(File.pathSeparator)
