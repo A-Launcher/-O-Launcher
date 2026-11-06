@@ -30,7 +30,7 @@ class OEngineGameProcessClient(
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val connectStarted = AtomicBoolean(false)
     private val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
         if (message.what == OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT) {
             val data = message.data
@@ -77,6 +77,7 @@ class OEngineGameProcessClient(
 
     fun connect(): Boolean {
         check(!closed.get()) { "This game-process client has already been closed." }
+        check(connectStarted.compareAndSet(false, true)) { "This game-process client has already started binding." }
         val intent = Intent(appContext, OEngineGameProcessService::class.java)
         return try {
             val bound = appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
