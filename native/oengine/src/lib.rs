@@ -849,7 +849,7 @@ mod tests {
         assert!(!is_valid_renderer_alias(""));
         assert!(!is_valid_renderer_alias("libGLMojo"));
         assert!(!is_valid_renderer_alias("/system/lib/libGLMojo.so"));
-        assert!(!is_valid_renderer_alias("libGLMojo.so\\0evil"));
+        assert!(!is_valid_renderer_alias("libGLMojo.so\0evil"));
         assert!(!is_valid_renderer_alias(&format!("lib{}.so", "x".repeat(126))));
     }
 
