@@ -61,6 +61,15 @@ jobs:
           cp ltw/build/outputs/aar/ltw-release.aar ../../app/libs/ltw-release.aar
           sha256sum ../../app/libs/ltw-release.aar
 
+      - name: Install LTW license texts and third-party notice
+        working-directory: .third_party/LTW
+        run: |
+          set -euo pipefail
+          mkdir -p ../../app/src/main/assets/licenses
+          cp LICENSE ../../app/src/main/assets/licenses/LGPL-3.0-LTW.txt
+          curl -fsSL https://www.gnu.org/licenses/gpl-3.0.txt -o ../../app/src/main/assets/licenses/GPL-3.0.txt
+          cp ../../THIRD_PARTY_NOTICES.md ../../app/src/main/assets/THIRD_PARTY_NOTICES.md
+
       - name: Install original uploaded artwork (preserve filenames)
         run: |
           set -euo pipefail
@@ -101,6 +110,18 @@ jobs:
               missing = expected_abis - set(entries)
               if missing:
                   raise SystemExit(f"Rust native engine missing ABIs: {sorted(missing)}")
+              ltw_entries = {
+                  name.split("/")[1]: name
+                  for name in archive.namelist()
+                  if name.startswith("lib/") and name.endswith("/libltw.so")
+              }
+              missing_ltw = expected_abis - set(ltw_entries)
+              if missing_ltw:
+                  raise SystemExit(f"Pinned LTW renderer missing ABIs from APK: {sorted(missing_ltw)}")
+              for abi, name in sorted(ltw_entries.items()):
+                  if archive.getinfo(name).file_size < 64:
+                      raise SystemExit(f"{abi}: packaged LTW native library is unexpectedly small")
+                  print(f"{abi}: verified packaged LTW renderer: {name}")
               for abi in sorted(expected_abis):
                   with tempfile.NamedTemporaryFile(suffix=".so") as native:
                       native.write(archive.read(entries[abi]))
