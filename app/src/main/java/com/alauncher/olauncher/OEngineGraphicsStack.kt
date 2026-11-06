@@ -113,8 +113,11 @@ object OEngineGraphicsStack {
             warnings += "Multiple versions of $module were found: " + versions.joinToString()
         }
         when (selectedProvider) {
-            RendererProvider.LTW -> if (!ltwAvailable) {
-                blockers += "LTW provider is not installed or exposed to O Engine yet."
+            RendererProvider.LTW -> {
+                ltwCompatibilityBlocker(hostGlesMajor)?.let(blockers::add)
+                if (!ltwAvailable) {
+                    blockers += "LTW provider is not installed or exposed to O Engine yet."
+                }
             }
             RendererProvider.GL4ES -> {
                 // The artifact can be installed and ELF-checked, but its EGL/GL adapter is not yet device-verified.
