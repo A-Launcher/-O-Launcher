@@ -1,9 +1,14 @@
 package com.alauncher.olauncher
 
 import android.os.Build
+import android.system.Os
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.tukaani.xz.XZInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.io.BufferedInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -13,6 +18,8 @@ data class RuntimeArchiveResult(
     val archive: File,
     val bytes: Long
 )
+
+data class RuntimeInstallResult(val javaMajor: Int, val architecture: String, val runtimeHome: File, val javaExecutable: File, val javaVersion: String, val filesExtracted: Int)
 
 object AndroidRuntimeInstaller {
     private const val CONNECT_TIMEOUT = 15000
@@ -100,4 +107,82 @@ object AndroidRuntimeInstaller {
             connection.disconnect()
         }
     }
+
+    suspend fun installRuntime(archive: File, javaMajor: Int, gameDirectory: File, onProgress: (String) -> Unit): RuntimeInstallResult = withContext(Dispatchers.IO) {
+        require(archive.isFile && archive.length() > 0L) { "Download the Java runtime archive first." }
+        require(javaMajor in supportedJava) { "Unsupported Java runtime version: " + javaMajor }
+        val architecture = deviceArchitecture()
+        val root = File(gameDirectory, "runtimes/installed").canonicalFile
+        if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create the installed runtimes directory.")
+        val runtimeName = "Java-" + javaMajor + "-" + architecture
+        val destination = File(root, runtimeName)
+        val staging = File(root, runtimeName + ".installing")
+        if (staging.exists()) staging.deleteRecursively()
+        if (!staging.mkdirs()) throw IllegalStateException("Could not create the runtime staging directory.")
+        var extracted = 0
+        try {
+            onProgress("Extracting Android Java " + javaMajor + "…")
+            XZInputStream(BufferedInputStream(archive.inputStream())).use { xz ->
+                TarArchiveInputStream(xz).use { tar ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val entry = tar.nextTarEntry ?: break
+                        val name = entry.name
+                        if (name.isBlank() || name.startsWith("/") || name.startsWith("\\")) throw IllegalStateException("Unsafe path in runtime archive.")
+                        val rootPath = staging.toPath().toAbsolutePath().normalize()
+                        val targetPath = rootPath.resolve(name).normalize()
+                        if (!targetPath.startsWith(rootPath)) throw IllegalStateException("Runtime archive contains a path outside its install folder.")
+                        val target = targetPath.toFile()
+                        val parent = target.parentFile ?: throw IllegalStateException("Invalid runtime archive path.")
+                        if (!parent.exists() && !parent.mkdirs()) throw IllegalStateException("Could not create runtime directory: " + parent.name)
+                        if (!parent.canonicalFile.toPath().startsWith(staging.canonicalFile.toPath())) throw IllegalStateException("Runtime archive attempts to write through an unsafe link.")
+                        when {
+                            entry.isSymbolicLink -> {
+                                val linkTarget = parent.toPath().resolve(entry.linkName).normalize()
+                                if (!linkTarget.startsWith(rootPath)) throw IllegalStateException("Runtime archive contains an unsafe symbolic link.")
+                                if (target.exists() || java.nio.file.Files.isSymbolicLink(target.toPath())) target.delete()
+                                Os.symlink(entry.linkName, target.absolutePath)
+                            }
+                            entry.isDirectory -> {
+                                if (!target.exists() && !target.mkdirs()) throw IllegalStateException("Could not create runtime directory: " + name)
+                            }
+                            entry.isFile -> {
+                                if (target.exists() && !target.delete()) throw IllegalStateException("Could not replace runtime file: " + name)
+                                FileOutputStream(target).use { output ->
+                                    while (true) {
+                                        val count = tar.read(buffer)
+                                        if (count < 0) break
+                                        output.write(buffer, 0, count)
+                                    }
+                                }
+                                val mode = entry.mode
+                                if ((mode and 73) != 0) target.setExecutable(true, false)
+                                if ((mode and 292) != 0) target.setReadable(true, false)
+                                if ((mode and 146) != 0) target.setWritable(true, true)
+                                extracted++
+                                if (extracted % 250 == 0) onProgress("Extracting Java runtime… " + extracted + " files")
+                            }
+                            entry.isLink -> throw IllegalStateException("Runtime archive contains an unsupported hard link: " + name)
+                        }
+                    }
+                }
+            }
+            val release = File(staging, "release")
+            val releaseText = if (release.isFile) release.readText() else ""
+            val match = Regex("""JAVA_VERSION="(?:1\.)?(\d+)""").find(releaseText)
+                ?: throw IllegalStateException("Extracted runtime has no valid Java release metadata.")
+            val actualMajor = match.groupValues[1].toIntOrNull() ?: throw IllegalStateException("Could not read the extracted Java version.")
+            if (actualMajor != javaMajor) throw IllegalStateException("Downloaded Java " + actualMajor + ", but Java " + javaMajor + " was requested.")
+            val java = File(staging, "bin/java")
+            if (!java.isFile) throw IllegalStateException("Runtime archive is missing bin/java.")
+            java.setExecutable(true, false)
+            if (destination.exists() && !destination.deleteRecursively()) throw IllegalStateException("Could not replace the previous installed runtime.")
+            if (!staging.renameTo(destination)) throw IllegalStateException("Could not finalize the extracted Java runtime.")
+            RuntimeInstallResult(javaMajor, architecture, destination, File(destination, "bin/java"), match.value, extracted)
+        } catch (error: Exception) {
+            staging.deleteRecursively()
+            throw error
+        }
+    }
+
 }
