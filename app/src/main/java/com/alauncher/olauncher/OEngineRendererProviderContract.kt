@@ -48,6 +48,15 @@ object OEngineRendererProviders {
         expectedLibraryName = "libltw.so"
     )
 
+    val gl4es = OEngineRendererProviderDescriptor(
+        provider = OEngineGraphicsStack.RendererProvider.GL4ES,
+        displayName = "GL4ES",
+        upstream = "https://github.com/MojoLauncher/MojoLauncher",
+        pinnedRevision = OEngineGraphicsStack.GL4ES_UPSTREAM_COMMIT,
+        license = OEngineGraphicsStack.GL4ES_LICENSE,
+        expectedLibraryName = OEngineGraphicsStack.GL4ES_LIBRARY
+    )
+
     val mobileGlues = OEngineRendererProviderDescriptor(
         provider = OEngineGraphicsStack.RendererProvider.MOBILE_GLUES,
         displayName = "MobileGlues",
@@ -93,13 +102,14 @@ object OEngineRendererProviders {
     fun descriptor(provider: OEngineGraphicsStack.RendererProvider): OEngineRendererProviderDescriptor =
         when (provider) {
             OEngineGraphicsStack.RendererProvider.LTW -> ltw
+            OEngineGraphicsStack.RendererProvider.GL4ES -> gl4es
             OEngineGraphicsStack.RendererProvider.MOBILE_GLUES -> mobileGlues
         }
 
     /** Rejects a session configuration that tries to activate both providers. */
     fun requireExclusiveSelection(selected: Set<OEngineGraphicsStack.RendererProvider>) {
         require(selected.size <= 1) {
-            "LTW and MobileGlues are alternative providers; select at most one per game session."
+            "LTW, GL4ES, and MobileGlues are alternative providers; select at most one per game session."
         }
     }
 }
