@@ -208,7 +208,7 @@ Keep graphics providers modular and mutually exclusive per game session:
 Only one provider is activated for a game session. LWJGL remains version-pinned by the selected Minecraft metadata and is not itself a graphics translation layer.
 
 ### Input architecture
-O Engine now defines platform-neutral input events and control bindings for touch, keyboard, mouse and gamepad devices. The resolver rejects duplicate physical bindings and invalid event types. Android adapters must translate platform events into this contract, and a later game bridge must deliver them to the active Minecraft/LWJGL input implementation. The current contract is not yet connected to Android event dispatch or the game process.
+O Engine defines platform-neutral input events and control bindings for touch, keyboard, mouse and gamepad devices. The resolver rejects duplicate physical bindings and invalid event types. An Android adapter now translates Android KeyEvent and MotionEvent keyboard, pointer, mouse, and controller events into that contract. It is not yet attached to the activity/game surface, persisted as user-editable control profiles, or connected to Minecraft/LWJGL input APIs.
 
 ### Native execution helper
 MojoExec is an engineering reference for native process/JVM execution, not a dependency to blindly import. O Engine must own its process/JVM lifecycle, environment setup, library search paths, signal/exit handling, logging, cancellation and crash reporting. The current Rust JNI hook remains a separate native-loading milestone; the JVM is not yet started in-process.
