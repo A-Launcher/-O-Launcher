@@ -2514,9 +2514,8 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             "AUTHENTICATION SUCCEEDED, BUT MAIN INVOCATION COULD NOT BE SENT • game process is not connected"
                                         }
                                     } catch (error: Exception) {
-                                        gameProcessStatus = "MINECRAFT LAUNCH PREPARATION FAILED • " + (error.message ?: "Unknown authentication error")
-                                    } finally {
                                         launchingMinecraft = false
+                                        gameProcessStatus = "MINECRAFT LAUNCH PREPARATION FAILED • " + (error.message ?: "Unknown authentication error")
                                     }
                                 }
                             },
