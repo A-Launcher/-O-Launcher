@@ -85,6 +85,7 @@ private data class LauncherImages(
     val realmsCrown: ImageBitmap,
     val installations: ImageBitmap,
     val skins: ImageBitmap,
+    val skinsScreen: ImageBitmap,
     val marketplace: ImageBitmap,
     val settings: ImageBitmap,
     val about: ImageBitmap,
@@ -353,6 +354,7 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.YELLOW),
             installations = readAssetImage(context, "488492b1bb75fdbe827502ca1971af25-removebg-preview.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
             skins = readAssetImage(context, "c09fde2532c9b9645a64208dc1500146-removebg-preview.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
+            skinsScreen = readAssetImage(context, "IMG_20261106_143355.png") ?: fallbackBitmap(android.graphics.Color.DKGRAY).asImageBitmap(),
             marketplace = readAssetImage(context, "2c484ef06d618170c43f2a2d288a85b4-removebg-preview.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
             settings = readAssetImage(context, "39667c1838a0eb444686e797eccf1cd1-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
             about = readAssetImage(context, "203e305e530e01e9668893e7aad11194-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
@@ -410,6 +412,8 @@ private fun OLauncherApp() {
                             if (tab == 0) {
                                 HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
                                 FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
+                            } else if (tab == 2) {
+                                SkinDestination(images)
                             } else if (tab == 6) {
                                 LauncherFilesDestination()
                             } else {
@@ -946,6 +950,66 @@ private fun LauncherFilesDestination() {
             confirmButton = { TextButton(onClick = { runCatching { file.writeText(editorText) }; editingFile = null; refresh++ }) { Text("SAVE") } },
             dismissButton = { TextButton(onClick = { editingFile = null }) { Text("CANCEL") } }
         )
+    }
+}
+
+@Composable
+private fun SkinDestination(images: LauncherImages) {
+    val context = LocalContext.current
+    val skinDirectory = remember {
+        (context.getExternalFilesDir(null) ?: context.filesDir).resolve("skins").apply { mkdirs() }
+    }
+    var selectedSkin by remember { mutableStateOf<File?>(null) }
+    var message by remember { mutableStateOf("Tap the glowing + to import a Minecraft skin (PNG).") }
+    var skinPreview by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    val skinPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val bitmap = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                if (bitmap == null || !(bitmap.width == 64 && (bitmap.height == 64 || bitmap.height == 32))) {
+                    message = "Choose a standard Minecraft skin PNG (64×64 or legacy 64×32)."
+                } else {
+                    val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        val column = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
+                    } ?: "custom_skin.png"
+                    val safeName = File(displayName).name.let { if (it.lowercase().endsWith(".png")) it else "$it.png" }
+                    val destination = skinDirectory.resolve(safeName)
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        destination.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    selectedSkin = destination
+                    skinPreview = bitmap.asImageBitmap()
+                    message = "Skin imported and selected: \${destination.name}"
+                }
+            } catch (_: Exception) {
+                message = "Could not import that skin. Please choose a PNG skin file."
+            }
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1.5f).clip(RoundedCornerShape(22.dp))) {
+        Image(images.skinsScreen, contentDescription = "Minecraft skin selection screen", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        // The plus symbol is part of the supplied artwork; this transparent hit area sits over it.
+        Surface(
+            onClick = { skinPicker.launch(arrayOf("image/png")) },
+            color = Color.Transparent,
+            shape = RoundedCornerShape(30.dp),
+            modifier = Modifier.offset(x = maxWidth * 0.49f, y = maxHeight * 0.29f)
+                .size(width = maxWidth * 0.15f, height = maxHeight * 0.19f)
+        ) {}
+    }
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(message, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        selectedSkin?.let { file ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                skinPreview?.let { preview ->
+                    Image(preview, contentDescription = "Selected skin preview", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+                }
+                Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 
