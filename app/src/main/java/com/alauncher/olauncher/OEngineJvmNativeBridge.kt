@@ -27,6 +27,8 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeLoadRenderer(rendererPath: String): Long
 
+    private external fun nativeRendererLoadError(): String
+
     private external fun nativeInstallLwjglHook(targetClassName: String, selectedAlias: String, rendererHandle: Long): Boolean
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
@@ -91,7 +93,9 @@ object OEngineJvmNativeBridge {
         }
         val handle = nativeLoadRenderer(library.absolutePath)
         check(handle != 0L) {
-            "Android's native linker could not load the renderer in O Engine's process namespace."
+            val detail = runCatching { nativeRendererLoadError() }.getOrDefault("")
+            if (detail.isBlank()) "Android's native linker could not load the renderer in O Engine's process namespace."
+            else detail
         }
         return installLwjglHook(targetClassName, selectedAlias, handle)
     }
