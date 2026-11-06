@@ -69,6 +69,10 @@ class OEngineGameProcessService : Service() {
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
                         reply.data.putString(KEY_PROBE_DETAIL, result.detail)
+                    } catch (error: LinkageError) {
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+                        reply.data.putString(KEY_PROBE_STATUS, "native_link_error")
+                        reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
                     } catch (error: Exception) {
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "create_error")
