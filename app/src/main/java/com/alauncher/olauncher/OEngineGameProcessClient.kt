@@ -200,6 +200,7 @@ class OEngineGameProcessClient(
     })
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            OEngineSessionLog.append(appContext, "IPC_CONNECTED", "Bound to isolated game process")
             if (closed.get()) return
             serviceMessenger = Messenger(binder)
             val request = Message.obtain(null, OEngineGameProcessService.MSG_HEALTH_CHECK).apply {
@@ -214,6 +215,7 @@ class OEngineGameProcessClient(
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
+            OEngineSessionLog.append(appContext, "IPC_DISCONNECTED", "Android reported isolated game-process disconnection")
             if (!closed.get()) {
                 report(Result.failure(IllegalStateException("The isolated game process disconnected.")))
                 if (mainResponseDelivered.compareAndSet(false, true)) {
@@ -227,6 +229,7 @@ class OEngineGameProcessClient(
         }
 
         override fun onBindingDied(name: ComponentName) {
+            OEngineSessionLog.append(appContext, "IPC_BINDING_DIED", "Android reported game-process binding death")
             if (!closed.get()) {
                 report(Result.failure(IllegalStateException("The isolated game-process binding died.")))
                 if (mainResponseDelivered.compareAndSet(false, true)) {
@@ -241,6 +244,7 @@ class OEngineGameProcessClient(
         }
 
         override fun onNullBinding(name: ComponentName) {
+            OEngineSessionLog.append(appContext, "IPC_NULL_BINDING", "Game-process service returned a null binding")
             if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game process returned a null binding.")))
             close()
         }
@@ -399,10 +403,16 @@ class OEngineGameProcessClient(
         val intent = Intent(appContext, OEngineGameProcessService::class.java)
         return try {
             val bound = appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            if (bound) timeoutHandler.postDelayed(timeoutRunnable, 5_000L)
-            else report(Result.failure(IllegalStateException("Android refused the isolated game-process binding.")))
+            if (bound) {
+                OEngineSessionLog.append(appContext, "IPC_BIND_REQUESTED", "Android accepted the isolated game-process bind request")
+                timeoutHandler.postDelayed(timeoutRunnable, 5_000L)
+            } else {
+                OEngineSessionLog.append(appContext, "IPC_BIND_REJECTED", "Android refused the isolated game-process binding")
+                report(Result.failure(IllegalStateException("Android refused the isolated game-process binding.")))
+            }
             bound
         } catch (error: SecurityException) {
+            OEngineSessionLog.append(appContext, "IPC_BIND_SECURITY_ERROR", error.message ?: "SecurityException", error)
             report(Result.failure(error))
             false
         }
@@ -419,6 +429,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
             timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
             serviceMessenger = null
+            OEngineSessionLog.append(appContext, "IPC_CLIENT_CLOSED", "Game-process client closed")
             runCatching { appContext.unbindService(connection) }
         }
     }
