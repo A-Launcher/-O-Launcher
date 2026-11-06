@@ -146,6 +146,8 @@ class OEngineGameProcessService : Service() {
         const val MSG_CREATE_JVM_RESULT = 6
         const val KEY_VM_OPTIONS = "oengine.vm_options"
         const val KEY_JAVA_MAJOR = "oengine.java_major"
+        const val KEY_MAIN_CLASS = "oengine.main_class"
+        const val KEY_GAME_ARGUMENTS = "oengine.game_arguments"
         const val KEY_RUNTIME_HOME = "oengine.runtime_home"
         const val KEY_WORKING_DIRECTORY = "oengine.working_directory"
         const val KEY_JVM_LIBRARY = "oengine.jvm_library"
