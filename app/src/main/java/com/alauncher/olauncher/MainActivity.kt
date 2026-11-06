@@ -2307,9 +2307,20 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     }
                                 },
                                 confirmButton = {
-                                    TextButton(onClick = {
-                                        gameSessionLog = OEngineSessionLog.read(context)
-                                    }) { Text("REFRESH") }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        TextButton(onClick = {
+                                            val report = OEngineSessionLog.read(context, 120000)
+                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                type = "text/plain"
+                                                putExtra(Intent.EXTRA_SUBJECT, "O Launcher Engine Diagnostics")
+                                                putExtra(Intent.EXTRA_TEXT, report)
+                                            }
+                                            context.startActivity(Intent.createChooser(shareIntent, "Share O Engine diagnostics"))
+                                        }) { Text("SHARE") }
+                                        TextButton(onClick = {
+                                            gameSessionLog = OEngineSessionLog.read(context)
+                                        }) { Text("REFRESH") }
+                                    }
                                 },
                                 dismissButton = {
                                     TextButton(onClick = { showGameSessionLog = false }) { Text("CLOSE") }
