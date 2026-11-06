@@ -69,6 +69,11 @@ class OEngineGameProcessService : Service() {
                         applyDriverOverride("LIBGL_EGL", eglPath)
                         applyDriverOverride("LIBGL_GLES", glesPath)
                         rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
+                        OEngineSessionLog.append(
+                            this,
+                            "RENDERER_PRELOADED",
+                            "provider=LTW, library=" + rendererFile.name + ", handle_retained=" + (rendererHandle != 0L)
+                        )
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, rendererHandle != 0L)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_preloaded")
                         reply.data.putString(KEY_PROBE_DETAIL, "Renderer retained in :game before HotSpot creation; LWJGL hook will be installed after VM creation.")
@@ -100,6 +105,11 @@ class OEngineGameProcessService : Service() {
                         )
                         check(installed) { "HotSpot rejected the LWJGL native-loader hook." }
                         rendererHookInstalled = true
+                        OEngineSessionLog.append(
+                            this,
+                            "RENDERER_HOOK_INSTALLED",
+                            "target=" + targetClass + ", alias=" + alias + ", provider=LTW"
+                        )
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_installed")
                         reply.data.putString(KEY_PROBE_DETAIL, "Renderer loaded and LWJGL interception registered in :game.")
