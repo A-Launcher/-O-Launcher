@@ -31,8 +31,9 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - The Android app and UI are Kotlin + Jetpack Compose.
 - Minecraft version metadata, client JAR, compatible library artifacts, assets, and launch-plan preparation exist.
 - Android Java runtime archive download and guarded TAR/XZ extraction exist.
-- OLauncherEngine currently owns runtime paths, runtime discovery, and a real java -version subprocess probe.
-- The graphics compatibility layer and actual Minecraft process launch are not complete.
+- OLauncherEngine currently owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview.
+- OEngineGraphics can create a temporary Android EGL pbuffer context, probe OpenGL ES 3 then ES 2, collect driver identity/extensions, and release EGL resources.
+- This graphics probe is not a desktop OpenGL implementation and does not provide GLFW/LWJGL compatibility; the graphics compatibility layer and actual Minecraft process launch are not complete.
 - A successful CI build proves compilation, not that a downloaded runtime starts on a physical phone. Device verification is required.
 
 ## Next engineering gates
@@ -40,8 +41,9 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 1. Pass CI for the engine runtime discovery and Java process probe.
 2. Run the extracted JVM on physical Android devices and capture its diagnostics.
 3. Build a validated JVM command from the launch plan, including classpath, native paths, memory, and game arguments.
-4. Implement and test the Android graphics compatibility backend.
-5. Connect process lifecycle, input/window handling, and crash diagnostics.
+4. Validate EGL/OpenGL ES probe results on physical Android devices and build renderer/device capability tests.
+5. Design the Android graphics compatibility surface required by the targeted LWJGL APIs; do not assume GLES is desktop OpenGL.
+6. Connect process lifecycle, input/window handling, and crash diagnostics.
 6. Launch a clean vanilla version before adding mod-loader installation.
 
 ## Quality gates
