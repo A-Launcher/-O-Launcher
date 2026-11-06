@@ -213,7 +213,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         ignore_unrecognized: 0,
     };
 
-    let create_symbol = libc::dlsym(library_handle as *mut c_void, b"JNI_CreateJavaVM\\0".as_ptr() as *const c_char);
+    let create_symbol = libc::dlsym(library_handle as *mut c_void, b"JNI_CreateJavaVM\0".as_ptr() as *const c_char);
     if create_symbol.is_null() {
         return response!("missing_symbol", "JNI_CreateJavaVM disappeared after the library probe");
     }
