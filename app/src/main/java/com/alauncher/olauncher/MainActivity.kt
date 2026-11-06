@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -393,10 +394,11 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            if (tab == 1 || tab == 5 || tab == 7) {
+            if (tab == 1 || tab == 5 || tab == 6 || tab == 7) {
                 when (tab) {
                     1 -> InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                     5 -> AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                    6 -> FileManagerReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                     else -> CreateAccountReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                 }
             } else {
@@ -1097,6 +1099,52 @@ private fun Destination(tab: Int, images: LauncherImages) {
                     color = Muted, fontSize = 14.sp
                 )
                 Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileManagerReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val reference = remember(context) { readAssetImage(context, "IMG_20261106_155827.png") }
+    BoxWithConstraints(modifier = modifier.background(Color(0xFF241018))) {
+        if (reference != null) {
+            Image(
+                bitmap = reference,
+                contentDescription = "Minecraft Java Edition Manage Content screen",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+            // Close control on the panel.
+            Box(
+                Modifier.offset(x = maxWidth * 0.735f, y = maxHeight * 0.235f)
+                    .size(width = maxWidth * 0.045f, height = maxHeight * 0.075f)
+                    .clickable(onClick = onBack)
+            )
+            // The four category cards are active hotspots. Their content views will
+            // be connected when the corresponding installed-content sources exist.
+            val categories = listOf("Mods", "Resource Packs", "Saves / Worlds", "Logs")
+            val xPositions = listOf(0.14f, 0.295f, 0.45f, 0.605f)
+            categories.forEachIndexed { index, category ->
+                Box(
+                    Modifier.offset(x = maxWidth * xPositions[index], y = maxHeight * 0.36f)
+                        .size(width = maxWidth * 0.15f, height = maxHeight * 0.29f)
+                        .clickable {
+                            Toast.makeText(context, "$category section is being connected", Toast.LENGTH_SHORT).show()
+                        }
+                )
+            }
+            // Brand area returns to the launcher home screen.
+            Box(
+                Modifier.align(Alignment.TopStart)
+                    .fillMaxWidth(0.12f)
+                    .fillMaxHeight(0.12f)
+                    .clickable(onClick = onBack)
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("File Manager artwork could not be loaded", color = Color.White)
             }
         }
     }
