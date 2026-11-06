@@ -25,6 +25,16 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Install supplied original artwork
+        shell: bash
+        run: |
+          if [ -f artwork/o_launcher_original_uploads.zip ]; then
+            mkdir -p app/src/main/assets
+            unzip -o artwork/o_launcher_original_uploads.zip -d app/src/main/assets
+          else
+            echo "Artwork ZIP not present; building with existing fallback assets."
+          fi
+
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
