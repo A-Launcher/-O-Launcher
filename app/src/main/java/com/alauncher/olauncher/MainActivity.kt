@@ -665,10 +665,8 @@ private fun QuickLinks(images: LauncherImages, modifier: Modifier = Modifier, on
     fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
     PanelCard("Quick Links", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(images.quickOfficial, "Official
-Website", Modifier.height(68.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
-            QuickLink(images.quickPatch, "Patch
-Notes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
+            QuickLink(images.quickOfficial, "Official\\nWebsite", Modifier.height(68.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
+            QuickLink(images.quickPatch, "Patch\\nNotes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
             QuickLink(images.quickDiscord, "Discord", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
