@@ -106,7 +106,7 @@ object OEngineJvmBootstrapPlanner {
         )
 
         warnings += "JNI_CreateJavaVM export, native dependencies and Android linker visibility must be checked by the native bootstrap before VM creation."
-        warnings += "A successful plan is not proof that the selected desktop JRE can coexist with Android Runtime in this process."
+        warnings += "A successful plan is not proof that the selected OpenJDK runtime can coexist with Android Runtime in this process."
 
         return OEngineJvmBootstrapPlan(
             runtime = runtime,
