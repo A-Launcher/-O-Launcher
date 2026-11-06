@@ -72,7 +72,7 @@ object OEngineRendererLaunchPlanner {
         }
 
         if (!lwjglResolverHookVerified) {
-            blockers += "The selected Minecraft LWJGL native loader has no verified O Engine EGL-handle interception adapter."
+            blockers += "The selected Minecraft LWJGL native loader has not passed O Engine hook verification."
         }
 
         val environment = linkedMapOf<String, String>()
