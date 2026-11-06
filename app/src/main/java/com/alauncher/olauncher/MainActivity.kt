@@ -425,7 +425,7 @@ private fun OLauncherApp() {
                                 } else if (tab == 2) {
                                     SkinDestination(images)
                                 } else if (tab == 3) {
-                                    MarketplaceDestination()
+                                    MarketplaceDestination(dashboardHeight * 0.88f)
                                 } else if (tab == 6) {
                                     LauncherFilesDestination()
                                 } else {
@@ -1004,7 +1004,7 @@ private fun SkinDestination(images: LauncherImages) {
         }
     }
 
-    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1.5f).clip(RoundedCornerShape(22.dp))) {
+    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(images.skinsScreen.width.toFloat() / images.skinsScreen.height.toFloat()).clip(RoundedCornerShape(22.dp))) {
         Image(images.skinsScreen, contentDescription = "Minecraft skin selection screen", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
         // The plus symbol is part of the supplied artwork; this transparent hit area sits over it.
         Surface(
