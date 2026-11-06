@@ -51,7 +51,7 @@ object OLauncherEngine {
         val release = File(home, "release")
         if (!executable.isFile || !release.isFile) return null
         val text = release.readText()
-        val version = Regex("""JAVA_VERSION="(?:1\\.)?(\\d+)""").find(text)
+        val version = Regex("""JAVA_VERSION="(?:1\.)?(\d+)""").find(text)
             ?.groupValues?.get(1)?.toIntOrNull() ?: return null
         if (version != javaMajor) return null
         return OEngineRuntime(name, version, architecture, home, executable)
