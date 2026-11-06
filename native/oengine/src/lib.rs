@@ -761,7 +761,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 
     // A process can host only one active renderer provider. Never silently replace it.
     {
-        let mut guard = match hook_config().write() {
+        let guard = match hook_config().read() {
             Ok(value) => value,
             Err(_) => return 0,
         };
@@ -769,11 +769,6 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
                 return 0;
             }
-        } else {
-            *guard = Some(HookConfig {
-                selected_alias: alias,
-                renderer_handle: renderer_handle as usize,
-            });
         }
     }
 
@@ -782,13 +777,24 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         sig: "(JI)J".into(),
         fn_ptr: lwjgl_ndlopen_hook as *mut c_void,
     }];
-    match env.register_native_methods(&class, &methods) {
-        Ok(()) => 1,
-        Err(_) => {
-            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
-            0
-        }
+    if env.register_native_methods(&class, &methods).is_err() {
+        if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+        return 0;
     }
+
+    // Publish the renderer redirect only after HotSpot accepted the native method.
+    // A failed RegisterNatives must not leave a half-installed process-wide hook.
+    let mut guard = match hook_config().write() {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    if guard.is_none() {
+        *guard = Some(HookConfig {
+            selected_alias: alias,
+            renderer_handle: renderer_handle as usize,
+        });
+    }
+    1
 }
 
 #[cfg(test)]
