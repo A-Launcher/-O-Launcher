@@ -28,6 +28,7 @@ static HOTSPOT_ENV: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 static HOTSPOT_CREATOR_THREAD: OnceLock<Mutex<Option<ThreadId>>> = OnceLock::new();
 static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::new();
 static RENDERER_LOAD_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
+static RENDERER_HOOK_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -671,6 +672,12 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     selected_alias: jstring,
     renderer_handle: jlong,
 ) -> jboolean {
+    let set_error = |detail: &str| {
+        if let Ok(mut value) = RENDERER_HOOK_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
+            *value = detail.to_owned();
+        }
+    };
+    set_error("Hook installation did not complete.");
     if raw_env.is_null() || target_class_name.is_null() || selected_alias.is_null() || renderer_handle == 0 {
         return 0;
     }
