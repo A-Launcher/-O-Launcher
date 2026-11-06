@@ -120,3 +120,10 @@ This wires the loader sequence but does not establish end-to-end graphics compat
 Mojang Linux native classifier archives are downloaded with the version dependencies and verified against their metadata hashes and sizes. O Engine now safely extracts their shared objects into `natives/<version>/linux-archive` for inspection, rejects archive path traversal, and reports the number of extracted files.
 
 This directory is diagnostic-only. A Linux ELF file is not an Android native library, even when its CPU architecture matches the device: Linux/glibc dependencies and Android/Bionic are different ABIs. These files are deliberately not added to the Android runtime native search path and are not passed to `System.loadLibrary`. Android-compatible LWJGL and Minecraft native replacements, dependency resolution, and device validation remain separate required work.
+
+
+## Native ELF compatibility diagnostics
+
+After Linux native classifiers are extracted to the diagnostic-only folder, O Engine writes `oengine-compatibility-report.json`. It records each shared object's ELF class, machine/Android ABI mapping, and common glibc markers such as `GLIBC_`, `libc.so.6`, and `ld-linux`.
+
+The report deliberately distinguishes likely glibc binaries, ABI mismatches, invalid ELF files, and architecture-matching files whose Android compatibility remains unverified. It is a triage aid only: it does not prove Bionic compatibility, resolve transitive dependencies, or authorize loading these files. The launcher continues to keep the Linux archive folder out of the runtime native search path.
