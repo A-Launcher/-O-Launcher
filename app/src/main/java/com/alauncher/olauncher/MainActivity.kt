@@ -1212,28 +1212,35 @@ private fun AboutDestination(images: LauncherImages) {
 private fun AccountDestination(images: LauncherImages) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var playerName by remember { mutableStateOf("Not signed in") }
-    var playerUuid by remember { mutableStateOf("") }
+    val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
+    var playerName by remember { mutableStateOf(prefs.getString("offline_name", "Not signed in") ?: "Not signed in") }
+    var playerUuid by remember { mutableStateOf(prefs.getString("offline_uuid", "") ?: "") }
+    var offlineName by remember { mutableStateOf("") }
+    var isOffline by remember { mutableStateOf(prefs.getBoolean("is_offline", false)) }
     var device by remember { mutableStateOf<MicrosoftDeviceCode?>(null) }
-    var status by remember { mutableStateOf("Connect a Microsoft account that owns Minecraft: Java Edition.") }
+    var status by remember { mutableStateOf(if (isOffline) "Offline profile saved on this device." else "Connect a Microsoft account that owns Minecraft: Java Edition.") }
     var busy by remember { mutableStateOf(false) }
     var signedIn by remember { mutableStateOf(false) }
+    var showOfflineForm by remember { mutableStateOf(false) }
+    var offlineError by remember { mutableStateOf("") }
+
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        DestinationHero(images, "Player account", "Connect your Microsoft account to O Launcher", "YOUR PROFILE")
+        DestinationHero(images, "Player account", "Connect a Microsoft account or create an offline profile", "YOUR PROFILE")
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
+                Image(images.avatar, contentDescription = "Profile avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (signedIn) "MICROSOFT ACCOUNT" else "OFFLINE PROFILE", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+                    Text(if (signedIn) "MICROSOFT ACCOUNT" else if (isOffline) "OFFLINE ACCOUNT" else "NO ACCOUNT SELECTED", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
                     Text(playerName, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     if (playerUuid.isNotBlank()) Text("UUID: $playerUuid", color = Muted, fontSize = 10.sp)
                     Text(status, color = Muted, fontSize = 12.sp)
                 }
                 Surface(color = if (signedIn) Color(0xFFDDF1D8) else Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
-                    Text(if (signedIn) "CONNECTED" else "NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = if (signedIn) Color(0xFF356B31) else Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(if (signedIn) "CONNECTED" else if (isOffline) "OFFLINE" else "NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = if (signedIn) Color(0xFF356B31) else Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
+
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("MICROSOFT SIGN-IN", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -1260,6 +1267,8 @@ private fun AccountDestination(images: LauncherImages) {
                                 playerName = account.name
                                 playerUuid = account.uuid
                                 signedIn = true
+                                isOffline = false
+                                prefs.edit().putBoolean("is_offline", false).apply()
                                 device = null
                                 status = "Minecraft Java profile verified."
                             } catch (e: Exception) {
@@ -1272,11 +1281,54 @@ private fun AccountDestination(images: LauncherImages) {
                     }
                     if (signedIn) OutlinedButton(onClick = {
                         MicrosoftTokenVault.clear(context); signedIn = false
-                        playerName = "Not signed in"; playerUuid = ""
-                        status = "Account disconnected from this launcher."
+                        playerName = "Not signed in"; playerUuid = ""; isOffline = false
+                        status = "Microsoft account disconnected."
                     }) { Text("SIGN OUT", fontSize = 11.sp) }
                 }
-                Text("Minecraft Java Edition OAuth client", color = Muted, fontSize = 9.sp)
+            }
+        }
+
+        Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("OFFLINE ACCOUNT", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("Play with a local player profile without signing in to Microsoft. Some online servers require an authenticated account and won't accept offline profiles.", color = Muted, fontSize = 12.sp)
+                if (isOffline && !showOfflineForm) {
+                    Text("Saved offline profile: $playerName", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { showOfflineForm = true; offlineName = playerName }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("EDIT PROFILE") }
+                        OutlinedButton(onClick = {
+                            prefs.edit().remove("offline_name").remove("offline_uuid").putBoolean("is_offline", false).apply()
+                            isOffline = false; playerName = "Not signed in"; playerUuid = ""; status = "Offline profile removed from this device."
+                        }) { Text("REMOVE") }
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = offlineName,
+                        onValueChange = { offlineName = it; offlineError = "" },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Player name") },
+                        placeholder = { Text("Enter your Minecraft name") }
+                    )
+                    if (offlineError.isNotBlank()) Text(offlineError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = {
+                            val clean = offlineName.trim()
+                            when {
+                                clean.length !in 3..16 -> offlineError = "Name must be 3–16 characters."
+                                !clean.matches(Regex("[A-Za-z0-9_]+")) -> offlineError = "Use only letters, numbers, and underscores."
+                                else -> {
+                                    val offlineUuid = java.util.UUID.nameUUIDFromBytes("OfflinePlayer:$clean".toByteArray(Charsets.UTF_8)).toString().replace("-", "")
+                                    prefs.edit().putString("offline_name", clean).putString("offline_uuid", offlineUuid).putBoolean("is_offline", true).apply()
+                                    playerName = clean; playerUuid = offlineUuid; isOffline = true; signedIn = false
+                                    showOfflineForm = false; status = "Offline profile saved on this device."
+                                }
+                            }
+                        }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("SAVE OFFLINE ACCOUNT") }
+                        if (showOfflineForm) OutlinedButton(onClick = { showOfflineForm = false; offlineError = "" }) { Text("CANCEL") }
+                    }
+                }
+                Text("Offline profiles are local only. O Launcher will use this identity when offline session support is added to the game runtime.", color = Muted, fontSize = 10.sp)
             }
         }
     }
