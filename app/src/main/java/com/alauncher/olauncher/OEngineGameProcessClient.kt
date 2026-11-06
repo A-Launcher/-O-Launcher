@@ -28,13 +28,15 @@ data class OEngineGameProcessStatus(
 class OEngineGameProcessClient(
     context: Context,
     private val onStatus: (Result<OEngineGameProcessStatus>) -> Unit,
-    private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
+    private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
+    private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
     private val connectStarted = AtomicBoolean(false)
     private val responseDelivered = AtomicBoolean(false)
     private val probeResponseDelivered = AtomicBoolean(false)
+    private val createResponseDelivered = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
@@ -44,6 +46,11 @@ class OEngineGameProcessClient(
     private val probeTimeoutRunnable = Runnable {
         if (probeResponseDelivered.compareAndSet(false, true)) {
             onJvmProbe(Result.failure(IllegalStateException("The isolated game process did not finish the JVM linker probe within 15 seconds.")))
+        }
+    }
+    private val createTimeoutRunnable = Runnable {
+        if (createResponseDelivered.compareAndSet(false, true)) {
+            onJvmCreate(Result.failure(IllegalStateException("The isolated game process did not finish JVM creation within 60 seconds.")))
         }
     }
 
@@ -64,6 +71,18 @@ class OEngineGameProcessClient(
                     phase = data.getString(OEngineGameProcessService.KEY_PHASE).orEmpty()
                 )
                 report(Result.success(status))
+                true
+            }
+            OEngineGameProcessService.MSG_CREATE_JVM_RESULT -> {
+                if (createResponseDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(createTimeoutRunnable)
+                    val data = message.data
+                    onJvmCreate(Result.success(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    )))
+                }
                 true
             }
             OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
@@ -136,6 +155,30 @@ class OEngineGameProcessClient(
         }
     }
 
+    fun createJvm(runtimeHome: File, workingDirectory: File, jvmLibrary: File, vmOptions: List<String>): Boolean {
+        if (closed.get() || serviceMessenger == null) {
+            onJvmCreate(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
+            return false
+        }
+        createResponseDelivered.set(false)
+        timeoutHandler.postDelayed(createTimeoutRunnable, 60_000L)
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_CREATE_JVM).apply {
+            data.putString(OEngineGameProcessService.KEY_RUNTIME_HOME, runtimeHome.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_WORKING_DIRECTORY, workingDirectory.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_JVM_LIBRARY, jvmLibrary.canonicalPath)
+            data.putStringArray(OEngineGameProcessService.KEY_VM_OPTIONS, vmOptions.toTypedArray())
+            replyTo = replyMessenger
+        }
+        return try {
+            serviceMessenger?.send(request)
+            true
+        } catch (error: RemoteException) {
+            timeoutHandler.removeCallbacks(createTimeoutRunnable)
+            if (createResponseDelivered.compareAndSet(false, true)) onJvmCreate(Result.failure(error))
+            false
+        }
+    }
+
     fun connect(): Boolean {
         check(!closed.get()) { "This game-process client has already been closed." }
         check(connectStarted.compareAndSet(false, true)) { "This game-process client has already started binding." }
@@ -155,6 +198,7 @@ class OEngineGameProcessClient(
         if (closed.compareAndSet(false, true)) {
             timeoutHandler.removeCallbacks(timeoutRunnable)
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
+            timeoutHandler.removeCallbacks(createTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
