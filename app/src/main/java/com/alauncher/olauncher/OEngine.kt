@@ -97,7 +97,9 @@ object OLauncherEngine {
                 mainClass = plan.mainClass,
                 requestedVmOptions = plan.jvmArguments,
                 applicationArguments = plan.gameArguments,
-                androidRelease = android.os.Build.VERSION.RELEASE
+                androidRelease = android.os.Build.VERSION.RELEASE,
+                timezoneId = java.util.TimeZone.getDefault().id,
+                availableProcessors = Runtime.getRuntime().availableProcessors()
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
