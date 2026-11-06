@@ -76,6 +76,7 @@ class OEngineGameProcessService : Service() {
                         check(rendererHandle != 0L) { "Renderer must be preloaded before JVM creation." }
                         val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
                         val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
+                        require(alias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) { "LTW must use the verified libGLMojo.so LWJGL alias." }
                         val installed = OEngineJvmNativeBridge.installLwjglHook(
                             targetClass, alias, rendererHandle
                         )
