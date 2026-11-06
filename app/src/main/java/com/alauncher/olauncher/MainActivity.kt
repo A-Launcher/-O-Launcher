@@ -1718,6 +1718,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var dependencyBytes by remember { mutableStateOf(0L) }
     var dependencyTotal by remember { mutableStateOf(0L) }
     var dependencyStatus by remember { mutableStateOf("Libraries and assets are not installed yet.") }
+    var launchPlanStatus by remember { mutableStateOf("Launch configuration has not been prepared.") }
+    var preparingLaunchPlan by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
@@ -1865,6 +1867,31 @@ private fun InstallationsDestination(images: LauncherImages) {
                             )
                         }
                         Text(dependencyStatus, color = Muted, fontSize = 11.sp)
+                        Button(
+                            enabled = selectedRelease != null && !downloadingClient && !downloadingDependencies && !preparingLaunchPlan,
+                            onClick = {
+                                val release = selectedRelease ?: return@Button
+                                preparingLaunchPlan = true
+                                launchPlanStatus = "Reading version metadata and checking installed files…"
+                                scope.launch {
+                                    try {
+                                        val plan = MinecraftVersionInstaller.prepareLaunchPlan(
+                                            release, File(context.filesDir, "minecraft")
+                                        )
+                                        launchPlanStatus = "Prepared ${plan.version}: ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Runtime execution is not connected yet."
+                                    } catch (error: Exception) {
+                                        launchPlanStatus = error.message ?: "Could not prepare launch configuration."
+                                    } finally {
+                                        preparingLaunchPlan = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (preparingLaunchPlan) "PREPARING…" else "PREPARE LAUNCH CONFIG", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(launchPlanStatus, color = Muted, fontSize = 11.sp)
                         Text("The client JAR, Android-rule-compatible Maven artifacts, asset objects and client logging config are downloaded into app storage and checked against Mojang SHA-1/size metadata. Android native runtime integration and launching still need work.", color = Muted, fontSize = 10.sp)
                     }
                 }
