@@ -3,8 +3,8 @@ package com.alauncher.olauncher
 import android.app.Service
 import android.content.Intent
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
-import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.Process
@@ -18,8 +18,11 @@ import java.io.File
  * that the launcher can start and communicate with a separately-owned game process.
  */
 class OEngineGameProcessService : Service() {
+    private var workerThread: HandlerThread? = null
     private val messenger by lazy {
-        Messenger(Handler(Looper.getMainLooper()) { message ->
+        val thread = HandlerThread("OEngineGameProcess").apply { start() }
+        workerThread = thread
+        Messenger(Handler(thread.looper) { message ->
             when (message.what) {
                 MSG_HEALTH_CHECK -> {
                     val reply = Message.obtain(null, MSG_HEALTH_CHECK_RESULT).apply {
@@ -74,6 +77,12 @@ class OEngineGameProcessService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder = messenger.binder
+
+    override fun onDestroy() {
+        workerThread?.quitSafely()
+        workerThread = null
+        super.onDestroy()
+    }
 
     companion object {
         const val MSG_HEALTH_CHECK = 1
