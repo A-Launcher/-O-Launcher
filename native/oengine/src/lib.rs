@@ -679,20 +679,21 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     };
     set_error("Hook installation did not complete.");
     if raw_env.is_null() || target_class_name.is_null() || selected_alias.is_null() || renderer_handle == 0 {
+        set_error("JNI input or renderer handle is null.");
         return 0;
     }
 
     let mut android_env = match JNIEnv::from_raw(raw_env) {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(error) => { set_error(&format!("Cannot access Android JNI environment: {error}")); return 0; },
     };
     let class_name: String = match android_env.get_string(&JString::from_raw(target_class_name)) {
         Ok(value) => value.into(),
-        Err(_) => return 0,
+        Err(error) => { set_error(&format!("Cannot read LWJGL target class name: {error}")); return 0; },
     };
     let alias: String = match android_env.get_string(&JString::from_raw(selected_alias)) {
         Ok(value) => value.into(),
-        Err(_) => return 0,
+        Err(error) => { set_error(&format!("Cannot read renderer alias: {error}")); return 0; },
     };
     if class_name.len() > 512
         || !class_name.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
@@ -703,6 +704,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         || alias.contains('/')
         || alias.as_bytes().contains(&0)
     {
+        set_error("Invalid target class name or renderer alias format.");
         return 0;
     }
     let alias = match CString::new(alias) {
@@ -714,12 +716,14 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         .and_then(|state| state.lock().ok())
         .and_then(|guard| guard.clone());
     if creator.as_ref() != Some(&std::thread::current().id()) {
+        set_error("Hook installation must run on the HotSpot creator thread.");
         return 0;
     }
     let hotspot_env = HOTSPOT_ENV.get()
         .and_then(|state| state.lock().ok())
         .and_then(|guard| *guard);
     let Some(hotspot_env) = hotspot_env else {
+        set_error("HotSpot JNIEnv is unavailable; create the JVM before installing the hook.");
         return 0;
     };
     let mut env = match JNIEnv::from_raw(hotspot_env as *mut RawJNIEnv) {
@@ -774,6 +778,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     };
     if let Some(existing) = guard.as_ref() {
         if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
+            set_error("A different renderer hook is already installed in this process.");
             return 0;
         }
     }
@@ -783,7 +788,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         sig: "(JI)J".into(),
         fn_ptr: lwjgl_ndlopen_hook as *mut c_void,
     }];
-    if env.register_native_methods(&class, &methods).is_err() {
+    if let Err(error) = env.register_native_methods(&class, &methods) {
+        set_error(&format!("HotSpot rejected DynamicLinkLoader.ndlopen(JI)J: {error}"));
         if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
         return 0;
     }
@@ -795,7 +801,21 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             renderer_handle: renderer_handle as usize,
         });
     }
+    set_error("");
     1
+}
+
+/// Returns the most recent LWJGL native-hook installation diagnostic.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeRendererHookError(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+) -> jstring {
+    if raw_env.is_null() { return ptr::null_mut(); }
+    let mut env = match JNIEnv::from_raw(raw_env) { Ok(value) => value, Err(_) => return ptr::null_mut() };
+    let detail = RENDERER_HOOK_ERROR.get_or_init(|| Mutex::new(String::new()))
+        .lock().map(|value| value.clone()).unwrap_or_else(|_| "Renderer hook diagnostic lock is poisoned".to_owned());
+    env.new_string(detail).map(|value| value.into_raw()).unwrap_or(ptr::null_mut())
 }
 
 #[cfg(test)]
