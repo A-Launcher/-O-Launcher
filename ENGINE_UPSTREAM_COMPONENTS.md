@@ -8,7 +8,7 @@ This document records the pinned upstream reference reviewed for O Engine integr
 - Branch: `v3_openjdk`
 - Inspected commit: `1b8d90424c1cb791321d45f60ac62c54f4b013fa`
 - Project license: GNU LGPL-3.0 (see upstream `LICENSE`).
-- Scope: technical reference and candidate upstream component source. No MojoLauncher source files or binaries are currently vendored by this document.
+- Scope: technical reference and candidate upstream component source. No MojoLauncher source files or binaries are currently vendored in O Launcher.
 
 ### High-value components to reuse or adapt
 
@@ -20,10 +20,17 @@ This document records the pinned upstream reference reviewed for O Engine integr
 | LWJGL native loader hook | `app_mojo/src/main/jni/jvm_hooks/lwjgl_dlopen_hook.c` | MojoLauncher LGPL-3.0 | Technical reference. O Engine already has its own Rust hook implementation; do not copy duplicate hook code. |
 | Java argument/runtime setup | `app_mojo/src/main/java/git/artdeell/mojo/utils/jre/JavaRunner.java` | MojoLauncher LGPL-3.0 | Use as a compatibility checklist for Java properties, environment, native paths and version-specific setup; keep O Engine typed launch-plan API. |
 | Runtime/game orchestration | `app_mojo/src/main/java/git/artdeell/mojo/utils/jre/GameRunner.java` | MojoLauncher LGPL-3.0 | Reference only; strongly coupled to Mojo account, instance, renderer and preference classes. |
-| MojoExec | Git submodule `mojoexec` | MIT, per upstream README | Candidate for native process/graphics helpers after exact submodule commit and license are verified. Not yet added. |
-| GLFW Android port | Git submodule `glfw` | zlib, per upstream README | Candidate dependency, but integration must preserve the LWJGL ABI and window/input contract. Not yet added. |
-| SDL | Git submodule `sdl` | zlib, per upstream README | Candidate for input/audio/window plumbing if it fits O Engine's renderer architecture. Not yet added. |
+| MojoExec | Git submodule `mojoexec` at `9ec4b836e93900135bad823eaac16ebc81cf6b98` | MIT (LICENSE inspected) | Best permissive-license candidate for Android linker-namespace/driver helpers; candidate for vendoring as its own native library. Not yet added to O Launcher. |
+| GLFW Android port | Git submodule `glfw` at `7a6c6ceb51f20cd0db84dec2914ac1a0237051f6` | zlib, per upstream README | Candidate dependency, but integration must preserve the LWJGL ABI and window/input contract. Not yet added. |
+| SDL | Git submodule `sdl` at `c63845bd49c5a7667d1de0f6134f85ed1ccc8889` | zlib, per upstream README | Candidate for input/audio/window plumbing if it fits O Engine's renderer architecture. Not yet added. |
 | Authlib-Injector | Third-party component | AGPL-3.0, per upstream README | Candidate for Ely.by/Yggdrasil authentication. Keep isolated and review AGPL distribution obligations before packaging. |
+
+## Source-level findings
+
+- Mojo's JRE launcher is not a drop-in JNI file: it depends on its own argument/string-array utilities, abort/exit handling, class-loader hook code, ELF dependency preloader, and JNI exception types. Porting only `jre_launcher.c` would leave an incomplete and unsafe VM path.
+- Its native-library hook explicitly branches across JDK 8, 17, and 21 internal signatures. O Engine must retain exact JDK-major matching and fail closed when the expected class/method descriptor is not found.
+- Mojo's ELF hinter preloads dependency chains with global visibility to work around Android linker behavior. This is a candidate component to reuse, but its path parsing, recursion limits, ABI handling, and cleanup need a security/correctness review before shipping.
+- Mojo's JavaRunner also supplies Android-specific properties and disables the default POSIX_SPAWN process launch mechanism. These are valuable compatibility requirements; O Engine should add them to its typed launch-plan rules rather than copy the tightly coupled JavaRunner class.
 
 ## Integration policy
 
