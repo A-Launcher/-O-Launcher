@@ -87,6 +87,10 @@ O Engine adaptation:
 
 This source inspection resolves the previously unknown LWJGL alias/handle handoff. It does not by itself prove O Engine's current native hook is wired with the same timing or that LTW renders Minecraft on a device.
 
+### LWJGL 2 native loading is not the LWJGL 3 alias contract
+
+The upstream LWJGL 2.9.4 `org.lwjgl.Sys` source loads the core JNI library named `lwjgl` with `System.loadLibrary()`, unless `org.lwjgl.librarypath` is set, in which case it calls `System.load()` on the mapped `lwjgl` filename. It does not use LWJGL 3's `org.lwjgl.opengl.libname` property or `DynamicLinkLoader.ndlopen(long,int)` hook. Consequently, setting `-Dorg.lwjgl.opengl.libname=libGLMojo.so` cannot redirect LWJGL 2 to GL4ES. Redirecting the core JNI library alone would also not prove OpenGL function lookup is routed through GL4ES. O Engine's resolver now inspects `org/lwjgl/Sys.class` for the legacy `org.lwjgl.librarypath` / `System.load` surface and reports both blockers explicitly; the actual GL4ES/LWJGL 2 adapter remains unimplemented.
+
 
 ### O Engine staged LTW startup implementation
 
