@@ -129,7 +129,9 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
-            onJvmProbe(Result.failure(error))
+            if (probeResponseDelivered.compareAndSet(false, true)) {
+                onJvmProbe(Result.failure(error))
+            }
             false
         }
     }
