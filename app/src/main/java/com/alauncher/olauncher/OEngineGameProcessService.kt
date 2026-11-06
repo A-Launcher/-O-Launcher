@@ -19,6 +19,7 @@ import java.io.File
  */
 class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
+    @Volatile private var jvmCreationAttempted = false
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -63,6 +64,7 @@ class OEngineGameProcessService : Service() {
                         Os.setenv("LD_LIBRARY_PATH", ldPath, true)
                         val probe = OEngineJvmNativeBridge.probeLibrary(libraryPath.absolutePath, runtimeHome)
                         require(probe.successful) { probe.status + ": " + probe.detail }
+                        jvmCreationAttempted = true
                         val result = OEngineJvmNativeBridge.createJvm(options)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
@@ -120,8 +122,12 @@ class OEngineGameProcessService : Service() {
     override fun onBind(intent: Intent?): IBinder = messenger.binder
 
     override fun onDestroy() {
-        workerThread?.quitSafely()
-        workerThread = null
+        // JNI requires the VM-creating thread to remain attached until we implement a
+        // coordinated DetachCurrentThread shutdown path.
+        if (!jvmCreationAttempted) {
+            workerThread?.quitSafely()
+            workerThread = null
+        }
         super.onDestroy()
     }
 
