@@ -127,3 +127,10 @@ Next implementation gate: design O Engine's own in-process JVM bootstrap and And
 O Engine now has `OEngineJvmBootstrapPlanner`, which prepares the arguments and runtime paths for a future JNI Invocation API bridge. It locates `libjvm.so` in known Android JRE layouts, validates the runtime executable/release metadata, classpath files, native directory, working directory and main class, and normalizes launcher-owned JVM properties without discarding user heap or other JVM flags. The resulting plan keeps VM options and Minecraft application arguments separate, matching the JNI_CreateJavaVM boundary.
 
 The launch preview now includes this structural JVM plan when a matching runtime is installed. This is deliberately not a VM launch: the native bridge must still resolve `JNI_CreateJavaVM`, validate the JRE's native dependencies and Android linker visibility, and prove that the selected OpenJDK VM can coexist with the app's Android Runtime. The preview continues to block game launch until that native bootstrap and LWJGL/EGL hooks are implemented.
+
+
+## Native JVM Invocation API diagnostic bridge
+
+The app now builds an original NDK/CMake library, `liboengine_bootstrap.so`, for arm64-v8a, armeabi-v7a, x86 and x86_64. Its Kotlin bridge is lazy: it is not loaded during normal launcher startup. When explicitly called with a structurally valid JVM plan, the native diagnostic opens that plan's `libjvm.so`, checks that both `JNI_CreateJavaVM` and `JNI_GetCreatedJavaVMs` are exported, closes the handle, and returns a structured status. It does not create a VM or execute Minecraft.
+
+Android CI now inspects the built APK and verifies that the native probe library and its JNI entry point exist for all four ABIs. This verifies packaging and symbol export only. A device-side probe is still required to establish whether each downloaded Android JRE can actually be opened from O Launcher's linker namespace; successful symbol discovery is not a green light to create the VM. The next native milestone is a guarded, one-shot VM creation path with version-specific class-loader/native-library hooks and an explicit teardown/failure model.
