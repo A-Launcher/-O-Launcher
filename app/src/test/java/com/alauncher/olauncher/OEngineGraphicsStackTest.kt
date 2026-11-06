@@ -57,14 +57,14 @@ class OEngineGraphicsStackTest {
             )
             assertFalse(unavailable.available)
 
-            val descriptor = OEngineRendererProviders.ltw
+            val pinnedDescriptor = OEngineRendererProviders.ltw
             val adapter = object : OEngineRendererProviderAdapter {
-                override val descriptor = descriptor
+                override val descriptor = pinnedDescriptor
                 override fun inspect(
                     privateRendererRoot: File,
                     abi: String
                 ) = OEngineRendererProviderAvailability(
-                    descriptor = descriptor,
+                    descriptor = pinnedDescriptor,
                     available = true,
                     libraryFile = File(privateRendererRoot, abi + "/libltw.so"),
                     reason = "Test adapter"
