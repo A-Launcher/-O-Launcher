@@ -36,7 +36,7 @@ internal object OEngineElfCompatibilityInspector {
     )
 
     fun writeReport(root: File, expectedAndroidAbi: String, reportFile: File): Int {
-        val files = root.walkTopDown().filter { it.isFile }.toList()
+        val files = root.walkTopDown().filter { it.isFile && (it.name.endsWith(".so") || Regex("""\.so\.[0-9.]+$""").containsMatchIn(it.name)) }.toList()
         val entries = JSONArray()
         files.forEach { file ->
             val result = inspect(file, expectedAndroidAbi)
@@ -95,7 +95,7 @@ internal object OEngineElfCompatibilityInspector {
             else -> null
         }
         val markers = glibcMarkers.filter { marker ->
-            bytes.toString(Charsets.ISO_8859_1).contains(marker)
+            String(bytes, Charsets.ISO_8859_1).contains(marker)
         }
         val compatibility = when {
             abi == null -> OEngineElfCompatibility.ABI_MISMATCH
