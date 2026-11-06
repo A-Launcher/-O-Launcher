@@ -1,6 +1,8 @@
 package com.alauncher.olauncher
 
 import android.content.Context
+import android.app.ActivityManager
+import android.os.Build
 import java.io.File
 import java.io.FileOutputStream
 import java.time.Instant
@@ -46,11 +48,44 @@ object OEngineSessionLog {
 
     fun read(context: Context, maxChars: Int = 24000): String {
         val target = file(context)
-        if (!target.isFile) return "No O Engine session log has been created yet."
-        return runCatching {
-            val content = target.readText(Charsets.UTF_8)
-            if (content.length > maxChars) "… earlier entries omitted …\n" + content.takeLast(maxChars)
-            else content
-        }.getOrElse { "Could not read session log: ${it.message}" }
+        val content = if (!target.isFile) {
+            "No O Engine session log has been created yet."
+        } else {
+            runCatching {
+                val value = target.readText(Charsets.UTF_8)
+                if (value.length > maxChars) "… earlier entries omitted …\n" + value.takeLast(maxChars)
+                else value
+            }.getOrElse { "Could not read session log: ${it.message}" }
+        }
+        val exits = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching {
+                val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                val gameExits = manager.getHistoricalProcessExitReasons(context.packageName, 0, 8)
+                    .filter { it.processName == context.packageName + ":game" || it.processName.endsWith(":game") }
+                if (gameExits.isEmpty()) {
+                    "No recent Android exit records for the :game process."
+                } else {
+                    gameExits.joinToString("\\n") { info ->
+                        val reason = when (info.reason) {
+                            ApplicationExitInfo.REASON_CRASH -> "CRASH"
+                            ApplicationExitInfo.REASON_CRASH_NATIVE -> "NATIVE_CRASH"
+                            ApplicationExitInfo.REASON_ANR -> "ANR"
+                            ApplicationExitInfo.REASON_LOW_MEMORY -> "LOW_MEMORY"
+                            ApplicationExitInfo.REASON_SIGNALED -> "SIGNALED"
+                            ApplicationExitInfo.REASON_EXIT_SELF -> "EXIT_SELF"
+                            else -> "REASON_" + info.reason
+                        }
+                        formatter.format(Instant.ofEpochMilli(info.timestamp)) +
+                            " • " + reason +
+                            " • status=" + info.status +
+                            " • " + (info.description ?: "No OS description") +
+                            " • PSS=" + info.pss + "KB RSS=" + info.rss + "KB"
+                    }
+                }
+            }.getOrElse { "Android exit history unavailable: ${it.message}" }
+        } else {
+            "Android process-exit history requires Android 11 or newer."
+        }
+        return content + "\\n\\nANDROID :GAME PROCESS EXIT HISTORY\\n" + exits
     }
 }
