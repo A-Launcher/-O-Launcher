@@ -113,3 +113,10 @@ The Installations diagnostic button now sequences:
 5. Leave Minecraft main invocation as a separate explicit step, after the hook reports success.
 
 This wires the loader sequence but does not establish end-to-end graphics compatibility. Android-compatible Minecraft native extraction, real EGL surface/context behavior, game input/render-surface handoff, and a physical-device Minecraft launch test remain open gates.
+
+
+## Minecraft native archive staging
+
+Mojang Linux native classifier archives are downloaded with the version dependencies and verified against their metadata hashes and sizes. O Engine now safely extracts their shared objects into `natives/<version>/linux-archive` for inspection, rejects archive path traversal, and reports the number of extracted files.
+
+This directory is diagnostic-only. A Linux ELF file is not an Android native library, even when its CPU architecture matches the device: Linux/glibc dependencies and Android/Bionic are different ABIs. These files are deliberately not added to the Android runtime native search path and are not passed to `System.loadLibrary`. Android-compatible LWJGL and Minecraft native replacements, dependency resolution, and device validation remain separate required work.
