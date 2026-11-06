@@ -1940,13 +1940,30 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 launchPlanStatus = "Reading version metadata and checking installed files…"
                                 scope.launch {
                                     try {
-                                        val plan = MinecraftVersionInstaller.prepareLaunchPlan(
+                                        downloadingClient = true
+                                        downloadStatus = "Installing verified Minecraft client for ${release.id}…"
+                                        MinecraftVersionInstaller.downloadClient(release, activeInstance.root) { received, total ->
+                                            downloadBytes = received
+                                            downloadTotal = total
+                                        }
+                                        downloadingClient = false
+
+                                        downloadingDependencies = true
+                                        dependencyStatus = "Installing libraries, native archives and assets…"
+                                        val dependencies = MinecraftVersionInstaller.downloadLibrariesAndAssets(
                                             release, activeInstance.root
-                                        )
+                                        ) { done, total, label ->
+                                            dependencyBytes = done
+                                            dependencyTotal = total
+                                            dependencyStatus = label
+                                        }
+                                        downloadingDependencies = false
+
+                                        val plan = MinecraftVersionInstaller.prepareLaunchPlan(release, activeInstance.root)
                                         preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
                                         installingRuntime = true
-                                        launchPlanStatus = "Prepared ${plan.version}. Checking and installing Android Java ${plan.javaMajorVersion} automatically…"
+                                        launchPlanStatus = "Game files ready. Checking and installing Android Java ${plan.javaMajorVersion} automatically…"
                                         val runtime = AndroidRuntimeInstaller.ensureRuntime(
                                             plan.javaMajorVersion,
                                             activeInstance.root,
@@ -1954,10 +1971,13 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             { status -> runtimeStatus = status }
                                         )
                                         installedRuntimeStatus = "Ready: Android Java ${runtime.javaMajor} (${runtime.architecture})"
-                                        launchPlanStatus = "Prepared ${plan.version}: Java target ${plan.targetJavaMajor} • installed Android Java ${runtime.javaMajor} • ${plan.javaCompatibilityNote} • ${plan.mainClass} • ${plan.classpath.size} classpath entries. Renderer integration is still required."
+                                        val mb = dependencies.bytes / (1024.0 * 1024.0)
+                                        launchPlanStatus = "Installed ${plan.version} in ${activeInstance.name}: client verified • ${dependencies.libraries} libraries • ${dependencies.assets} assets • ${dependencies.nativeArchives} Linux native archives staged • Java ${runtime.javaMajor} ready (${"%.1f".format(mb)} MB dependencies). Renderer compatibility is still required before launch."
                                     } catch (error: Exception) {
-                                        launchPlanStatus = error.message ?: "Could not prepare launch configuration."
+                                        launchPlanStatus = error.message ?: "Could not install and prepare this Minecraft version."
                                     } finally {
+                                        downloadingClient = false
+                                        downloadingDependencies = false
                                         installingRuntime = false
                                         preparingLaunchPlan = false
                                     }
@@ -1966,7 +1986,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             colors = ButtonDefaults.buttonColors(containerColor = Ink, contentColor = Color.White),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(if (preparingLaunchPlan) "PREPARING…" else "PREPARE LAUNCH CONFIG", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(if (preparingLaunchPlan) "INSTALLING VERSION…" else "INSTALL VERSION + JAVA AUTOMATICALLY", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(launchPlanStatus, color = Muted, fontSize = 11.sp)
                         Button(
