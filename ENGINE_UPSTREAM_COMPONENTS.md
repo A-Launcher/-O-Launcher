@@ -144,7 +144,7 @@ The workflow checks each file with `git hash-object` against the upstream blob i
 
 This is a real Android-native dependency package, not a runtime renderer integration yet. GL4ES is not currently selected or loaded by O Engine, and LWJGL 2's native loading path is still blocked pending an adapter. LTW remains the active integration target for the LWJGL 3 path. Do not report GL4ES as a working game renderer until the LWJGL 2 loader bridge, EGL setup, GL entry points, and physical-device rendering have been validated.
 
-O Engine now has a separate `prepareGl4es` launch preflight. It models the upstream GLES 2 minimum and GL4ES compatibility environment variables without applying LTW's GLES 3 requirement or claiming the LWJGL 2 bridge exists. The plan remains blocked unless the caller explicitly supplies a verified GL4ES-specific LWJGL 2 loader capability. Unit tests cover GLES 2 acceptance, GLES 1 rejection, environment separation, and the missing-adapter blocker.
+O Engine now has a separate `prepareGl4es` launch preflight. It models the upstream GLES 2 minimum and GL4ES compatibility environment variables without applying LTW's GLES 3 requirement or claiming the LWJGL 2 bridge exists. The plan remains blocked unless the caller explicitly supplies both a verified GL4ES-specific LWJGL 2 loader capability and a verified wrapper-owned EGL/surface/GL-entry-point lifecycle. Unit tests cover GLES 2 acceptance, GLES 1 rejection, environment separation, missing-loader blocking, and missing-EGL-lifecycle blocking.
 
 
 ### GL4ES Android artifact staging and game-process route
