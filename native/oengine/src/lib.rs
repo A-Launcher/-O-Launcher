@@ -7,7 +7,7 @@ use jni::{JNIEnv, NativeMethod};
 use libc::{c_char, c_void};
 use std::ffi::{CStr, CString};
 use std::ptr;
-use std::sync::{OnceLock, RwLock};
+use std::sync::{Mutex, OnceLock, RwLock};
 
 const ABI_VERSION: u32 = 1;
 
@@ -18,6 +18,7 @@ struct HookConfig {
 }
 
 static HOOK_CONFIG: OnceLock<RwLock<Option<HookConfig>>> = OnceLock::new();
+static JVM_LIBRARY: OnceLock<Mutex<Option<(CString, usize)>>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -26,6 +27,77 @@ fn hook_config() -> &'static RwLock<Option<HookConfig>> {
 #[no_mangle]
 pub extern "C" fn oengine_native_abi_version() -> u32 {
     ABI_VERSION
+}
+
+/// JNI diagnostic equivalent to the temporary C++ probe. It retains one validated
+/// Android OpenJDK libjvm handle for the process lifetime but never creates a VM.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProbeJvmLibrary(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    library_path: jstring,
+) -> jstring {
+    if raw_env.is_null() || library_path.is_null() {
+        return ptr::null_mut();
+    }
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return ptr::null_mut(),
+    };
+    let java_path = JString::from_raw(library_path);
+    let path: String = match env.get_string(&java_path) {
+        Ok(value) => value.into(),
+        Err(_) => return ptr::null_mut(),
+    };
+    let response = |status: &str, detail: &str| {
+        env.new_string(format!("{status}:{detail}"))
+            .map(|value| value.into_raw())
+            .unwrap_or(ptr::null_mut())
+    };
+    if !path.starts_with('/') {
+        return response("invalid_path", "libjvm.so path must be absolute");
+    }
+    let requested = match CString::new(path) {
+        Ok(value) => value,
+        Err(_) => return response("invalid_path", "libjvm.so path contains a NUL byte"),
+    };
+    let state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
+    let mut guard = match state.lock() {
+        Ok(value) => value,
+        Err(_) => return response("lock_error", "JVM library state lock is poisoned"),
+    };
+    if let Some((loaded_path, _)) = guard.as_ref() {
+        if loaded_path != &requested {
+            return response("runtime_already_loaded", "A different libjvm.so is already retained in this process");
+        }
+    } else {
+        let handle = libc::dlopen(requested.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
+        if handle.is_null() {
+            let error = libc::dlerror();
+            let detail = if error.is_null() {
+                "dlopen failed without detail".to_owned()
+            } else {
+                CStr::from_ptr(error).to_string_lossy().into_owned()
+            };
+            return response("load_error", &detail);
+        }
+        libc::dlerror();
+        let create_vm = libc::dlsym(handle, b"JNI_CreateJavaVM\\0".as_ptr() as *const c_char);
+        let create_error = libc::dlerror();
+        let get_vms = libc::dlsym(handle, b"JNI_GetCreatedJavaVMs\\0".as_ptr() as *const c_char);
+        let get_error = libc::dlerror();
+        if create_vm.is_null() || !create_error.is_null() || get_vms.is_null() || !get_error.is_null() {
+            let detail = if create_vm.is_null() || !create_error.is_null() {
+                "JNI_CreateJavaVM is not exported"
+            } else {
+                "JNI_GetCreatedJavaVMs is not exported"
+            };
+            libc::dlclose(handle);
+            return response("missing_symbol", detail);
+        }
+        *guard = Some((requested, handle as usize));
+    }
+    response("symbols_ok", "JNI Invocation API exports validated; libjvm remains mapped for this process")
 }
 
 /// Pure policy used by the JNI hook: only the exact renderer alias is redirected.
