@@ -67,7 +67,11 @@ object OEngineRendererLaunchPlanner {
         validateDriverPath("EGL", glesDriver.eglLibraryPath, blockers)
         validateDriverPath("GLES", glesDriver.glesLibraryPath, blockers)
 
-        if (glesDriver.requiresNamespaceBypass && !namespaceBypassVerified) {\n            blockers += "The selected EGL/GLES provider requires linker-namespace access that O Engine has not verified."\n        }\n\n        if (!lwjglResolverHookVerified) {
+        if (glesDriver.requiresNamespaceBypass && !namespaceBypassVerified) {
+            blockers += "The selected EGL/GLES provider requires linker-namespace access that O Engine has not verified."
+        }
+
+        if (!lwjglResolverHookVerified) {
             blockers += "The selected Minecraft LWJGL native loader has no verified O Engine EGL-handle interception adapter."
         }
 
