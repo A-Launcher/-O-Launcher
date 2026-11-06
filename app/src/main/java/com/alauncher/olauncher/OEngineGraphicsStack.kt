@@ -9,8 +9,9 @@ package com.alauncher.olauncher
  *
  * LTW and MobileGlues are selectable Android GL compatibility providers. O Engine
  * keeps their provider lifecycles separate; only one is selected for a game session.
- * Their native code is not bundled or loaded until the distribution/loader contracts
- * and required open-source license obligations have been integrated.
+ * LTW is built from its pinned upstream source in CI, packaged as a separate AAR,
+ * copied into O Engine private storage, and explicitly preloaded in the game process.
+ * MobileGlues remains a catalog-only provider until its own adapter is integrated.
  */
 object OEngineGraphicsStack {
     const val LWJGL_LATEST_REFERENCE = "3.4.3"
