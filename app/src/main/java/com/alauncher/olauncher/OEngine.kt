@@ -47,7 +47,8 @@ data class OEngineCommandPreview(
     val workingDirectory: File,
     val nativeDirectory: File,
     val arguments: List<String>,
-    val blockers: List<String>
+    val blockers: List<String>,
+    val jvmBootstrapPlan: OEngineJvmBootstrapPlan? = null
 ) {
     val launchable: Boolean get() = blockers.isEmpty()
 }
@@ -87,6 +88,18 @@ object OLauncherEngine {
             blockers.add("Android-compatible native libraries have not been installed.")
         }
         if (plan.mainClass.isBlank()) blockers.add("Minecraft main class is missing.")
+        val jvmBootstrapPlan = runtime?.let { selectedRuntime ->
+            OEngineJvmBootstrapPlanner.prepare(
+                runtime = selectedRuntime,
+                classpath = plan.classpath.map(::File),
+                nativeLibraryDirectory = nativeDirectory,
+                workingDirectory = enginePaths.root,
+                mainClass = plan.mainClass,
+                requestedVmOptions = plan.jvmArguments,
+                applicationArguments = plan.gameArguments
+            )
+        }
+        jvmBootstrapPlan?.blockers?.let(blockers::addAll)
         blockers.add("O Engine in-process JVM bootstrap is not integrated; a child ProcessBuilder JVM cannot receive the renderer hook.")
         blockers.add("Android LWJGL native-library resolution is not integrated for the selected Minecraft metadata version.")
         blockers.add("O Engine LTW EGL context interception is not integrated; Minecraft cannot launch yet.")
@@ -116,7 +129,8 @@ object OLauncherEngine {
             workingDirectory = enginePaths.root,
             nativeDirectory = nativeDirectory,
             arguments = args,
-            blockers = blockers.distinct()
+            blockers = blockers.distinct(),
+            jvmBootstrapPlan = jvmBootstrapPlan
         )
     }
     suspend fun probeRuntime(gameRoot: File, javaMajor: Int): OEngineProbeResult = withContext(Dispatchers.IO) {
