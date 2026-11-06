@@ -93,6 +93,68 @@ object OEngineRendererLaunchPlanner {
         )
     }
 
+    /**
+     * Prepares GL4ES's Android GLES2 environment without borrowing LTW's LWJGL3 hook.
+     * The plan stays blocked until a provider-specific LWJGL2 loader adapter is verified.
+     */
+    fun prepareGl4es(
+        artifact: OEngineNativeRendererArtifact,
+        rendererRoot: File,
+        abi: String,
+        glesDriver: OEngineGlesDriver,
+        lwjgl2NativeLoaderVerified: Boolean,
+        namespaceBypassVerified: Boolean = false
+    ): OEngineRendererLaunchPlan {
+        val blockers = mutableListOf<String>()
+        val warnings = mutableListOf<String>()
+        val inspection = OEngineRendererArtifactGate.inspect(
+            artifact = artifact,
+            rendererRoot = rendererRoot,
+            supportedAbis = listOf(abi)
+        )
+
+        if (artifact.provider != OEngineGraphicsStack.RendererProvider.GL4ES) {
+            blockers += "The selected native artifact is not GL4ES."
+        }
+        if (artifact.abi != abi) {
+            blockers += "GL4ES artifact ABI does not match the selected runtime ABI."
+        }
+        blockers += inspection.blockers
+
+        if (glesDriver.major < 2) {
+            blockers += "GL4ES requires an OpenGL ES 2.0 or newer host driver."
+        }
+        validateDriverPath("EGL", glesDriver.eglLibraryPath, blockers)
+        validateDriverPath("GLES", glesDriver.glesLibraryPath, blockers)
+
+        if (glesDriver.requiresNamespaceBypass && !namespaceBypassVerified) {
+            blockers += "The selected EGL/GLES provider requires linker-namespace access that O Engine has not verified."
+        }
+        if (!lwjgl2NativeLoaderVerified) {
+            blockers += "The selected Minecraft LWJGL 2 native loader has no verified GL4ES-specific adapter."
+        }
+
+        val environment = linkedMapOf<String, String>()
+        glesDriver.eglLibraryPath?.let { environment["LIBGL_EGL"] = it }
+        glesDriver.glesLibraryPath?.let { environment["LIBGL_GLES"] = it }
+        environment["force_glsl_extensions_warn"] = "true"
+        environment["allow_higher_compat_version"] = "true"
+        environment["allow_glsl_extension_directive_midshader"] = "true"
+        environment["LIBGL_NOERROR"] = "1"
+
+        return OEngineRendererLaunchPlan(
+            provider = OEngineGraphicsStack.RendererProvider.GL4ES,
+            rendererLibrary = artifact.libraryFile.canonicalFile,
+            abi = abi,
+            glesDriver = glesDriver,
+            environment = environment,
+            preloadBeforeJvm = true,
+            requiresLwjglNativeLoadInterception = true,
+            blockers = blockers.distinct(),
+            warnings = warnings.distinct()
+        )
+    }
+
     private fun validateDriverPath(label: String, path: String?, blockers: MutableList<String>) {
         if (path.isNullOrBlank()) return // LTW uses its system EGL/GLES fallback.
         if (path == "libEGL.so" || path == "libGLESv2.so") return
