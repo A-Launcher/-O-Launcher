@@ -71,6 +71,30 @@ class OEngineJvmBootstrapPlanTest {
     }
 
     @Test
+    fun rejectsRuntimeReleaseVersionThatDoesNotMatchSelectedJavaMajor() {
+        val root = Files.createTempDirectory("oengine-jvm-version").toFile()
+        try {
+            val runtimeHome = File(root, "runtime").apply { mkdirs() }
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\"17\"\n")
+            val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            File(runtimeHome, "lib/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val game = File(root, "game").apply { mkdirs() }
+            val nativeDir = File(game, "natives").apply { mkdirs() }
+            val client = File(game, "client.jar").apply { writeBytes(byteArrayOf(1)) }
+
+            val plan = OEngineJvmBootstrapPlanner.prepare(
+                OEngineRuntime("Java-21-arm64", 21, "arm64", runtimeHome, java),
+                listOf(client), nativeDir, game, "net.minecraft.Main", emptyList(), emptyList()
+            )
+
+            assertFalse(plan.structurallyReady)
+            assertTrue(plan.blockers.any { it.contains("release version does not match") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsMainClassWithPathSeparators() {
         val root = Files.createTempDirectory("oengine-jvm-main").toFile()
         try {
