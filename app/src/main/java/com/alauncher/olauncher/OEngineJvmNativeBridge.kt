@@ -21,7 +21,7 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeProbeJvmLibrary(absolutePath: String): String
 
-    private external fun nativeCreateJvm(vmOptions: Array<String>): String
+    private external fun nativeCreateJvm(vmOptions: Array<String>, javaMajor: Int): String
 
     private external fun nativeInstallLwjglHook(targetClass: Class<*>, selectedAlias: String, rendererHandle: Long): Boolean
 
@@ -35,17 +35,18 @@ object OEngineJvmNativeBridge {
         return probeLibrary(library.absolutePath, plan.runtime.home)
     }
 
-    internal fun createJvm(vmOptions: List<String>): OEngineJvmLibraryProbe {
+    internal fun createJvm(vmOptions: List<String>, javaMajor: Int): OEngineJvmLibraryProbe {
+        require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
         require(vmOptions.isNotEmpty()) { "The JVM bootstrap option list is empty." }
         require(vmOptions.size <= 512 && vmOptions.all { it.isNotBlank() && it.length <= 16_384 }) {
             "The JVM bootstrap options exceed the native safety limits."
         }
         check(nativeLibraryLoaded)
-        val result = nativeCreateJvm(vmOptions.toTypedArray())
+        val result = nativeCreateJvm(vmOptions.toTypedArray(), javaMajor)
         val status = result.substringBefore(':')
         val detail = result.substringAfter(':', "")
         return OEngineJvmLibraryProbe(
-            successful = status == "vm_created",
+            successful = status.startsWith("vm_created"),
             status = status,
             detail = detail
         )
