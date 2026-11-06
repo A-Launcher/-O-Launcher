@@ -75,6 +75,120 @@ private data class LauncherImages(
 private fun fallbackBitmap(color: Int): Bitmap =
     Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
 
+private fun createArtworkAtlas(): Bitmap {
+    val bitmap = Bitmap.createBitmap(720, 579, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bitmap)
+    val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    fun rect(x: Float, y: Float, w: Float, h: Float, color: Int) {
+        paint.color = color
+        canvas.drawRect(x, y, x + w, y + h, paint)
+    }
+    fun circle(x: Float, y: Float, r: Float, color: Int) {
+        paint.color = color
+        canvas.drawCircle(x, y, r, paint)
+    }
+    fun polygon(points: List<Pair<Float, Float>>, color: Int) {
+        val path = android.graphics.Path()
+        path.moveTo(points.first().first, points.first().second)
+        points.drop(1).forEach { path.lineTo(it.first, it.second) }
+        path.close()
+        paint.color = color
+        canvas.drawPath(path, paint)
+    }
+    fun gradient(x: Float, y: Float, w: Float, h: Float, top: Int, bottom: Int) {
+        paint.shader = android.graphics.LinearGradient(x, y, x, y + h, top, bottom, android.graphics.Shader.TileMode.CLAMP)
+        canvas.drawRect(x, y, x + w, y + h, paint)
+        paint.shader = null
+    }
+
+    // Main Nether hero artwork, composed from block-like shapes at the same atlas coordinates.
+    gradient(0f, 0f, 720f, 319f, android.graphics.Color.rgb(53, 22, 48), android.graphics.Color.rgb(255, 94, 27))
+    for (i in 0..34) {
+        val x = ((i * 137 + 41) % 720).toFloat()
+        val y = ((i * 61 + 17) % 210).toFloat()
+        circle(x, y, (12 + i % 20).toFloat(), android.graphics.Color.rgb(82 + i % 65, 24 + i % 24, 42 + i % 18))
+    }
+    polygon(listOf(0f to 230f, 90f to 170f, 165f to 230f, 260f to 154f, 360f to 230f, 470f to 160f, 570f to 230f, 650f to 155f, 720f to 220f, 720f to 319f, 0f to 319f), android.graphics.Color.rgb(54, 31, 43))
+    for (i in 0..5) {
+        val x = (35 + i * 128).toFloat()
+        rect(x, 82f + (i % 3) * 19, 18f, 170f, android.graphics.Color.rgb(255, 103, 19))
+        rect(x + 5, 82f + (i % 3) * 19, 5f, 170f, android.graphics.Color.rgb(255, 194, 48))
+    }
+    for (i in 0..8) {
+        val x = ((i * 83 + 16) % 700).toFloat()
+        rect(x, 175f - (i % 4) * 15, 12f, 145f, android.graphics.Color.rgb(38, 24, 39))
+        for (j in 0..3) circle(x + (j - 1) * 13f, 158f - (j % 2) * 20f, 18f, android.graphics.Color.rgb(112 + j * 8, 25, 51))
+    }
+    // Purple Nether portal
+    rect(552f, 143f, 100f, 130f, android.graphics.Color.rgb(20, 13, 34))
+    rect(562f, 153f, 80f, 110f, android.graphics.Color.rgb(104, 29, 195))
+    rect(571f, 162f, 62f, 92f, android.graphics.Color.rgb(193, 49, 255))
+    rect(579f, 170f, 46f, 76f, android.graphics.Color.rgb(117, 47, 222))
+    // Floating ghast
+    rect(267f, 91f, 38f, 32f, android.graphics.Color.rgb(224, 215, 211))
+    rect(275f, 100f, 6f, 8f, android.graphics.Color.BLACK)
+    rect(292f, 100f, 6f, 8f, android.graphics.Color.BLACK)
+    // Player with diamond sword
+    rect(337f, 157f, 46f, 55f, android.graphics.Color.rgb(93, 53, 34))
+    rect(345f, 166f, 30f, 30f, android.graphics.Color.rgb(181, 119, 76))
+    rect(327f, 211f, 65f, 66f, android.graphics.Color.rgb(14, 128, 139))
+    rect(317f, 219f, 15f, 49f, android.graphics.Color.rgb(14, 128, 139))
+    rect(389f, 219f, 14f, 45f, android.graphics.Color.rgb(14, 128, 139))
+    rect(335f, 275f, 23f, 43f, android.graphics.Color.rgb(35, 42, 87))
+    rect(367f, 275f, 23f, 43f, android.graphics.Color.rgb(35, 42, 87))
+    rect(405f, 226f, 8f, 54f, android.graphics.Color.rgb(35, 221, 238))
+    rect(399f, 243f, 22f, 8f, android.graphics.Color.rgb(24, 180, 202))
+    for (i in 0..90) {
+        val x = ((i * 71 + 19) % 720).toFloat()
+        val y = ((i * 37 + 11) % 319).toFloat()
+        rect(x, y, 2f, 3f, android.graphics.Color.rgb(255, 174 + i % 70, 34))
+    }
+
+    // News thumbnails and the floating Realms island.
+    fun thumb(x: Float, y: Float, w: Float, h: Float, top: Int, ground: Int, variant: Int) {
+        gradient(x, y, w, h, top, ground)
+        polygon(listOf(x to (y + h * .65f), (x + w * .2f) to (y + h * .35f), (x + w * .42f) to (y + h * .68f), (x + w * .66f) to (y + h * .3f), (x + w) to (y + h * .65f), (x + w) to (y + h), x to (y + h)), android.graphics.Color.rgb(67, 101, 67))
+        if (variant == 0) {
+            for (tx in listOf(x + 30, x + w - 35)) {
+                rect(tx, y + 28, 7f, h - 20, android.graphics.Color.rgb(93, 57, 35))
+                for (k in 0..7) circle(tx + ((k * 13) % 43) - 18, y + 15 + ((k * 17) % 42), 9f, android.graphics.Color.rgb(250, 151 + k % 70, 196 + k % 40))
+            }
+            rect(x + w * .39f, y + h * .42f, w * .25f, h * .42f, android.graphics.Color.rgb(186, 125, 74))
+            polygon(listOf((x + w * .36f) to (y + h * .45f), (x + w * .51f) to (y + h * .18f), (x + w * .67f) to (y + h * .45f)), android.graphics.Color.rgb(103, 57, 52))
+        } else if (variant == 1) {
+            rect(x + w * .30f, y + h * .22f, w * .4f, h * .66f, android.graphics.Color.rgb(28, 84, 112))
+            rect(x + w * .4f, y + h * .28f, w * .2f, h * .56f, android.graphics.Color.rgb(255, 131, 34))
+            rect(x + w * .47f, y + h * .22f, w * .08f, h * .66f, android.graphics.Color.rgb(255, 209, 81))
+        } else {
+            polygon(listOf((x + 4) to (y + h), (x + w * .2f) to (y + h * .2f), (x + w * .42f) to (y + h)), android.graphics.Color.rgb(199, 145, 81))
+            polygon(listOf((x + w * .42f) to (y + h), (x + w * .66f) to (y + h * .12f), (x + w * .9f) to (y + h)), android.graphics.Color.rgb(218, 166, 98))
+            rect(x + w * .54f, y + h * .45f, w * .2f, h * .22f, android.graphics.Color.rgb(184, 113, 47))
+            rect(x + w * .69f, y + h * .25f, 10f, 25f, android.graphics.Color.rgb(184, 113, 47))
+            rect(x + w * .57f, y + h * .62f, 6f, 19f, android.graphics.Color.rgb(87, 62, 42))
+            rect(x + w * .73f, y + h * .62f, 6f, 19f, android.graphics.Color.rgb(87, 62, 42))
+        }
+    }
+    thumb(0f, 329f, 257f, 110f, android.graphics.Color.rgb(87, 28, 57), android.graphics.Color.rgb(255, 112, 31), 1)
+    thumb(267f, 329f, 240f, 87f, android.graphics.Color.rgb(134, 194, 246), android.graphics.Color.rgb(73, 135, 75), 0)
+    thumb(0f, 449f, 239f, 90f, android.graphics.Color.rgb(26, 94, 145), android.graphics.Color.rgb(28, 39, 62), 1)
+    thumb(249f, 449f, 240f, 87f, android.graphics.Color.rgb(137, 198, 238), android.graphics.Color.rgb(214, 160, 87), 2)
+    gradient(499f, 449f, 110f, 130f, android.graphics.Color.rgb(116, 186, 243), android.graphics.Color.rgb(243, 207, 145))
+    polygon(listOf(504f to 515f, 606f to 515f, 578f to 555f, 552f to 579f, 529f to 554f), android.graphics.Color.rgb(91, 67, 49))
+    polygon(listOf(504f to 515f, 550f to 491f, 606f to 515f, 576f to 535f, 526f to 534f), android.graphics.Color.rgb(75, 147, 69))
+    rect(540f, 478f, 34f, 35f, android.graphics.Color.rgb(193, 143, 90))
+    rect(535f, 471f, 44f, 10f, android.graphics.Color.rgb(104, 67, 52))
+    rect(550f, 489f, 9f, 23f, android.graphics.Color.rgb(236, 197, 129))
+    // Creeper face avatar
+    rect(620f, 449f, 62f, 64f, android.graphics.Color.rgb(36, 173, 65))
+    rect(630f, 459f, 42f, 44f, android.graphics.Color.rgb(23, 132, 47))
+    rect(637f, 468f, 8f, 8f, android.graphics.Color.BLACK)
+    rect(657f, 468f, 8f, 8f, android.graphics.Color.BLACK)
+    rect(644f, 480f, 15f, 16f, android.graphics.Color.BLACK)
+    rect(638f, 480f, 7f, 8f, android.graphics.Color.BLACK)
+    rect(658f, 480f, 7f, 8f, android.graphics.Color.BLACK)
+    return bitmap
+}
+
 private fun readBitmap(context: android.content.Context, file: String, fallbackColor: Int): Bitmap {
     return try {
         context.assets.open(file).use { input ->
@@ -104,7 +218,7 @@ private fun cropBitmapSafe(
 private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
     return remember(context) {
-        val atlas = readBitmap(context, "ui_atlas.png", android.graphics.Color.DKGRAY)
+        val atlas = createArtworkAtlas()
         val logo = readBitmap(context, "brand_logo.png", android.graphics.Color.DKGRAY)
         LauncherImages(
             hero = cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
