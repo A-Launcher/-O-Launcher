@@ -33,13 +33,13 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build four Android ABIs
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        working-directory: native/oengine
         run: |
-          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o target/android-jni build --manifest-path native/oengine/Cargo.toml --release
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o ../../target/android-jni build --release
       - name: Verify Android ELF outputs
         run: |
           set -euo pipefail
