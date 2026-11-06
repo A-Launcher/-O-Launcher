@@ -14,6 +14,11 @@ on:
       - "app/src/main/java/com/alauncher/olauncher/OEngineJvmNativeBridge.kt"
       - "app/src/main/java/com/alauncher/olauncher/OEngineGameProcessService.kt"
       - "app/src/main/java/com/alauncher/olauncher/OEngineGameProcessClient.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineLtwArtifactInstaller.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngine.kt"
+      - "app/src/main/java/com/alauncher/olauncher/MainActivity.kt"
+      - "app/build.gradle.kts"
+      - "THIRD_PARTY_NOTICES.md"
 
 jobs:
   build-ltw:
