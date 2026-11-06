@@ -11,6 +11,14 @@ import org.junit.Test
 
 class OEngineLwjglNativeResolverTest {
     @Test
+    fun exposesExactSupportedDynamicLoaderClassName() {
+        assertEquals(
+            "org.lwjgl.system.linux.DynamicLinkLoader",
+            OEngineLwjglNativeResolver.DYNAMIC_LINK_LOADER_CLASS_NAME
+        )
+    }
+
+    @Test
     fun blocksUpstreamLwjgl3WhenNdlopenSignatureIsAbsent() {
         val root = Files.createTempDirectory("oengine-lwjgl3").toFile()
         try {
