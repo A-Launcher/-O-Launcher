@@ -21,6 +21,7 @@ class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
     @Volatile private var jvmCreationAttempted = false
     @Volatile private var jvmCreated = false
+    @Volatile private var rendererHandle: Long = 0L
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -36,14 +37,12 @@ class OEngineGameProcessService : Service() {
                     runCatching { message.replyTo?.send(reply) }
                     true
                 }
-                MSG_INSTALL_RENDERER_HOOK -> {
-                    val reply = Message.obtain(null, MSG_INSTALL_RENDERER_HOOK_RESULT)
+                MSG_PREPARE_RENDERER -> {
+                    val reply = Message.obtain(null, MSG_PREPARE_RENDERER_RESULT)
                     try {
-                        check(jvmCreated) { "HotSpot must be created before installing a renderer." }
+                        check(!jvmCreationAttempted) { "Renderer and driver environment must be prepared before JVM creation." }
                         val rendererFile = File(message.data.getString(KEY_RENDERER_FILE).orEmpty())
                         val rendererRoot = File(message.data.getString(KEY_RENDERER_ROOT).orEmpty())
-                        val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
-                        val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
                         val eglPath = message.data.getString(KEY_RENDERER_EGL).orEmpty()
                         val glesPath = message.data.getString(KEY_RENDERER_GLES).orEmpty()
                         fun applyDriverOverride(key: String, value: String) {
@@ -57,8 +56,27 @@ class OEngineGameProcessService : Service() {
                         }
                         applyDriverOverride("LIBGL_EGL", eglPath)
                         applyDriverOverride("LIBGL_GLES", glesPath)
-                        val installed = OEngineJvmNativeBridge.loadRendererAndInstallLwjglHook(
-                            rendererFile, rendererRoot, targetClass, alias
+                        rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, rendererHandle != 0L)
+                        reply.data.putString(KEY_PROBE_STATUS, "renderer_preloaded")
+                        reply.data.putString(KEY_PROBE_DETAIL, "Renderer retained in :game before HotSpot creation; LWJGL hook will be installed after VM creation.")
+                    } catch (error: Throwable) {
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+                        reply.data.putString(KEY_PROBE_STATUS, "renderer_preload_error")
+                        reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
+                    }
+                    runCatching { message.replyTo?.send(reply) }
+                    true
+                }
+                MSG_INSTALL_RENDERER_HOOK -> {
+                    val reply = Message.obtain(null, MSG_INSTALL_RENDERER_HOOK_RESULT)
+                    try {
+                        check(jvmCreated) { "HotSpot must be created before installing a renderer hook." }
+                        check(rendererHandle != 0L) { "Renderer must be preloaded before JVM creation." }
+                        val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
+                        val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
+                        val installed = OEngineJvmNativeBridge.installLwjglHook(
+                            targetClass, alias, rendererHandle
                         )
                         check(installed) { "HotSpot rejected the LWJGL native-loader hook." }
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
@@ -206,6 +224,8 @@ class OEngineGameProcessService : Service() {
         const val MSG_CREATE_JVM_RESULT = 6
         const val MSG_INVOKE_MAIN = 7
         const val MSG_INVOKE_MAIN_RESULT = 8
+        const val MSG_PREPARE_RENDERER = 11
+        const val MSG_PREPARE_RENDERER_RESULT = 12
         const val MSG_INSTALL_RENDERER_HOOK = 9
         const val MSG_INSTALL_RENDERER_HOOK_RESULT = 10
         const val KEY_VM_OPTIONS = "oengine.vm_options"
