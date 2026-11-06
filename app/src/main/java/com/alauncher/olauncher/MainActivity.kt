@@ -232,7 +232,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MediaGray))
+        Image(images.logo, contentDescription = "O Launcher", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
         Surface(
             Modifier.weight(1f).height(46.dp),
             color = Color(0xFFFFF8F0),
@@ -282,7 +282,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
         ) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(MediaGray))
+                Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                 Spacer(Modifier.width(8.dp))
                 Text("CREEPERFAN", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 13.sp, letterSpacing = (-0.25).sp)
                 Spacer(Modifier.width(7.dp))
@@ -322,7 +322,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)).background(MediaGray))
+        Image(images.logo, contentDescription = "O Launcher logo", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Fit)
         Spacer(Modifier.height(8.dp))
         entries.forEach { (icon, label, index) ->
             val selected = tab == index
@@ -346,7 +346,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(17.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(MediaGray))
+                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(5.dp))
                     Column {
                         Text("CREEPERFAN", fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
@@ -362,7 +362,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 @Composable
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
-        Box(Modifier.fillMaxSize().background(MediaGray))
+        Image(images.hero, contentDescription = "Minecraft featured banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         // Keep the primary action visible while the hero artwork is still a placeholder.
         Surface(
             onClick = onPlay,
@@ -388,7 +388,7 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 @Composable
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
     PanelCard("WHAT’S NEW?", "VIEW ALL  →", modifier) {
-        MediaPlaceholder(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(15.dp))
+        Image(images.whatsNew, contentDescription = "What's new artwork", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp)), contentScale = ContentScale.Crop)
         Text("THE NETHER UPDATE", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 15.sp, letterSpacing = (-0.25).sp)
         Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 12.sp, letterSpacing = 0.1.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -443,7 +443,7 @@ private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) 
 private fun NewsCard(image: ImageBitmap, title: String, description: String, date: String, modifier: Modifier = Modifier) {
     Surface(color = Color(0xFFFFF4E6), shape = RoundedCornerShape(18.dp), modifier = modifier) {
         Column(Modifier.fillMaxSize()) {
-            MediaPlaceholder(Modifier.fillMaxWidth().height(82.dp), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
+            Image(image, contentDescription = title, modifier = Modifier.fillMaxWidth().height(82.dp).clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)), contentScale = ContentScale.Crop)
             Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title.uppercase(), fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 13.sp, letterSpacing = (-0.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(description, color = Muted, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -468,7 +468,7 @@ private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
                     Text("LEARN MORE  →", color = Color.White, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
                 }
             }
-            MediaPlaceholder(Modifier.width(92.dp).fillMaxHeight(), RoundedCornerShape(0.dp))
+            Image(images.realms, contentDescription = "Realms artwork", modifier = Modifier.width(92.dp).fillMaxHeight(), contentScale = ContentScale.Crop)
         }
     }
 }
