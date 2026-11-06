@@ -2290,7 +2290,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                         artifact.libraryFile,
                                                         rendererRoot,
                                                         "org.lwjgl.system.linux.DynamicLinkLoader",
-                                                        "libGLMojo.so"
+                                                        OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS
                                                     )
                                                 } else {
                                                     probingGameProcess = false
