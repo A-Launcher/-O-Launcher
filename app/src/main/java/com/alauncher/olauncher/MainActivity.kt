@@ -1727,6 +1727,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var installingRuntime by remember { mutableStateOf(false) }
     var probingRuntime by remember { mutableStateOf(false) }
     var runtimeProbeStatus by remember { mutableStateOf("Java process has not been tested on this device.") }
+    var probingJvmNative by remember { mutableStateOf(false) }
+    var jvmNativeProbeStatus by remember { mutableStateOf("JVM native library has not been inspected by the Android linker.") }
     var probingGraphics by remember { mutableStateOf(false) }
     var graphicsProbeStatus by remember { mutableStateOf("Android graphics backend has not been probed.") }
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
@@ -2021,6 +2023,44 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (probingRuntime) "TESTING JAVA…" else "TEST JAVA WITH O ENGINE", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(runtimeProbeStatus, color = Muted, fontSize = 11.sp)
+                        Button(
+                            enabled = preparedLaunchPlan != null && !probingJvmNative && !installingRuntime && !downloadingRuntime,
+                            onClick = {
+                                val plan = preparedLaunchPlan ?: return@Button
+                                probingJvmNative = true
+                                jvmNativeProbeStatus = "O Engine is asking Android's linker to inspect the selected libjvm.so…"
+                                scope.launch {
+                                    try {
+                                        val preview = OLauncherEngine.prepareCommandPreview(
+                                            File(context.filesDir, "minecraft"), plan
+                                        )
+                                        val bootstrap = preview.jvmBootstrapPlan
+                                        if (bootstrap == null) {
+                                            jvmNativeProbeStatus = "JVM PROBE BLOCKED • " +
+                                                (preview.blockers.firstOrNull() ?: "No matching installed Java runtime.")
+                                        } else if (!bootstrap.structurallyReady) {
+                                            jvmNativeProbeStatus = "JVM PROBE BLOCKED • " +
+                                                bootstrap.blockers.joinToString(" • ")
+                                        } else {
+                                            val result = OLauncherEngine.probeJvmInvocationApi(bootstrap)
+                                            jvmNativeProbeStatus = (if (result.successful) "JVM SYMBOL PROBE PASSED" else "JVM SYMBOL PROBE FAILED") +
+                                                " • " + result.status + " • " + result.detail
+                                        }
+                                    } catch (error: Exception) {
+                                        jvmNativeProbeStatus = "JVM NATIVE PROBE ERROR • " +
+                                            (error.message ?: "Android could not inspect libjvm.so.")
+                                    } finally {
+                                        probingJvmNative = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF765A3D), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingJvmNative) "INSPECTING JVM NATIVE…" else "PROBE JVM NATIVE LINKER", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(jvmNativeProbeStatus, color = Muted, fontSize = 11.sp)
+                        Text("This only checks whether Android can open libjvm.so and find JNI_CreateJavaVM / JNI_GetCreatedJavaVMs. It does not create the JVM or launch Minecraft.", color = Muted, fontSize = 10.sp)
                         Button(
                             enabled = !probingGraphics,
                             onClick = {
