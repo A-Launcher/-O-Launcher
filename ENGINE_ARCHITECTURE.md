@@ -145,3 +145,11 @@ The resolver deliberately treats Mojo's `ndlopen` marker as a warning that a pat
 
 This is metadata/JAR inspection and unit-tested decision logic only. It does not install a Java instrumentation hook, intercept `dlopen`, preload LTW, or launch Minecraft. The next gate is to inspect upstream LWJGL's public EGL/FunctionProvider seams for each supported metadata version and implement an O Engine-owned adapter that routes game EGL context lifecycle calls through LTW.
 
+
+
+## Native implementation language decision
+
+O Engine will use Rust as the preferred language for new native engine subsystems: JVM bootstrap coordination, renderer/provider loading, EGL symbol routing, native diagnostics, and process-level safety checks. Kotlin remains responsible for Android UI, lifecycle, storage, and platform APIs. The existing small C++ JNI diagnostic is a temporary bridge while the Rust Android build pipeline and ABI packaging are established; it is not the intended language for expanding the native engine.
+
+The Rust integration must build reproducibly for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`, expose a narrow C ABI to Kotlin/JNI, and include host-side unit tests plus Android ABI/link checks. No native component will create the game JVM or load a renderer until the selected JRE, LWJGL adapter, renderer artifact, and Android linker visibility have all passed explicit preflight gates.
+
