@@ -39,7 +39,8 @@ object OEngineRendererLaunchPlanner {
         rendererRoot: File,
         abi: String,
         glesDriver: OEngineGlesDriver,
-        lwjglResolverHookVerified: Boolean
+        lwjglResolverHookVerified: Boolean,
+        namespaceBypassVerified: Boolean = false
     ): OEngineRendererLaunchPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -66,7 +67,7 @@ object OEngineRendererLaunchPlanner {
         validateDriverPath("EGL", glesDriver.eglLibraryPath, blockers)
         validateDriverPath("GLES", glesDriver.glesLibraryPath, blockers)
 
-        if (!lwjglResolverHookVerified) {
+        if (glesDriver.requiresNamespaceBypass && !namespaceBypassVerified) {\n            blockers += "The selected EGL/GLES provider requires linker-namespace access that O Engine has not verified."\n        }\n\n        if (!lwjglResolverHookVerified) {
             blockers += "The selected Minecraft LWJGL native loader has no verified O Engine EGL-handle interception adapter."
         }
 
