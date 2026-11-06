@@ -1727,6 +1727,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var installingRuntime by remember { mutableStateOf(false) }
     var probingRuntime by remember { mutableStateOf(false) }
     var runtimeProbeStatus by remember { mutableStateOf("Java process has not been tested on this device.") }
+    var probingGraphics by remember { mutableStateOf(false) }
+    var graphicsProbeStatus by remember { mutableStateOf("Android graphics backend has not been probed.") }
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
@@ -2019,6 +2021,29 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (probingRuntime) "TESTING JAVA…" else "TEST JAVA WITH O ENGINE", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(runtimeProbeStatus, color = Muted, fontSize = 11.sp)
+                        Button(
+                            enabled = !probingGraphics,
+                            onClick = {
+                                probingGraphics = true
+                                graphicsProbeStatus = "Creating a temporary Android EGL / OpenGL ES context…"
+                                scope.launch {
+                                    try {
+                                        val result = OEngineGraphics.probe()
+                                        graphicsProbeStatus = "GRAPHICS PROBE PASSED • OpenGL ES ${result.openGlesMajor} • ${result.glVersion} • ${result.glVendor} • ${result.glRenderer} • ${result.glExtensions.size} extensions"
+                                    } catch (error: Exception) {
+                                        graphicsProbeStatus = "GRAPHICS PROBE FAILED • " + (error.message ?: "Unknown EGL error")
+                                    } finally {
+                                        probingGraphics = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6B568A), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingGraphics) "PROBING GRAPHICS…" else "PROBE ANDROID GRAPHICS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(graphicsProbeStatus, color = Muted, fontSize = 11.sp)
+                        Text("This tests Android EGL and OpenGL ES only. It does not provide desktop OpenGL, GLFW, LWJGL, or Minecraft compatibility yet.", color = Muted, fontSize = 10.sp)
                         Text("O Engine owns runtime discovery and process startup. A successful Java test is required before we connect Minecraft and graphics.", color = Muted, fontSize = 10.sp)
                     }
                 }
