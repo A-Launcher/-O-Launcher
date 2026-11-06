@@ -2354,7 +2354,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                         ) {
                             Text(if (probingGameProcess) "PREPARING LTW + HOTSPOT…" else "PRELOAD LTW + CREATE JVM", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
-                        Text("This attempts JNI_CreateJavaVM in :game and resolves java.lang.String. It runs a tiny Java main method, not Minecraft's main class or the game.", color = Muted, fontSize = 10.sp)
+                        Text("This stages the pinned LTW renderer before JNI_CreateJavaVM, adds the LWJGL libGLMojo.so alias, creates HotSpot, and installs the native-loader hook. It does not prove Minecraft can render yet.", color = Muted, fontSize = 10.sp)
                         Text("EXPERIMENTAL: Android ART and HotSpot coexistence is device-dependent. A native failure may restart only the separate :game process.", color = Color(0xFFD6A06C), fontSize = 10.sp)
                         Button(
                             enabled = preparedLaunchPlan != null && !probingGameProcess && gameProcessClient != null,
