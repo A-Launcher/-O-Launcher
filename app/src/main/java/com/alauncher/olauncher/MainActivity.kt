@@ -1111,40 +1111,63 @@ private fun SettingsReferenceScreen(onBack: () -> Unit, modifier: Modifier = Mod
     val reference = remember(context) { readAssetImage(context, "IMG_20261106_160537.png") }
     BoxWithConstraints(modifier = modifier.background(Color(0xFF241018))) {
         if (reference != null) {
-            Image(
-                bitmap = reference,
-                contentDescription = "O Launcher Settings reference screen",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
-            // Home navigation target in the top-left brand area.
+            // Preserve the artwork's original proportions on every landscape display.
+            val imageAspect = reference.width.toFloat() / reference.height.toFloat()
+            val screenAspect = maxWidth / maxHeight
+            val artworkWidth: Dp
+            val artworkHeight: Dp
+            if (screenAspect > imageAspect) {
+                artworkHeight = maxHeight
+                artworkWidth = artworkHeight * imageAspect
+            } else {
+                artworkWidth = maxWidth
+                artworkHeight = artworkWidth / imageAspect
+            }
+
             Box(
-                Modifier.align(Alignment.TopStart)
-                    .fillMaxWidth(0.12f)
-                    .fillMaxHeight(0.12f)
-                    .clickable(onClick = onBack)
-            )
-            // Settings section cards; each target is positioned over the supplied artwork.
-            val sections = listOf(
-                "Java Tweaks",
-                "Miscellaneous Settings",
-                "Video and Renderer",
-                "Experimental Stuff",
-                "Launcher Appearance",
-                "Control Customization",
-                "Launcher Language"
-            )
-            sections.forEachIndexed { index, section ->
-                Box(
-                    Modifier.offset(
-                        x = maxWidth * 0.25f,
-                        y = maxHeight * (0.20f + index * 0.095f)
-                    )
-                        .size(width = maxWidth * 0.48f, height = maxHeight * 0.085f)
-                        .clickable {
-                            Toast.makeText(context, "$section settings are being connected", Toast.LENGTH_SHORT).show()
-                        }
+                Modifier.size(artworkWidth, artworkHeight).align(Alignment.Center)
+            ) {
+                Image(
+                    bitmap = reference,
+                    contentDescription = "O Launcher Settings reference screen",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
+                // Keep the navigation hotspot attached to the artwork, not the screen edges.
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth(0.12f)
+                        .fillMaxHeight(0.12f)
+                        .clickable(onClick = onBack)
+                )
+                val sections = listOf(
+                    "Java Tweaks",
+                    "Miscellaneous Settings",
+                    "Video and Renderer",
+                    "Experimental Stuff",
+                    "Launcher Appearance",
+                    "Control Customization",
+                    "Launcher Language"
+                )
+                sections.forEachIndexed { index, section ->
+                    Box(
+                        Modifier.offset(
+                            x = artworkWidth * 0.25f,
+                            y = artworkHeight * (0.20f + index * 0.095f)
+                        )
+                            .size(
+                                width = artworkWidth * 0.48f,
+                                height = artworkHeight * 0.085f
+                            )
+                            .clickable {
+                                Toast.makeText(
+                                    context,
+                                    "$section settings are being connected",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    )
+                }
             }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
