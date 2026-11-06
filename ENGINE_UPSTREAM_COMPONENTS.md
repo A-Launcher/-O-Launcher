@@ -50,3 +50,8 @@ This document records the pinned upstream reference reviewed for O Engine integr
 3. Integrate and device-verify the Android ELF dependency preloader and version-specific native-library hooks. (Code path implemented in O Engine Rust; not yet device-verified.)
 4. Integrate Android GLFW/SDL/native rendering dependencies only after the VM test and native-library path are stable.
 5. Resolve the LWJGL hook target through the embedded HotSpot class loader (implemented); integrate a renderer provider, pass its retained handle, and verify interception end-to-end.
+
+
+### Isolated renderer-hook IPC
+
+Renderer loading and LWJGL hook installation are now exposed as `MSG_INSTALL_RENDERER_HOOK` / `MSG_INSTALL_RENDERER_HOOK_RESULT` through the `:game` process service. The request is handled by the same `HandlerThread` that created embedded HotSpot, checks that VM creation succeeded, and validates that the renderer file is under the supplied private renderer root before calling the native loader and HotSpot hook installer. The hook must be installed before invoking the Minecraft main class, because that call may enter the game loop and occupy the VM-owning thread. This IPC is infrastructure only: no packaged LTW provider is selected or activated automatically, and no end-to-end renderer/device test has passed yet.
