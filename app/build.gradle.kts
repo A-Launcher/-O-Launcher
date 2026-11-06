@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.alauncher.olauncher"
     compileSdk = 36
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.alauncher.olauncher"
@@ -15,9 +16,17 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64") }
     }
 
     buildFeatures { compose = true }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
 
     // Load the user's original PNG sidebar icons from the repository artwork folder.
     sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
