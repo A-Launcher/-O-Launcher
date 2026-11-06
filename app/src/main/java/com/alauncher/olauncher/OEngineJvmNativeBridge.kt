@@ -31,6 +31,8 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeInstallLwjglHook(targetClassName: String, selectedAlias: String, rendererHandle: Long): Boolean
 
+    private external fun nativeRendererHookError(): String
+
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
         require(plan.structurallyReady) {
             "Resolve the JVM bootstrap plan blockers before probing libjvm.so."
@@ -116,7 +118,12 @@ object OEngineJvmNativeBridge {
             "Renderer alias must be a shared-library filename such as libGL.so."
         }
         require(rendererHandle != 0L) { "Renderer handle is not loaded." }
-        return nativeInstallLwjglHook(targetClassName, selectedAlias, rendererHandle)
+        val installed = nativeInstallLwjglHook(targetClassName, selectedAlias, rendererHandle)
+        if (!installed) {
+            val detail = runCatching { nativeRendererHookError() }.getOrDefault("")
+            error(detail.ifBlank { "HotSpot rejected the LWJGL native-loader hook without a diagnostic." })
+        }
+        return true
     }
 
     internal fun probeLibrary(absolutePath: String, runtimeHome: File): OEngineJvmLibraryProbe {
