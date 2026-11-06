@@ -21,6 +21,9 @@ android {
 
     buildFeatures { compose = true }
 
+    // O Engine copies the packaged LTW shared object into private storage before dlopen.
+    packaging { jniLibs { useLegacyPackaging = true } }
+
     // Load the user's original PNG sidebar icons from the repository artwork folder.
     sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
     sourceSets.getByName("main").assets.srcDir("../artwork/quick_links")
