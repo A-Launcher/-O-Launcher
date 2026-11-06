@@ -48,6 +48,7 @@ class OEngineGameProcessClient(
     private val mainStartedDelivered = AtomicBoolean(false)
     private val mainResponseDelivered = AtomicBoolean(false)
     private val mainRunningDelivered = AtomicBoolean(false)
+    private val mainInvocationAttempted = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val mainStartTimeoutRunnable = Runnable {
@@ -362,7 +363,7 @@ class OEngineGameProcessClient(
 
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
         val target = serviceMessenger ?: return false
-        if (closed.get() || mainStartedDelivered.get() && !mainResponseDelivered.get()) return false
+        if (closed.get() || !mainInvocationAttempted.compareAndSet(false, true)) return false
         mainStartedDelivered.set(false)
         mainResponseDelivered.set(false)
         mainRunningDelivered.set(false)
