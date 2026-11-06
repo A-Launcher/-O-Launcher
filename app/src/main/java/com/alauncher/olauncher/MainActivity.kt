@@ -1865,7 +1865,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             )
                         }
                         Text(dependencyStatus, color = Muted, fontSize = 11.sp)
-                        Text("The client JAR, Maven library artifacts and asset objects are downloaded into app storage and checked against Mojang SHA-1/size metadata. Native classifiers, Java runtime and launching still need integration.", color = Muted, fontSize = 10.sp)
+                        Text("The client JAR, Android-rule-compatible Maven artifacts, asset objects and client logging config are downloaded into app storage and checked against Mojang SHA-1/size metadata. Android native runtime integration and launching still need work.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
