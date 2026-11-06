@@ -20,6 +20,24 @@ object OEngineGraphicsStack {
     const val LTW_TARGET_COMMIT = "3f1f4df6c80c925ea34067b1d943a84acce0184d"
     const val LTW_LICENSE = "LGPL-3.0"
     const val LTW_LWJGL_LIBRARY_ALIAS = "libGLMojo.so"
+    const val LTW_MIN_GLES_MAJOR = 3
+
+    /**
+     * Environment defaults used by Mojo's GLES renderer stack and applied before HotSpot starts.
+     * Keep these isolated to the LTW game process rather than mutating the launcher process.
+     */
+    fun ltwEnvironment(): Map<String, String> = mapOf(
+        "force_glsl_extensions_warn" to "true",
+        "allow_higher_compat_version" to "true",
+        "allow_glsl_extension_directive_midshader" to "true",
+        "LIBGL_NOERROR" to "1"
+    )
+
+    fun ltwCompatibilityBlocker(hostGlesMajor: Int): String? =
+        if (hostGlesMajor < LTW_MIN_GLES_MAJOR) {
+            "LTW requires OpenGL ES $LTW_MIN_GLES_MAJOR or newer; detected ES $hostGlesMajor."
+        } else null
+
     const val MOBILEGLUES_LICENSE = "LGPL-2.1"
     const val MOBILEGLUES_TARGET_VERSION = "2.0.0"
     const val MOBILEGLUES_MIN_GLES_MAJOR = 3
