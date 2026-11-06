@@ -341,15 +341,14 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(
-            modifier = Modifier.width(185.dp),
+            modifier = Modifier.width(165.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("MINECRAFT", fontSize = 27.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.8).sp)
-            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
+            Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.width(165.dp).height(54.dp), contentScale = ContentScale.Fit)
         }
         Surface(
-            Modifier.weight(1f).height(38.dp),
+            Modifier.weight(1f).height(42.dp),
             color = Color(0xFFFFF8F0),
             shape = RoundedCornerShape(30.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
@@ -365,7 +364,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
                     textStyle = LocalTextStyle.current.copy(color = Ink, fontSize = 13.sp),
                     decorationBox = { inner ->
                         Box {
-                            if (query.isEmpty()) Text("SEARCH FOR ANYTHING...", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
+                            if (query.isEmpty()) Text("SEARCH FOR ANYTHING...", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             inner()
                         }
                     },
@@ -399,7 +398,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
                 Spacer(Modifier.width(8.dp))
-                Text("CREEPERFAN", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 13.sp, letterSpacing = (-0.25).sp)
+                Text("CREEPERFAN", fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = (-0.25).sp)
                 Spacer(Modifier.width(7.dp))
                 Icon(Icons.Filled.ExpandMore, contentDescription = "Profile menu", tint = Ink, modifier = Modifier.size(18.dp))
             }
@@ -453,7 +452,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                 ) {
                     Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.height(3.dp))
-                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.2).sp)
+                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, color = Ink, maxLines = 1, letterSpacing = (-0.2).sp)
                 }
             }
         }
@@ -505,9 +504,9 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
                 Text("Face the Nether, explore new challenges and discover more!", color = Color.White, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(onClick = onPlay, color = Gold, contentColor = Ink, shape = RoundedCornerShape(28.dp), modifier = Modifier.width(153.dp).height(22.dp), shadowElevation = 2.dp) { }
-                    Surface(onClick = onPlay, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(20.dp), modifier = Modifier.width(40.dp).height(22.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.ExpandMore, contentDescription = "More play options", tint = Ink, modifier = Modifier.size(20.dp)) }
+                    Surface(onClick = onPlay, color = Gold, contentColor = Ink, shape = RoundedCornerShape(28.dp), modifier = Modifier.width(220.dp).height(52.dp), shadowElevation = 5.dp) { Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.SportsEsports, contentDescription = null, modifier = Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)); Text("Play Now", fontSize = 19.sp, fontWeight = FontWeight.Bold) } }
+                    Surface(onClick = onPlay, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(20.dp), modifier = Modifier.width(54.dp).height(52.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.ExpandMore, contentDescription = "More play options", tint = Ink, modifier = Modifier.size(25.dp)) }
                     }
                 }
             }
@@ -531,12 +530,12 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
     PanelCard("WHAT’S NEW?", "VIEW ALL  →", modifier) {
         Image(images.whatsNew, contentDescription = "What's new artwork", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp)), contentScale = ContentScale.Crop)
-        Text("THE NETHER UPDATE", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 15.sp, letterSpacing = (-0.25).sp)
-        Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 12.sp, letterSpacing = 0.1.sp)
+        Text("THE NETHER UPDATE", fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = (-0.25).sp)
+        Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontWeight = FontWeight.Medium, fontSize = 12.sp, letterSpacing = 0.1.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(7.dp))
-            Text("JUN 30, 2024", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
+            Text("JUN 30, 2024", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -604,10 +603,10 @@ private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
     Surface(color = Color(0xFFFFF0D9), shape = RoundedCornerShape(22.dp), modifier = modifier) {
         Row(Modifier.fillMaxSize().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("♛  JOIN REALMS", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 16.sp)
-                Text("PLAY WITH FRIENDS ANYWHERE, ANYTIME!", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Ink)
+                Text("♛  JOIN REALMS", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("PLAY WITH FRIENDS ANYWHERE, ANYTIME!", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Ink)
                 Surface(color = Ink, shape = RoundedCornerShape(25.dp)) {
-                    Text("LEARN MORE  →", color = Color.White, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+                    Text("LEARN MORE  →", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
                 }
             }
             Image(images.realms, contentDescription = "Realms artwork", modifier = Modifier.width(92.dp).fillMaxHeight(), contentScale = ContentScale.Crop)
