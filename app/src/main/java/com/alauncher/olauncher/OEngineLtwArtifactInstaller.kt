@@ -3,6 +3,7 @@ package com.alauncher.olauncher
 import android.content.Context
 import android.os.Build
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Installs the LTW native object packaged from the pinned upstream AAR into O Engine's
@@ -26,7 +27,9 @@ object OEngineLtwArtifactInstaller {
             "LTW install path escaped O Engine's private renderer directory."
         }
         val target = File(targetDirectory, "libltw.so")
-        if (!target.isFile || target.length() != packaged.length()) {
+        fun sha256(file: File): ByteArray = MessageDigest.getInstance("SHA-256").digest(file.inputStream().use { it.readBytes() })
+
+        if (!target.isFile || target.length() != packaged.length() || !sha256(target).contentEquals(sha256(packaged))) {
             val temporary = File(targetDirectory, "libltw.so.part")
             packaged.inputStream().use { input ->
                 temporary.outputStream().use { output -> input.copyTo(output) }
