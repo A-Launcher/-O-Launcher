@@ -245,7 +245,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
                     textStyle = LocalTextStyle.current.copy(color = Ink, fontSize = 13.sp),
                     decorationBox = { inner ->
                         Box {
-                            if (query.isEmpty()) Text("Search for anything...", color = Muted, fontSize = 13.sp)
+                            if (query.isEmpty()) Text("SEARCH FOR ANYTHING...", color = Muted, fontSize = 13.sp)
                             inner()
                         }
                     },
@@ -289,12 +289,12 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
 @Composable
 private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modifier: Modifier = Modifier) {
     val entries = listOf(
-        Triple(Icons.Filled.Home, "Home", 0),
-        Triple(Icons.Filled.Inventory2, "Installations", 1),
-        Triple(Icons.Filled.Checkroom, "Skins", 2),
-        Triple(Icons.Filled.Storefront, "Marketplace", 3),
-        Triple(Icons.Filled.Settings, "Settings", 4),
-        Triple(Icons.Filled.Info, "About", 5)
+        Triple(Icons.Filled.Home, "HOME", 0),
+        Triple(Icons.Filled.Inventory2, "INSTALLATIONS", 1),
+        Triple(Icons.Filled.Checkroom, "SKINS", 2),
+        Triple(Icons.Filled.Storefront, "MARKETPLACE", 3),
+        Triple(Icons.Filled.Settings, "SETTINGS", 4),
+        Triple(Icons.Filled.Info, "ABOUT", 5)
     )
     Column(
         modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
@@ -359,10 +359,10 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 
 @Composable
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
-    PanelCard("What's New?", "View all  →", modifier) {
+    PanelCard("WHAT’S NEW?", "VIEW ALL  →", modifier) {
         MediaPlaceholder(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(15.dp))
-        Text("The Nether Update", fontWeight = FontWeight.Black, fontSize = 15.sp)
-        Text("New biomes, new features!", color = Muted, fontSize = 12.sp)
+        Text("THE NETHER UPDATE", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = (-0.25).sp)
+        Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontSize = 12.sp, letterSpacing = 0.1.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(7.dp))
@@ -373,7 +373,7 @@ private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
 
 @Composable
 private fun QuickLinks(modifier: Modifier = Modifier) {
-    PanelCard("Quick Links", null, modifier) {
+    PanelCard("QUICK LINKS", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
             QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.weight(1f))
             QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.weight(1f))
@@ -400,11 +400,11 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 
 @Composable
 private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) {
-    PanelCard("Featured News", "View all  →", modifier) {
+    PanelCard("FEATURED NEWS", "VIEW ALL  →", modifier) {
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NewsCard(images.spring, "Spring to Life", "A fresh new look for Minecraft!", "Mar 25, 2025", Modifier.weight(1f))
-            NewsCard(images.trials, "The Tricky Trials Update", "Take on new challenges!", "Jun 13, 2024", Modifier.weight(1f))
-            NewsCard(images.camel, "Camel! Ride in Style", "Explore the desert with camels.", "Apr 3, 2024", Modifier.weight(1f))
+            NewsCard(images.spring, "SPRING TO LIFE", "A FRESH NEW LOOK FOR MINECRAFT!", "Mar 25, 2025", Modifier.weight(1f))
+            NewsCard(images.trials, "THE TRICKY TRIALS UPDATE", "TAKE ON NEW CHALLENGES!", "Jun 13, 2024", Modifier.weight(1f))
+            NewsCard(images.camel, "CAMEL! RIDE IN STYLE", "EXPLORE THE DESERT WITH CAMELS.", "Apr 3, 2024", Modifier.weight(1f))
         }
     }
 }
@@ -415,7 +415,7 @@ private fun NewsCard(image: ImageBitmap, title: String, description: String, dat
         Column(Modifier.fillMaxSize()) {
             MediaPlaceholder(Modifier.fillMaxWidth().height(82.dp), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, fontWeight = FontWeight.Black, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title.uppercase(), fontWeight = FontWeight.Black, fontSize = 13.sp, letterSpacing = (-0.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(description, color = Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
@@ -459,7 +459,7 @@ private fun PanelCard(
     ) {
         Column(Modifier.fillMaxSize().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = (-0.35).sp)
                 if (action != null) {
                     Spacer(Modifier.weight(1f))
                     Text(action, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Muted)
