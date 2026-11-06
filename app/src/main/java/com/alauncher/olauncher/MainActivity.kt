@@ -2282,6 +2282,20 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 "HOTSPOT VM CREATION ERROR • " + (error.message ?: "Unknown VM error")
                                             }
                                         )
+                                    },
+                                    { result ->
+                                        result.fold(
+                                            onSuccess = { launched ->
+                                                gameProcessStatus = if (launched.successful) {
+                                                    "MINECRAFT MAIN RETURNED • " + launched.detail
+                                                } else {
+                                                    "MINECRAFT MAIN FAILED • " + launched.status + " • " + launched.detail
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                gameProcessStatus = "MINECRAFT MAIN IPC ERROR • " + (error.message ?: "Unknown error")
+                                            }
+                                        )
                                     }
                                 )
                                 gameProcessClient?.close()
