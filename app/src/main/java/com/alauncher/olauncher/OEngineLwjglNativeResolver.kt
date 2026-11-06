@@ -8,7 +8,7 @@ enum class OEngineLwjglGeneration { LWJGL2, LWJGL3, UNKNOWN }
 
 /** A conservative description of the native-loader surface found in the selected LWJGL core JAR. */
 enum class OEngineLwjglLoaderSurface {
-    LEGACY_LWJGL2,
+    LEGACY_LWJGL2_SYSTEM_LOAD,
     UPSTREAM_LWJGL3_LINUX,
     UNKNOWN
 }
@@ -46,6 +46,7 @@ object OEngineLwjglNativeResolver {
         """(?:^|/)org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/\1-\2\.jar$"""
     )
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
+    private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
 
     fun resolve(classpath: List<File>): OEngineLwjglResolution {
         val blockers = mutableListOf<String>()
@@ -88,6 +89,8 @@ object OEngineLwjglNativeResolver {
         if (core.size > 1) blockers += "The LWJGL core artifact is ambiguous."
         var dynamicLoaderPresent = false
         var ndlopenSignaturePresent = false
+        var lwjgl2SysClassPresent = false
+        var lwjgl2SystemLoadMarkerPresent = false
         if (coreJar != null && coreJar.isFile) {
             try {
                 JarFile(coreJar).use { jar ->
@@ -97,6 +100,15 @@ object OEngineLwjglNativeResolver {
                         val bytes = jar.getInputStream(entry).use { it.readBytes() }
                         val constants = bytes.toString(Charsets.ISO_8859_1)
                         ndlopenSignaturePresent = constants.contains("ndlopen") && constants.contains("(JI)J")
+                    }
+                    val sysEntry = jar.getJarEntry(LWJGL2_SYS_CLASS)
+                    lwjgl2SysClassPresent = sysEntry != null
+                    if (sysEntry != null) {
+                        val bytes = jar.getInputStream(sysEntry).use { it.readBytes() }
+                        val constants = bytes.toString(Charsets.ISO_8859_1)
+                        lwjgl2SystemLoadMarkerPresent =
+                            constants.contains("org.lwjgl.librarypath") &&
+                            (constants.contains("loadLibrary") || constants.contains("java/lang/System"))
                     }
                 }
             } catch (error: Exception) {
