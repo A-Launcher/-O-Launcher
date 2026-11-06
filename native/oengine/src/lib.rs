@@ -49,7 +49,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value.into(),
         Err(_) => return ptr::null_mut(),
     };
-    let response = |status: &str, detail: &str| {
+    let mut response = |status: &str, detail: &str| {
         env.new_string(format!("{status}:{detail}"))
             .map(|value| value.into_raw())
             .unwrap_or(ptr::null_mut())
@@ -82,9 +82,9 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             return response("load_error", &detail);
         }
         libc::dlerror();
-        let create_vm = libc::dlsym(handle, b"JNI_CreateJavaVM\\0".as_ptr() as *const c_char);
+        let create_vm = libc::dlsym(handle, b"JNI_CreateJavaVM\0".as_ptr() as *const c_char);
         let create_error = libc::dlerror();
-        let get_vms = libc::dlsym(handle, b"JNI_GetCreatedJavaVMs\\0".as_ptr() as *const c_char);
+        let get_vms = libc::dlsym(handle, b"JNI_GetCreatedJavaVMs\0".as_ptr() as *const c_char);
         let get_error = libc::dlerror();
         if create_vm.is_null() || !create_error.is_null() || get_vms.is_null() || !get_error.is_null() {
             let detail = if create_vm.is_null() || !create_error.is_null() {
