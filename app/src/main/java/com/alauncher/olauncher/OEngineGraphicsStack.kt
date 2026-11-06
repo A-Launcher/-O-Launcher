@@ -13,6 +13,7 @@ package com.alauncher.olauncher
  */
 object OEngineGraphicsStack {
     const val LWJGL_LATEST_REFERENCE = "3.4.3"
+    const val LTW_TARGET_COMMIT = "3f1f4df6c80c925ea34067b1d943a84acce0184d"
     const val MOBILEGLUES_TARGET_VERSION = "2.0.0"
     const val MOBILEGLUES_MIN_GLES_MAJOR = 3
     const val MOBILEGLUES_MIN_GLES_MINOR = 0
@@ -23,10 +24,14 @@ object OEngineGraphicsStack {
         """/org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/"""
     )
 
+    enum class RendererProvider { LTW, MOBILE_GLUES }
+
     data class Assessment(
         val lwjglModules: Map<String, Set<String>>,
         val hostGlesMajor: Int,
         val hostGlesMinor: Int,
+        val selectedProvider: RendererProvider,
+        val ltwTargetCommit: String,
         val mobileGluesTarget: String,
         val blockers: List<String>,
         val warnings: List<String>
@@ -45,6 +50,8 @@ object OEngineGraphicsStack {
         classpath: List<String>,
         hostGlesMajor: Int,
         hostGlesMinor: Int,
+        selectedProvider: RendererProvider,
+        ltwAvailable: Boolean,
         mobileGluesAvailable: Boolean
     ): Assessment {
         require(hostGlesMajor >= 0 && hostGlesMinor >= 0)
@@ -75,8 +82,13 @@ object OEngineGraphicsStack {
         modules.filterValues { it.size > 1 }.forEach { (module, versions) ->
             warnings += "Multiple versions of $module were found: " + versions.joinToString()
         }
-        if (!mobileGluesAvailable) {
-            blockers += "MobileGlues provider is not installed or exposed to O Engine yet."
+        when (selectedProvider) {
+            RendererProvider.LTW -> if (!ltwAvailable) {
+                blockers += "LTW provider is not installed or exposed to O Engine yet."
+            }
+            RendererProvider.MOBILE_GLUES -> if (!mobileGluesAvailable) {
+                blockers += "MobileGlues provider is not installed or exposed to O Engine yet."
+            }
         }
         if (modules.values.flatten().any { it != LWJGL_LATEST_REFERENCE }) {
             warnings += "Keep Minecraft's metadata-pinned LWJGL versions; $LWJGL_LATEST_REFERENCE is the upstream reference, not a forced upgrade."
@@ -86,6 +98,8 @@ object OEngineGraphicsStack {
             lwjglModules = modules.mapValues { it.value.toSet() },
             hostGlesMajor = hostGlesMajor,
             hostGlesMinor = hostGlesMinor,
+            selectedProvider = selectedProvider,
+            ltwTargetCommit = LTW_TARGET_COMMIT,
             mobileGluesTarget = MOBILEGLUES_TARGET_VERSION,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
