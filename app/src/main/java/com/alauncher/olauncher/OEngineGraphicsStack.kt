@@ -7,9 +7,10 @@ package com.alauncher.olauncher
  * LWJGL modules that belong on a given Minecraft classpath. The latest upstream
  * version below is a compatibility reference, not an instruction to replace them.
  *
- * MobileGlues is an optional Android desktop-GL compatibility provider. O Engine
- * targets its latest verified upstream release, but does not bundle or load its
- * native code until its supported distribution/loader contract is integrated.
+ * LTW and MobileGlues are selectable Android GL compatibility providers. O Engine
+ * keeps their provider lifecycles separate; only one is selected for a game session.
+ * Their native code is not bundled or loaded until the distribution/loader contracts
+ * and required open-source license obligations have been integrated.
  */
 object OEngineGraphicsStack {
     const val LWJGL_LATEST_REFERENCE = "3.4.3"
@@ -68,15 +69,17 @@ object OEngineGraphicsStack {
         if (modules.isEmpty()) {
             blockers += "No LWJGL modules were detected in the Minecraft classpath."
         }
-        if (hostGlesMajor < MOBILEGLUES_MIN_GLES_MAJOR ||
-            (hostGlesMajor == MOBILEGLUES_MIN_GLES_MAJOR &&
-                hostGlesMinor < MOBILEGLUES_MIN_GLES_MINOR)
-        ) {
-            blockers += "MobileGlues $MOBILEGLUES_TARGET_VERSION requires a host OpenGL ES 3.0 or newer backend."
-        } else if (hostGlesMajor == MOBILEGLUES_MIN_GLES_MAJOR &&
-            hostGlesMinor < MOBILEGLUES_PREFERRED_GLES_MINOR
-        ) {
-            warnings += "OpenGL ES $hostGlesMajor.$hostGlesMinor meets the minimum; MobileGlues works best with ES 3.2."
+        if (selectedProvider == RendererProvider.MOBILE_GLUES) {
+            if (hostGlesMajor < MOBILEGLUES_MIN_GLES_MAJOR ||
+                (hostGlesMajor == MOBILEGLUES_MIN_GLES_MAJOR &&
+                    hostGlesMinor < MOBILEGLUES_MIN_GLES_MINOR)
+            ) {
+                blockers += "MobileGlues $MOBILEGLUES_TARGET_VERSION requires a host OpenGL ES 3.0 or newer backend."
+            } else if (hostGlesMajor == MOBILEGLUES_MIN_GLES_MAJOR &&
+                hostGlesMinor < MOBILEGLUES_PREFERRED_GLES_MINOR
+            ) {
+                warnings += "OpenGL ES $hostGlesMajor.$hostGlesMinor meets the minimum; MobileGlues works best with ES 3.2."
+            }
         }
 
         modules.filterValues { it.size > 1 }.forEach { (module, versions) ->
