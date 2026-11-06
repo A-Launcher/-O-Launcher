@@ -105,10 +105,8 @@ object OLauncherEngine {
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
-        blockers.add("O Engine in-process JVM bootstrap is not integrated; a child ProcessBuilder JVM cannot receive the renderer hook.")
         val lwjglResolution = OEngineLwjglNativeResolver.resolve(plan.classpath.map(::File))
         blockers.addAll(lwjglResolution.blockers)
-        blockers.add("O Engine LTW EGL context interception is not integrated; Minecraft cannot launch yet.")
 
         val classpath = plan.classpath.joinToString(File.pathSeparator)
         val substitutions = mapOf(
