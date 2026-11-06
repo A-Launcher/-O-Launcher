@@ -86,3 +86,14 @@ O Engine adaptation:
 - Do not mark the renderer ready until the exact LWJGL version used by the selected Minecraft version resolves the alias, and EGL create/make-current/destroy plus GL function lookup are verified on a physical device.
 
 This source inspection resolves the previously unknown LWJGL alias/handle handoff. It does not by itself prove O Engine's current native hook is wired with the same timing or that LTW renders Minecraft on a device.
+
+
+### O Engine staged LTW startup implementation
+
+The game-process renderer sequence is now split to match MojoLauncher's observed ordering:
+
+- `MSG_PREPARE_RENDERER` validates the private renderer path, applies optional `LIBGL_EGL` / `LIBGL_GLES` overrides, and loads/retains the renderer before `JNI_CreateJavaVM`.
+- `MSG_INSTALL_RENDERER_HOOK` runs only after HotSpot is created and registers the LWJGL `DynamicLinkLoader.ndlopen(long,int)` replacement using the retained renderer handle.
+- `OEngineJvmBootstrapPlanner.prepare(..., rendererLibraryAlias = "libGLMojo.so")` can add the corresponding `-Dorg.lwjgl.opengl.libname=libGLMojo.so` JVM property before VM creation. The alias is validated as a shared-library filename.
+
+This is now a staged infrastructure path, not yet a complete game launch. The caller still needs to invoke renderer preparation before JVM creation, pass the matching alias into the JVM plan, install the hook after VM creation but before loading Minecraft classes, and then prove the selected LWJGL binary uses the expected native method. CI compilation and physical-device graphics validation are separate gates.
