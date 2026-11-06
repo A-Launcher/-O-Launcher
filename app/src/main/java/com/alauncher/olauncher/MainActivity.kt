@@ -539,18 +539,18 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
             Surface(
                 onClick = { onTab(index) },
                 color = if (selected) Color(0xFFFFE5A5) else Color.Transparent,
-                shape = RoundedCornerShape(17.dp),
-                shadowElevation = if (selected) 2.dp else 0.dp,
+                shape = RoundedCornerShape(19.dp),
+                shadowElevation = if (selected) 5.dp else 0.dp,
                 border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD979)) else null,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
             ) {
                 Column(
-                    Modifier.padding(vertical = 9.dp),
+                    Modifier.padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (index == 0) {
                         // Home is drawn natively so its silhouette matches the reference navigation set.
-                        Icon(Icons.Filled.Home, contentDescription = label, tint = Ink, modifier = Modifier.size(25.dp))
+                        Icon(Icons.Filled.Home, contentDescription = label, tint = Ink, modifier = Modifier.size(32.dp))
                     } else {
                         val sidebarIcon = when (index) {
                             1 -> images.installations
@@ -559,10 +559,10 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                             4 -> images.settings
                             else -> images.about
                         }
-                        Image(sidebarIcon, contentDescription = label, modifier = Modifier.size(25.dp), contentScale = ContentScale.Fit)
+                        Image(sidebarIcon, contentDescription = label, modifier = Modifier.size(38.dp), contentScale = ContentScale.Crop)
                     }
                     Spacer(Modifier.height(3.dp))
-                    Text(label, fontSize = 9.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.35).sp)
+                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.35).sp)
                 }
             }
         }
@@ -662,7 +662,7 @@ private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit)
     fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
     PanelCard("Quick Links", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
+            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.height(68.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
             QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
             QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
         }
@@ -679,19 +679,19 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
     Surface(
         onClick = onClick,
         modifier = modifier,
-        color = Color(0xFFFFF0DA),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .72f)),
-        shadowElevation = 2.dp
+        color = Color(0xFFFFF1DC),
+        shape = RoundedCornerShape(18.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5C5)),
+        shadowElevation = 4.dp
     ) {
         Column(
-            Modifier.fillMaxSize().padding(vertical = 5.dp),
+            Modifier.fillMaxSize().padding(vertical = 7.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.height(3.dp))
-            Text(label, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(4.dp))
+            Text(label, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
