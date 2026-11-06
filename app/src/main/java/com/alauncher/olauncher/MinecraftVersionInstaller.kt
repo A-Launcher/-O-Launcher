@@ -52,6 +52,12 @@ object MinecraftVersionInstaller {
         File(versionDirectory, "${version.id}.json").writeText(metadataText)
         val target = File(versionDirectory, "${version.id}.jar")
         val temporary = File(versionDirectory, "${version.id}.jar.part")
+        if (target.isFile && target.length() > 0L &&
+            (expectedSize <= 0L || target.length() == expectedSize) &&
+            (expectedSha1.isBlank() || sha1(target).equals(expectedSha1, ignoreCase = true))
+        ) {
+            return@withContext ClientDownloadResult(version.id, target, target.length())
+        }
         if (temporary.exists()) temporary.delete()
 
         val connection = (URL(downloadUrl).openConnection() as HttpURLConnection).apply {
