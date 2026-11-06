@@ -120,8 +120,13 @@ object OEngineLwjglNativeResolver {
         when (surface) {
             OEngineLwjglLoaderSurface.LEGACY_LWJGL2 ->
                 blockers += "LWJGL 2 uses a legacy native-loading path; no verified O Engine Android interception adapter exists."
-            OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX ->
-                blockers += "Upstream LWJGL 3 Linux DynamicLinkLoader was found, but its native interception adapter is not implemented."
+            OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
+                if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
+                    blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
+                } else {
+                    warnings += "O Engine can register its retained-renderer ndlopen hook after HotSpot creation and before Minecraft main."
+                }
+            }
             OEngineLwjglLoaderSurface.UNKNOWN ->
                 blockers += "The LWJGL native-loader surface is unknown and cannot be safely intercepted."
         }
