@@ -11,6 +11,7 @@ import android.os.Messenger
 import android.os.RemoteException
 import android.os.IBinder
 import java.util.concurrent.atomic.AtomicBoolean
+import java.io.File
 
 /** Result of the isolated game-process IPC handshake. */
 data class OEngineGameProcessStatus(
@@ -26,12 +27,15 @@ data class OEngineGameProcessStatus(
  */
 class OEngineGameProcessClient(
     context: Context,
-    private val onStatus: (Result<OEngineGameProcessStatus>) -> Unit
+    private val onStatus: (Result<OEngineGameProcessStatus>) -> Unit,
+    private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
     private val connectStarted = AtomicBoolean(false)
     private val responseDelivered = AtomicBoolean(false)
+    private val probeResponseDelivered = AtomicBoolean(false)
+    private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
         report(Result.failure(IllegalStateException("The isolated game process did not answer its health check within 5 seconds.")))
@@ -45,28 +49,41 @@ class OEngineGameProcessClient(
         }
     }
     private val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
-        if (message.what == OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT) {
-            val data = message.data
-            val status = OEngineGameProcessStatus(
-                ready = data.getBoolean(OEngineGameProcessService.KEY_READY),
-                pid = data.getInt(OEngineGameProcessService.KEY_PID),
-                processName = data.getString(OEngineGameProcessService.KEY_PROCESS).orEmpty(),
-                phase = data.getString(OEngineGameProcessService.KEY_PHASE).orEmpty()
-            )
-            report(Result.success(status))
-            true
-        } else {
-            false
+        when (message.what) {
+            OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
+                val data = message.data
+                val status = OEngineGameProcessStatus(
+                    ready = data.getBoolean(OEngineGameProcessService.KEY_READY),
+                    pid = data.getInt(OEngineGameProcessService.KEY_PID),
+                    processName = data.getString(OEngineGameProcessService.KEY_PROCESS).orEmpty(),
+                    phase = data.getString(OEngineGameProcessService.KEY_PHASE).orEmpty()
+                )
+                report(Result.success(status))
+                true
+            }
+            OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
+                if (probeResponseDelivered.compareAndSet(false, true)) {
+                    val data = message.data
+                    onJvmProbe(Result.success(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    )))
+                }
+                true
+            }
+            else -> false
         }
     })
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             if (closed.get()) return
+            serviceMessenger = Messenger(binder)
             val request = Message.obtain(null, OEngineGameProcessService.MSG_HEALTH_CHECK).apply {
                 replyTo = replyMessenger
             }
             try {
-                Messenger(binder).send(request)
+                serviceMessenger?.send(request)
             } catch (error: RemoteException) {
                 report(Result.failure(error))
                 close()
@@ -88,6 +105,27 @@ class OEngineGameProcessClient(
         }
     }
 
+    fun probeJvmLibrary(runtimeHome: File, workingDirectory: File, jvmLibrary: File): Boolean {
+        if (closed.get() || serviceMessenger == null) {
+            onJvmProbe(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
+            return false
+        }
+        probeResponseDelivered.set(false)
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY).apply {
+            data.putString(OEngineGameProcessService.KEY_RUNTIME_HOME, runtimeHome.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_WORKING_DIRECTORY, workingDirectory.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_JVM_LIBRARY, jvmLibrary.canonicalPath)
+            replyTo = replyMessenger
+        }
+        return try {
+            serviceMessenger?.send(request)
+            true
+        } catch (error: RemoteException) {
+            onJvmProbe(Result.failure(error))
+            false
+        }
+    }
+
     fun connect(): Boolean {
         check(!closed.get()) { "This game-process client has already been closed." }
         check(connectStarted.compareAndSet(false, true)) { "This game-process client has already started binding." }
@@ -106,6 +144,7 @@ class OEngineGameProcessClient(
     override fun close() {
         if (closed.compareAndSet(false, true)) {
             timeoutHandler.removeCallbacks(timeoutRunnable)
+            serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
     }
