@@ -132,14 +132,12 @@ object MinecraftVersionInstaller {
             val file: File,
             val sha1: String,
             val size: Long,
-            val label: String,
-            val nativeExcludes: List<String> = emptyList()
+            val label: String
         )
         val tasks = mutableListOf<Task>()
         val librariesDirectory = File(gameDirectory, "libraries")
         var libraryCount = 0
         var nativeArchiveCount = 0
-        val nativeArchives = mutableListOf<Pair<File, List<String>>>()
 
         if (libraries != null) {
             for (i in 0 until libraries.length()) {
@@ -177,13 +175,8 @@ object MinecraftVersionInstaller {
                         if (nativePath.isNotBlank() && nativeUrl.isNotBlank()) {
                             val nativeTarget = File(librariesDirectory, nativePath).canonicalFile
                             if (nativeTarget.toPath().startsWith(librariesDirectory.canonicalFile.toPath())) {
-                                val excludes = library.optJSONObject("extract")?.optJSONArray("exclude")
-                                val excluded = buildList {
-                                    if (excludes != null) for (x in 0 until excludes.length()) add(excludes.optString(x))
-                                }
                                 tasks.add(Task(nativeUrl, nativeTarget, classifier.optString("sha1"),
-                                    classifier.optLong("size", -1L), "Native library archive: " + library.optString("name"), excluded))
-                                nativeArchives.add(nativeTarget to excluded)
+                                    classifier.optLong("size", -1L), "Native library archive: " + library.optString("name")))
                                 nativeArchiveCount++
                             }
                         }
@@ -254,7 +247,7 @@ object MinecraftVersionInstaller {
             createVirtual = assetIndexMetadata.optBoolean("virtual", false),
             mapToResources = assetIndexMetadata.optBoolean("map_to_resources", false)
         )
-        DependencyInstallResult(libraryCount, assetCount, mappedAssets, completedBytes)
+        DependencyInstallResult(libraryCount, assetCount, mappedAssets, nativeArchiveCount, 0, completedBytes)
     }
 
     private fun materializeLegacyAssetMappings(
