@@ -1244,7 +1244,7 @@ private fun AccountDestination(images: LauncherImages) {
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
     val recoveredMicrosoftToken = remember { MicrosoftTokenVault.load(context) }
-    val hasRecoveredMicrosoftAccount = recoveredMicrosoftToken != null
+    var hasRecoveredMicrosoftAccount by remember { mutableStateOf(recoveredMicrosoftToken != null) }
     var playerName by remember { mutableStateOf(
         if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_name", "Saved Microsoft account") ?: "Saved Microsoft account"
         else prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
@@ -1324,8 +1324,8 @@ private fun AccountDestination(images: LauncherImages) {
                     }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(12.dp)) {
                         Text(if (busy) "WAITING FOR MICROSOFT…" else "SIGN IN WITH MICROSOFT", fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
-                    if (signedIn) OutlinedButton(onClick = {
-                        MicrosoftTokenVault.clear(context); signedIn = false
+                    if (signedIn || hasRecoveredMicrosoftAccount) OutlinedButton(onClick = {
+                        MicrosoftTokenVault.clear(context); signedIn = false; hasRecoveredMicrosoftAccount = false
                         prefs.edit().remove("microsoft_name").remove("microsoft_uuid").apply()
                         playerName = "Not signed in"; playerUuid = ""; isOffline = false
                         status = "Microsoft account disconnected."
