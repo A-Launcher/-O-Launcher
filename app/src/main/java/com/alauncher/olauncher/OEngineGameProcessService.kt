@@ -44,6 +44,19 @@ class OEngineGameProcessService : Service() {
                         val rendererRoot = File(message.data.getString(KEY_RENDERER_ROOT).orEmpty())
                         val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
                         val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
+                        val eglPath = message.data.getString(KEY_RENDERER_EGL).orEmpty()
+                        val glesPath = message.data.getString(KEY_RENDERER_GLES).orEmpty()
+                        fun applyDriverOverride(key: String, value: String) {
+                            if (value.isBlank()) return
+                            require(value == "libEGL.so" && key == "LIBGL_EGL" ||
+                                value == "libGLESv2.so" && key == "LIBGL_GLES" ||
+                                (File(value).isAbsolute && File(value).isFile && File(value).length() > 0L)) {
+                                "Invalid $key renderer driver override."
+                            }
+                            Os.setenv(key, value, true)
+                        }
+                        applyDriverOverride("LIBGL_EGL", eglPath)
+                        applyDriverOverride("LIBGL_GLES", glesPath)
                         val installed = OEngineJvmNativeBridge.loadRendererAndInstallLwjglHook(
                             rendererFile, rendererRoot, targetClass, alias
                         )
@@ -203,6 +216,8 @@ class OEngineGameProcessService : Service() {
         const val KEY_RENDERER_ROOT = "oengine.renderer_root"
         const val KEY_LWJGL_TARGET_CLASS = "oengine.lwjgl_target_class"
         const val KEY_RENDERER_ALIAS = "oengine.renderer_alias"
+        const val KEY_RENDERER_EGL = "oengine.renderer_egl"
+        const val KEY_RENDERER_GLES = "oengine.renderer_gles"
         const val KEY_RUNTIME_HOME = "oengine.runtime_home"
         const val KEY_WORKING_DIRECTORY = "oengine.working_directory"
         const val KEY_JVM_LIBRARY = "oengine.jvm_library"
