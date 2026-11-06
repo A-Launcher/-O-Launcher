@@ -10,7 +10,6 @@ enum class OEngineLwjglGeneration { LWJGL2, LWJGL3, UNKNOWN }
 enum class OEngineLwjglLoaderSurface {
     LEGACY_LWJGL2,
     UPSTREAM_LWJGL3_LINUX,
-    MOJO_PATCH_MARKER_ONLY,
     UNKNOWN
 }
 
@@ -26,7 +25,7 @@ data class OEngineLwjglResolution(
     val loaderSurface: OEngineLwjglLoaderSurface,
     val coreJar: File?,
     val dynamicLinkLoaderClassPresent: Boolean,
-    val mojoNdlopenMarkerPresent: Boolean,
+    val ndlopenSignaturePresent: Boolean,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -88,7 +87,7 @@ object OEngineLwjglNativeResolver {
         val coreJar = core.singleOrNull()?.jar
         if (core.size > 1) blockers += "The LWJGL core artifact is ambiguous."
         var dynamicLoaderPresent = false
-        var mojoMarkerPresent = false
+        var ndlopenSignaturePresent = false
         if (coreJar != null && coreJar.isFile) {
             try {
                 JarFile(coreJar).use { jar ->
@@ -97,7 +96,7 @@ object OEngineLwjglNativeResolver {
                     if (entry != null) {
                         val bytes = jar.getInputStream(entry).use { it.readBytes() }
                         val constants = bytes.toString(Charsets.ISO_8859_1)
-                        mojoMarkerPresent = constants.contains("ndlopen")
+                        ndlopenSignaturePresent = constants.contains("ndlopen") && constants.contains("(JI)J")
                     }
                 }
             } catch (error: Exception) {
@@ -109,11 +108,13 @@ object OEngineLwjglNativeResolver {
 
         val surface = when {
             generation == OEngineLwjglGeneration.LWJGL2 -> OEngineLwjglLoaderSurface.LEGACY_LWJGL2
-            generation == OEngineLwjglGeneration.LWJGL3 && mojoMarkerPresent ->
-                OEngineLwjglLoaderSurface.MOJO_PATCH_MARKER_ONLY
             generation == OEngineLwjglGeneration.LWJGL3 && dynamicLoaderPresent ->
                 OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX
             else -> OEngineLwjglLoaderSurface.UNKNOWN
+        }
+
+        if (dynamicLoaderPresent && !ndlopenSignaturePresent) {
+            blockers += "LWJGL DynamicLinkLoader is present but the expected ndlopen(long,int) JNI signature was not found."
         }
 
         when (surface) {
@@ -121,8 +122,6 @@ object OEngineLwjglNativeResolver {
                 blockers += "LWJGL 2 uses a legacy native-loading path; no verified O Engine Android interception adapter exists."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX ->
                 blockers += "Upstream LWJGL 3 Linux DynamicLinkLoader was found, but its native interception adapter is not implemented."
-            OEngineLwjglLoaderSurface.MOJO_PATCH_MARKER_ONLY ->
-                blockers += "A Mojo-specific ndlopen marker was found; O Engine will not assume or reuse Mojo's patched LWJGL hook."
             OEngineLwjglLoaderSurface.UNKNOWN ->
                 blockers += "The LWJGL native-loader surface is unknown and cannot be safely intercepted."
         }
@@ -136,7 +135,7 @@ object OEngineLwjglNativeResolver {
             loaderSurface = surface,
             coreJar = coreJar,
             dynamicLinkLoaderClassPresent = dynamicLoaderPresent,
-            mojoNdlopenMarkerPresent = mojoMarkerPresent,
+            ndlopenSignaturePresent = ndlopenSignaturePresent,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )
