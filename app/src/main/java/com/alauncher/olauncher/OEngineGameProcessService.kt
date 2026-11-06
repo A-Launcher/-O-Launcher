@@ -42,12 +42,14 @@ class OEngineGameProcessService : Service() {
                         val workingDirectory = File(message.data.getString(KEY_WORKING_DIRECTORY).orEmpty()).canonicalFile
                         val libraryPath = File(message.data.getString(KEY_JVM_LIBRARY).orEmpty()).canonicalFile
                         val options = message.data.getStringArray(KEY_VM_OPTIONS)?.toList().orEmpty()
+                        val javaMajor = message.data.getInt(KEY_JAVA_MAJOR)
                         require(runtimeHome.isDirectory) { "Selected Java runtime directory is missing." }
                         require(workingDirectory.isDirectory) { "Selected game working directory is missing." }
                         require(libraryPath.name == "libjvm.so" && libraryPath.toPath().startsWith(runtimeHome.toPath())) {
                             "The JVM library must be inside the selected runtime directory."
                         }
                         require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
+                        require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
                         val searchPaths = listOf(
                             File(runtimeHome, "lib"),
@@ -65,7 +67,7 @@ class OEngineGameProcessService : Service() {
                         val probe = OEngineJvmNativeBridge.probeLibrary(libraryPath.absolutePath, runtimeHome)
                         require(probe.successful) { probe.status + ": " + probe.detail }
                         jvmCreationAttempted = true
-                        val result = OEngineJvmNativeBridge.createJvm(options)
+                        val result = OEngineJvmNativeBridge.createJvm(options, javaMajor)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
                         reply.data.putString(KEY_PROBE_DETAIL, result.detail)
@@ -143,6 +145,7 @@ class OEngineGameProcessService : Service() {
         const val MSG_CREATE_JVM = 5
         const val MSG_CREATE_JVM_RESULT = 6
         const val KEY_VM_OPTIONS = "oengine.vm_options"
+        const val KEY_JAVA_MAJOR = "oengine.java_major"
         const val KEY_RUNTIME_HOME = "oengine.runtime_home"
         const val KEY_WORKING_DIRECTORY = "oengine.working_directory"
         const val KEY_JVM_LIBRARY = "oengine.jvm_library"
