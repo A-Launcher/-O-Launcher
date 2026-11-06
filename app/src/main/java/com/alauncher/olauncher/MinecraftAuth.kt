@@ -101,6 +101,23 @@ object MicrosoftTokenVault {
         val packed = cipher.iv + cipher.doFinal(token.toByteArray(Charsets.UTF_8))
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("refresh_token", Base64.encodeToString(packed, Base64.NO_WRAP)).apply()
     }
+    fun load(context: Context): String? {
+        val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("refresh_token", null) ?: return null
+        return try {
+            val packed = Base64.decode(encoded, Base64.NO_WRAP)
+            // Android Keystore AES-GCM uses a 12-byte IV; the remaining bytes are authenticated ciphertext.
+            if (packed.size <= 12) return null
+            val iv = packed.copyOfRange(0, 12)
+            val encrypted = packed.copyOfRange(12, packed.size)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key(), javax.crypto.spec.GCMParameterSpec(128, iv))
+            cipher.doFinal(encrypted).toString(Charsets.UTF_8).takeIf { it.isNotBlank() }
+        } catch (_: Exception) {
+            // A reset/invalidated Keystore key makes the cached token unusable; never expose ciphertext.
+            clear(context)
+            null
+        }
+    }
     fun clear(context: Context) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply() }
     private fun key(): SecretKey {
         val store = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
