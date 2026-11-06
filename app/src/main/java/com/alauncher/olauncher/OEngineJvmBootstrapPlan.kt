@@ -1,7 +1,6 @@
 package com.alauncher.olauncher
 
 import java.io.File
-import android.os.Build
 
 /** A prepared in-process JVM invocation; preparation never loads libjvm or starts a VM. */
 data class OEngineJvmBootstrapPlan(
@@ -61,7 +60,8 @@ object OEngineJvmBootstrapPlanner {
         workingDirectory: File,
         mainClass: String,
         requestedVmOptions: List<String>,
-        applicationArguments: List<String>
+        applicationArguments: List<String>,
+        androidRelease: String = "unknown"
     ): OEngineJvmBootstrapPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -115,7 +115,7 @@ object OEngineJvmBootstrapPlanner {
                 "-Djava.io.tmpdir" to File(workDir, "tmp").absolutePath,
                 "-Djna.boot.library.path" to nativeDir.absolutePath,
                 "-Dos.name" to "Linux",
-                "-Dos.version" to "Android-" + Build.VERSION.RELEASE,
+                "-Dos.version" to "Android-" + androidRelease,
                 "-Duser.language" to "en",
                 "-Duser.country" to "US",
                 "-Djdk.lang.Process.launchMechanism" to "FORK",
