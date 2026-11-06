@@ -120,3 +120,10 @@ O Engine currently has a Java executable smoke test using `ProcessBuilder`; it d
 A new `OEngineRendererLaunchPlanner` now prepares LTW's pre-JVM configuration: validated LTW artifact and ABI, host GLES version, optional explicit EGL/GLES library paths, `LIBGL_EGL`/`LIBGL_GLES` values, preloading requirement, and explicit blockers until the LWJGL resolver and any required linker-namespace access are verified. It performs no native loads and changes no process environment. JVM unit tests cover missing resolver hooks, GLES 2 rejection, GLES 3.2 readiness, GLES 3.1 warning, explicit driver environment mapping, and external-driver namespace gating.
 
 Next implementation gate: design O Engine's own in-process JVM bootstrap and Android LWJGL native-loader adapter, then prove that the actual Minecraft LWJGL artifacts for each selected version route EGL acquisition through the prepared LTW handle. Do not hardcode MojoLauncher's patched symbol/library names into O Engine or enable LTW until this is demonstrated.
+
+
+## In-process JVM bootstrap planning
+
+O Engine now has `OEngineJvmBootstrapPlanner`, which prepares the arguments and runtime paths for a future JNI Invocation API bridge. It locates `libjvm.so` in known Android JRE layouts, validates the runtime executable/release metadata, classpath files, native directory, working directory and main class, and normalizes launcher-owned JVM properties without discarding user heap or other JVM flags. The resulting plan keeps VM options and Minecraft application arguments separate, matching the JNI_CreateJavaVM boundary.
+
+The launch preview now includes this structural JVM plan when a matching runtime is installed. This is deliberately not a VM launch: the native bridge must still resolve `JNI_CreateJavaVM`, validate the JRE's native dependencies and Android linker visibility, and prove that the selected OpenJDK VM can coexist with the app's Android Runtime. The preview continues to block game launch until that native bootstrap and LWJGL/EGL hooks are implemented.
