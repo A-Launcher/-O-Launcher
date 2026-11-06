@@ -62,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -1209,25 +1210,77 @@ private fun AboutDestination(images: LauncherImages) {
 
 @Composable
 private fun AccountDestination(images: LauncherImages) {
-    var playerName by remember { mutableStateOf("CREEPERFAN") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var playerName by remember { mutableStateOf("Not signed in") }
+    var playerUuid by remember { mutableStateOf("") }
+    var device by remember { mutableStateOf<MicrosoftDeviceCode?>(null) }
+    var status by remember { mutableStateOf("Connect a Microsoft account that owns Minecraft: Java Edition.") }
+    var busy by remember { mutableStateOf(false) }
+    var signedIn by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        DestinationHero(images, "Player account", "Manage the profile shown in your launcher", "YOUR PROFILE")
+        DestinationHero(images, "Player account", "Connect your Microsoft account to O Launcher", "YOUR PROFILE")
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("OFFLINE PROFILE", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+                    Text(if (signedIn) "MICROSOFT ACCOUNT" else "OFFLINE PROFILE", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
                     Text(playerName, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Microsoft account sign-in will be connected with the Minecraft runtime stage.", color = Muted, fontSize = 12.sp)
+                    if (playerUuid.isNotBlank()) Text("UUID: $playerUuid", color = Muted, fontSize = 10.sp)
+                    Text(status, color = Muted, fontSize = 12.sp)
                 }
-                Surface(color = Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
-                    Text("NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Surface(color = if (signedIn) Color(0xFFDDF1D8) else Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
+                    Text(if (signedIn) "CONNECTED" else "NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = if (signedIn) Color(0xFF356B31) else Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
+            }
+        }
+        Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("MICROSOFT SIGN-IN", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("Your password is entered only on Microsoft's website. O Launcher never asks you to type it here.", color = Muted, fontSize = 12.sp)
+                device?.let { pending ->
+                    Text("Open ${pending.verificationUri} and enter this code:", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                        Text(pending.userCode, Modifier.fillMaxWidth().padding(18.dp), color = Ink, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = androidx.compose.ui.text.style.TextAlign.Center, letterSpacing = 3.sp)
+                    }
+                    Text("Keep O Launcher open. It will finish sign-in after you approve the request.", color = Muted, fontSize = 11.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(enabled = !busy && !signedIn, onClick = {
+                        busy = true
+                        status = "Requesting a secure sign-in code…"
+                        scope.launch {
+                            try {
+                                val pending = MinecraftAuth.beginDeviceLogin()
+                                device = pending
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pending.verificationUri)))
+                                status = "Waiting for Microsoft sign-in approval…"
+                                val account = MinecraftAuth.completeDeviceLogin(pending)
+                                MicrosoftTokenVault.save(context, account.refreshToken)
+                                playerName = account.name
+                                playerUuid = account.uuid
+                                signedIn = true
+                                device = null
+                                status = "Minecraft Java profile verified."
+                            } catch (e: Exception) {
+                                status = e.message ?: "Sign-in failed. Please try again."
+                                device = null
+                            } finally { busy = false }
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(12.dp)) {
+                        Text(if (busy) "WAITING FOR MICROSOFT…" else "SIGN IN WITH MICROSOFT", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+                    if (signedIn) OutlinedButton(onClick = {
+                        MicrosoftTokenVault.clear(context); signedIn = false
+                        playerName = "Not signed in"; playerUuid = ""
+                        status = "Account disconnected from this launcher."
+                    }) { Text("SIGN OUT", fontSize = 11.sp) }
+                }
+                Text("Minecraft Java Edition OAuth client", color = Muted, fontSize = 9.sp)
             }
         }
     }
 }
-
 @Composable
 private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
     val categories = listOf("All", "Mods", "Resource Packs", "Data Packs", "Shaders", "Maps", "Worlds", "More")
