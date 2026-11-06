@@ -185,4 +185,35 @@ object AndroidRuntimeInstaller {
         }
     }
 
+
+    /** Reuse an installed runtime or automatically download and extract Android OpenJDK. */
+    suspend fun ensureRuntime(
+        javaMajor: Int,
+        gameDirectory: File,
+        onDownloadProgress: (Long, Long) -> Unit,
+        onStatus: (String) -> Unit
+    ): RuntimeInstallResult = withContext(Dispatchers.IO) {
+        require(javaMajor in supportedJava) {
+            "Java $javaMajor has no supported Android runtime package in the configured source."
+        }
+        val architecture = deviceArchitecture()
+        val runtimeHome = File(File(gameDirectory, "runtimes/installed"), "Java-$javaMajor-$architecture")
+        val release = File(runtimeHome, "release")
+        val java = File(runtimeHome, "bin/java")
+        if (java.isFile && release.isFile) {
+            val major = Regex("""JAVA_VERSION="(?:1\\.)?(\\d+)"""")
+                .find(release.readText())?.groupValues?.get(1)?.toIntOrNull()
+            if (major == javaMajor) {
+                onStatus("Reusing installed Android Java $javaMajor runtime.")
+                return@withContext RuntimeInstallResult(
+                    javaMajor, architecture, runtimeHome, java, "JAVA_VERSION=$javaMajor", 0
+                )
+            }
+        }
+        onStatus("Downloading Android Java $javaMajor automatically…")
+        val archive = downloadRuntime(javaMajor, gameDirectory, onDownloadProgress)
+        onStatus("Installing Android Java $javaMajor…")
+        installRuntime(archive.archive, javaMajor, gameDirectory, onStatus)
+    }
+
 }
