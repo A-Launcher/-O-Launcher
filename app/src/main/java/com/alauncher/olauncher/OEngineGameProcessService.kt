@@ -130,7 +130,7 @@ class OEngineGameProcessService : Service() {
                         }
                         require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
                         check(rendererHandle != 0L) { "LTW must be preloaded before HotSpot creation." }
-                        require(options.contains("-Dorg.lwjgl.opengl.libname=libGLMojo.so")) {
+                        require(options.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
                             "The JVM must use the libGLMojo.so LWJGL alias for the staged LTW renderer."
                         }
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
