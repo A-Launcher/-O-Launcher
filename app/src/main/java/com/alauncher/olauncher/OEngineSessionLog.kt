@@ -2,6 +2,7 @@ package com.alauncher.olauncher
 
 import android.content.Context
 import android.app.ActivityManager
+import android.app.ApplicationExitInfo
 import android.os.Build
 import java.io.File
 import java.io.FileOutputStream
