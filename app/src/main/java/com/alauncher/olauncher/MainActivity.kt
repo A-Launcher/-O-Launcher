@@ -253,13 +253,15 @@ private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
     val localImages = remember(context) {
         val atlas = createArtworkAtlas()
+        val hero = readAssetImage(context, "hero_nether.png")
+            ?: cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY)
         val logo = readAssetImage(context, "minecraft_java_logo.png")
             ?: readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY).asImageBitmap()
         LauncherImages(
-            hero = readAssetImage(context, "hero_nether.png")
-                ?: cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
-            whatsNew = readAssetImage(context, "news_trials.png")
-                ?: cropBitmapSafe(atlas, 0, 329, 257, 110, android.graphics.Color.LTGRAY),
+            hero = hero,
+            // No separate What's New image was included in the uploads; use the supplied Nether
+            // scene rather than incorrectly showing the Tricky Trials card artwork here.
+            whatsNew = hero,
             spring = readAssetImage(context, "news_spring.png")
                 ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
             trials = readAssetImage(context, "news_trials.png")
@@ -271,42 +273,7 @@ private fun rememberLauncherImages(): LauncherImages {
             logo = logo
         )
     }
-    var images by remember(context) { mutableStateOf(localImages) }
-    LaunchedEffect(context) {
-        // Online artwork is only a fallback. User-provided local reference assets always win.
-        val nether = if (readAssetImage(context, "hero_nether.png") == null)
-            fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/nether-header.jpg") else null
-        val trials = if (readAssetImage(context, "news_trials.png") == null)
-            fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/Tricky-Trials_Full-Bleed-A-0_Key-art_786x786_01.jpg") else null
-        val world = if (readAssetImage(context, "news_spring.png") == null)
-            fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/NewKeyArt_Header.jpg") else null
-        images = localImages.copy(
-            hero = localImages.hero.takeIf { readAssetImage(context, "hero_nether.png") != null } ?: nether ?: localImages.hero,
-            whatsNew = localImages.whatsNew.takeIf { readAssetImage(context, "news_trials.png") != null } ?: trials ?: localImages.whatsNew,
-            trials = localImages.trials.takeIf { readAssetImage(context, "news_trials.png") != null } ?: trials ?: localImages.trials,
-            spring = localImages.spring.takeIf { readAssetImage(context, "news_spring.png") != null } ?: world ?: localImages.spring
-        )
-    }
-    return images
-}
-
-class MainActivity : ComponentActivity() {
-    @Suppress("DEPRECATION")
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_FULLSCREEN or
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-            View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-        )
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        setContent { OLauncherApp() }
-    }
+    return localImages
 }
 
 @Composable
@@ -543,7 +510,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 @Composable
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
-        Image(images.hero, contentDescription = "Minecraft featured banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Image(images.hero, contentDescription = "Minecraft featured banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.TopCenter)
         Box(
             Modifier.align(Alignment.CenterStart)
                 .fillMaxHeight()
