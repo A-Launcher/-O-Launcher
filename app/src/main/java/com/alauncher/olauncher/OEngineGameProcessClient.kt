@@ -49,11 +49,17 @@ class OEngineGameProcessClient(
     private val mainResponseDelivered = AtomicBoolean(false)
     private val mainRunningDelivered = AtomicBoolean(false)
     private val mainInvocationAttempted = AtomicBoolean(false)
+    private val probeRequestPending = AtomicBoolean(false)
+    private val createRequestPending = AtomicBoolean(false)
+    private val rendererPreloadRequestPending = AtomicBoolean(false)
+    private val rendererHookRequestPending = AtomicBoolean(false)
+    private val mainRequestPending = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val mainStartTimeoutRunnable = Runnable {
         if (mainStartedDelivered.compareAndSet(false, true)) {
             mainResponseDelivered.set(true)
+            mainRequestPending.set(false)
             onJvmMain(Result.failure(IllegalStateException("The game process did not dispatch Minecraft main within 30 seconds.")))
         }
     }
@@ -69,6 +75,7 @@ class OEngineGameProcessClient(
     }
     private val mainExecutionTimeoutRunnable = Runnable {
         if (mainStartedDelivered.get() && mainResponseDelivered.compareAndSet(false, true)) {
+            mainRequestPending.set(false)
             onJvmMain(Result.failure(IllegalStateException(
                 "Minecraft main did not return within 10 minutes. The game process may be stalled; it was not force-stopped."
             )))
@@ -80,12 +87,40 @@ class OEngineGameProcessClient(
     }
     private val probeTimeoutRunnable = Runnable {
         if (probeResponseDelivered.compareAndSet(false, true)) {
+            probeRequestPending.set(false)
             onJvmProbe(Result.failure(IllegalStateException("The isolated game process did not finish the JVM linker probe within 15 seconds.")))
         }
     }
     private val createTimeoutRunnable = Runnable {
         if (createResponseDelivered.compareAndSet(false, true)) {
+            createRequestPending.set(false)
             onJvmCreate(Result.failure(IllegalStateException("The isolated game process did not finish JVM creation within 60 seconds.")))
+        }
+    }
+
+    private fun failPendingOperations(error: Throwable) {
+        if (probeRequestPending.compareAndSet(true, false) && probeResponseDelivered.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(probeTimeoutRunnable)
+            onJvmProbe(Result.failure(IllegalStateException("Game process disconnected during JVM linker probe.", error)))
+        }
+        if (createRequestPending.compareAndSet(true, false) && createResponseDelivered.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(createTimeoutRunnable)
+            onJvmCreate(Result.failure(IllegalStateException("Game process disconnected during JVM creation.", error)))
+        }
+        if (rendererPreloadRequestPending.compareAndSet(true, false) && rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
+            onRendererPreload(Result.failure(IllegalStateException("Game process disconnected during renderer preload.", error)))
+        }
+        if (rendererHookRequestPending.compareAndSet(true, false) && rendererResponseDelivered.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
+            onRendererHook(Result.failure(IllegalStateException("Game process disconnected during renderer hook installation.", error)))
+        }
+        if (mainRequestPending.compareAndSet(true, false) && mainResponseDelivered.compareAndSet(false, true)) {
+            mainStartedDelivered.set(true)
+            timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+            timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+            timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
+            onJvmMain(Result.failure(IllegalStateException("Game process disconnected during Minecraft main invocation.", error)))
         }
     }
 
@@ -97,11 +132,13 @@ class OEngineGameProcessClient(
     }
     private val rendererPreloadTimeoutRunnable = Runnable {
         if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+            rendererPreloadRequestPending.set(false)
             onRendererPreload(Result.failure(IllegalStateException("The isolated game process did not finish LTW preload within 30 seconds.")))
         }
     }
     private val rendererTimeoutRunnable = Runnable {
         if (rendererResponseDelivered.compareAndSet(false, true)) {
+            rendererHookRequestPending.set(false)
             onRendererHook(Result.failure(IllegalStateException("The isolated game process did not finish renderer hook installation within 30 seconds.")))
         }
     }
@@ -120,6 +157,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_CREATE_JVM_RESULT -> {
                 if (createResponseDelivered.compareAndSet(false, true)) {
+                    createRequestPending.set(false)
                     timeoutHandler.removeCallbacks(createTimeoutRunnable)
                     val data = message.data
                     onJvmCreate(Result.success(OEngineJvmLibraryProbe(
@@ -132,6 +170,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_PREPARE_RENDERER_RESULT -> {
                 if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+                    rendererPreloadRequestPending.set(false)
                     timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
                     val data = message.data
                     onRendererPreload(Result.success(OEngineJvmLibraryProbe(
@@ -144,6 +183,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_INSTALL_RENDERER_HOOK_RESULT -> {
                 if (rendererResponseDelivered.compareAndSet(false, true)) {
+                    rendererHookRequestPending.set(false)
                     timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
                     val data = message.data
                     onRendererHook(Result.success(OEngineJvmLibraryProbe(
@@ -170,6 +210,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_INVOKE_MAIN_RESULT -> {
                 if (mainResponseDelivered.compareAndSet(false, true)) {
+                    mainRequestPending.set(false)
                     mainStartedDelivered.set(true)
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
                     timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
@@ -185,6 +226,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
                 if (probeResponseDelivered.compareAndSet(false, true)) {
+                    probeRequestPending.set(false)
                     timeoutHandler.removeCallbacks(probeTimeoutRunnable)
                     val data = message.data
                     onJvmProbe(Result.success(OEngineJvmLibraryProbe(
@@ -217,28 +259,20 @@ class OEngineGameProcessClient(
         override fun onServiceDisconnected(name: ComponentName) {
             OEngineSessionLog.append(appContext, "IPC_DISCONNECTED", "Android reported isolated game-process disconnection")
             if (!closed.get()) {
-                report(Result.failure(IllegalStateException("The isolated game process disconnected.")))
-                if (mainResponseDelivered.compareAndSet(false, true)) {
-                    mainStartedDelivered.set(true)
-                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
-                    timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
-                    timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
-                    onJvmMain(Result.failure(IllegalStateException("The isolated game process disconnected during Minecraft main invocation.")))
-                }
+                val error = IllegalStateException("The isolated game process disconnected.")
+                report(Result.failure(error))
+                failPendingOperations(error)
+                serviceMessenger = null
             }
         }
 
         override fun onBindingDied(name: ComponentName) {
             OEngineSessionLog.append(appContext, "IPC_BINDING_DIED", "Android reported game-process binding death")
             if (!closed.get()) {
-                report(Result.failure(IllegalStateException("The isolated game-process binding died.")))
-                if (mainResponseDelivered.compareAndSet(false, true)) {
-                    mainStartedDelivered.set(true)
-                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
-                    timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
-                    timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
-                    onJvmMain(Result.failure(IllegalStateException("The game-process binding died during Minecraft main invocation.")))
-                }
+                val error = IllegalStateException("The isolated game-process binding died.")
+                report(Result.failure(error))
+                failPendingOperations(error)
+                serviceMessenger = null
             }
             close()
         }
@@ -256,6 +290,7 @@ class OEngineGameProcessClient(
             return false
         }
         probeResponseDelivered.set(false)
+        probeRequestPending.set(true)
         timeoutHandler.postDelayed(probeTimeoutRunnable, 15_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY).apply {
             data.putString(OEngineGameProcessService.KEY_RUNTIME_HOME, runtimeHome.canonicalPath)
@@ -268,6 +303,7 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
+            probeRequestPending.set(false)
             if (probeResponseDelivered.compareAndSet(false, true)) {
                 onJvmProbe(Result.failure(error))
             }
@@ -281,6 +317,7 @@ class OEngineGameProcessClient(
             return false
         }
         createResponseDelivered.set(false)
+        createRequestPending.set(true)
         timeoutHandler.postDelayed(createTimeoutRunnable, 60_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_CREATE_JVM).apply {
             data.putString(OEngineGameProcessService.KEY_RUNTIME_HOME, runtimeHome.canonicalPath)
@@ -295,6 +332,7 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
+            createRequestPending.set(false)
             if (createResponseDelivered.compareAndSet(false, true)) onJvmCreate(Result.failure(error))
             false
         }
@@ -313,6 +351,7 @@ class OEngineGameProcessClient(
             return false
         }
         rendererPreloadResponseDelivered.set(false)
+        rendererPreloadRequestPending.set(true)
         timeoutHandler.postDelayed(rendererPreloadTimeoutRunnable, 30_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_PREPARE_RENDERER).apply {
             data.putString(OEngineGameProcessService.KEY_RENDERER_FILE, rendererFile.canonicalPath)
@@ -326,6 +365,7 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
+            rendererPreloadRequestPending.set(false)
             if (rendererPreloadResponseDelivered.compareAndSet(false, true)) onRendererPreload(Result.failure(error))
             false
         }
@@ -345,6 +385,7 @@ class OEngineGameProcessClient(
             return false
         }
         rendererResponseDelivered.set(false)
+        rendererHookRequestPending.set(true)
         timeoutHandler.postDelayed(rendererTimeoutRunnable, 30_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_INSTALL_RENDERER_HOOK).apply {
             data.putString(OEngineGameProcessService.KEY_RENDERER_FILE, rendererFile.canonicalPath)
@@ -360,6 +401,7 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
+            rendererHookRequestPending.set(false)
             if (rendererResponseDelivered.compareAndSet(false, true)) onRendererHook(Result.failure(error))
             false
         }
@@ -370,6 +412,7 @@ class OEngineGameProcessClient(
         if (closed.get() || !mainInvocationAttempted.compareAndSet(false, true)) return false
         mainStartedDelivered.set(false)
         mainResponseDelivered.set(false)
+        mainRequestPending.set(true)
         mainRunningDelivered.set(false)
         timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
         timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
@@ -390,6 +433,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
             timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
+            mainRequestPending.set(false)
             if (mainStartedDelivered.compareAndSet(false, true) && mainResponseDelivered.compareAndSet(false, true)) {
                 onJvmMain(Result.failure(error))
             }
