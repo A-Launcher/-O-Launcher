@@ -40,13 +40,13 @@ This document records the pinned upstream reference reviewed for O Engine integr
 3. Do not copy MojoLauncher UI, app architecture, account system, or tightly coupled Java classes into O Launcher.
 4. Do not import prebuilt APKs, signing keys, runtime binaries, or opaque native blobs.
 5. Pin every integrated component to an immutable commit/release and record checksums for binary artifacts.
-6. Before enabling VM creation, verify Android API level, ABI, JDK major, dependent shared libraries, linker namespace behavior, signal handling, exit/abort behavior, and clean shutdown on physical devices.
+6. Before enabling full Minecraft launch, verify Android API level, ABI, JDK major, dependent shared libraries, linker namespace behavior, signal handling, exit/abort behavior, and clean shutdown on physical devices.
 7. Keep the current Rust O Engine bridge as the owner of O Engine's public native API. Any upstream LGPL native runtime must sit behind a narrow adapter boundary.
 
 ## Immediate implementation order
 
-1. Complete and test the isolated `:game` process IPC foundation.
-2. Integrate or adapt the smallest required JVM bootstrap component, including the ELF dependency preloader and version-specific native-library hooks.
-3. Add a tiny Java-main acceptance test before Minecraft classes or renderers are loaded.
-4. Integrate Android GLFW/SDL/native rendering dependencies only after the VM test is stable.
+1. Complete and test the isolated `:game` process IPC foundation. (Implemented; device verification remains.)
+2. Add the isolated JNI VM-creation smoke test and a tiny Java-main acceptance test before Minecraft classes or renderers are loaded. (Implemented in code; device verification remains.)
+3. Integrate the Android ELF dependency preloader and version-specific native-library hooks, reusing the pinned MojoLauncher LGPL component where appropriate.
+4. Integrate Android GLFW/SDL/native rendering dependencies only after the VM test and native-library path are stable.
 5. Connect the existing O Engine Rust LWJGL hook to the real game class loader and renderer handle lifecycle.
