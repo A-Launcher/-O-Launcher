@@ -23,6 +23,8 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeCreateJvm(vmOptions: Array<String>, javaMajor: Int): String
 
+    private external fun nativeInvokeMain(mainClass: String, arguments: Array<String>): String
+
     private external fun nativeInstallLwjglHook(targetClass: Class<*>, selectedAlias: String, rendererHandle: Long): Boolean
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
@@ -49,6 +51,19 @@ object OEngineJvmNativeBridge {
             successful = status.startsWith("vm_created"),
             status = status,
             detail = detail
+        )
+    }
+
+    internal fun invokeMain(mainClass: String, arguments: List<String>): OEngineJvmLibraryProbe {
+        check(nativeLoaded) { "O Engine native bridge is not loaded." }
+        require(mainClass.isNotBlank() && mainClass.length <= 512) { "Minecraft main class is invalid." }
+        require(arguments.size <= 16_384) { "Minecraft argument count exceeds the safety limit." }
+        val response = nativeInvokeMain(mainClass, arguments.toTypedArray())
+        val status = response.substringBefore(':')
+        return OEngineJvmLibraryProbe(
+            successful = status == "main_returned",
+            status = status,
+            detail = response.substringAfter(':', "")
         )
     }
 
