@@ -1734,7 +1734,10 @@ private fun InstallationsDestination(images: LauncherImages) {
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
-    var runtimeStatus by remember { mutableStateOf("Android Java runtime has not been downloaded.") }
+    var runtimeStatus by remember { mutableStateOf("Android Java runtime will be installed automatically when preparing a version.") }
+    var instanceNameDraft by remember { mutableStateOf("") }
+    var activeInstance by remember { mutableStateOf(OEngineInstanceManager.active(context)) }
+    var instances by remember { mutableStateOf(OEngineInstanceManager.list(context)) }
 
     LaunchedEffect(Unit) {
         try {
@@ -1764,6 +1767,53 @@ private fun InstallationsDestination(images: LauncherImages) {
                     }
                     Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(12.dp)) {
                         Text("JAVA EDITION", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Surface(color = Color(0xFFEAF0F4), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("GAME INSTANCE", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text(activeInstance.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        var instanceMenu by remember { mutableStateOf(false) }
+                        Box {
+                            Button(onClick = { instanceMenu = true }, colors = ButtonDefaults.buttonColors(containerColor = Ink)) {
+                                Text("SWITCH INSTANCE")
+                            }
+                            DropdownMenu(expanded = instanceMenu, onDismissRequest = { instanceMenu = false }) {
+                                instances.forEach { item ->
+                                    DropdownMenuItem(text = { Text(item.name) }, onClick = {
+                                        activeInstance = OEngineInstanceManager.select(context, item.id)
+                                        instanceMenu = false
+                                        preparedLaunchPlan = null
+                                        launchPlanStatus = "Selected instance: ${item.name}. Install the selected version in this instance."
+                                    })
+                                }
+                            }
+                        }
+                        BasicTextField(
+                            value = instanceNameDraft,
+                            onValueChange = { instanceNameDraft = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(10.dp),
+                            decorationBox = { inner ->
+                                if (instanceNameDraft.isEmpty()) Text("New instance name (e.g. Survival / Modpack)", color = Muted)
+                                inner()
+                            }
+                        )
+                        Button(onClick = {
+                            try {
+                                val created = OEngineInstanceManager.create(context, instanceNameDraft)
+                                instances = OEngineInstanceManager.list(context)
+                                activeInstance = OEngineInstanceManager.select(context, created.id)
+                                instanceNameDraft = ""
+                                preparedLaunchPlan = null
+                                launchPlanStatus = "Created isolated instance: ${created.name}"
+                            } catch (error: Exception) {
+                                launchPlanStatus = error.message ?: "Could not create instance."
+                            }
+                        }, enabled = instanceNameDraft.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF557F9E))) {
+                            Text("CREATE INSTANCE")
+                        }
+                        Text("Each instance has its own versions, libraries, assets, saves and configuration.", color = Muted, fontSize = 11.sp)
                     }
                 }
                 Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
@@ -1807,7 +1857,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     downloadStatus = "Preparing Minecraft ${release.id}…"
                                     scope.launch {
                                         try {
-                                            val result = MinecraftVersionInstaller.downloadClient(release, File(context.filesDir, "minecraft")) { done, total ->
+                                            val result = MinecraftVersionInstaller.downloadClient(release, activeInstance.root) { done, total ->
                                                 downloadBytes = done
                                                 downloadTotal = total
                                             }
@@ -1850,7 +1900,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     scope.launch {
                                         try {
                                             val result = MinecraftVersionInstaller.downloadLibrariesAndAssets(
-                                                release, File(context.filesDir, "minecraft")
+                                                release, activeInstance.root
                                             ) { done, total, label ->
                                                 dependencyBytes = done
                                                 dependencyTotal = total
@@ -1891,14 +1941,24 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 scope.launch {
                                     try {
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
-                                            release, File(context.filesDir, "minecraft")
+                                            release, activeInstance.root
                                         )
                                         preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
-                                        launchPlanStatus = "Prepared ${plan.version}: Java target ${plan.targetJavaMajor} • Android runtime Java ${plan.javaMajorVersion} • ${plan.javaCompatibilityNote} • ${plan.mainClass} • ${plan.classpath.size} classpath entries. Graphics bridge is still required."
+                                        installingRuntime = true
+                                        launchPlanStatus = "Prepared ${plan.version}. Checking and installing Android Java ${plan.javaMajorVersion} automatically…"
+                                        val runtime = AndroidRuntimeInstaller.ensureRuntime(
+                                            plan.javaMajorVersion,
+                                            activeInstance.root,
+                                            { received, total -> runtimeBytes = received; runtimeTotal = total },
+                                            { status -> runtimeStatus = status }
+                                        )
+                                        installedRuntimeStatus = "Ready: Android Java ${runtime.javaMajor} (${runtime.architecture})"
+                                        launchPlanStatus = "Prepared ${plan.version}: Java target ${plan.targetJavaMajor} • installed Android Java ${runtime.javaMajor} • ${plan.javaCompatibilityNote} • ${plan.mainClass} • ${plan.classpath.size} classpath entries. Renderer integration is still required."
                                     } catch (error: Exception) {
                                         launchPlanStatus = error.message ?: "Could not prepare launch configuration."
                                     } finally {
+                                        installingRuntime = false
                                         preparingLaunchPlan = false
                                     }
                                 }
@@ -1914,7 +1974,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             onClick = {
                                 val plan = preparedLaunchPlan ?: return@Button
                                 val preview = OLauncherEngine.prepareCommandPreview(
-                                    File(context.filesDir, "minecraft"), plan
+                                    activeInstance.root, plan
                                 )
                                 commandPreviewStatus = buildString {
                                     append("O ENGINE COMMAND PREVIEW • ")
@@ -1941,7 +2001,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     try {
                                         val result = AndroidRuntimeInstaller.downloadRuntime(
                                             requiredJavaMajor,
-                                            File(context.filesDir, "minecraft")
+                                            activeInstance.root
                                         ) { received, total ->
                                             runtimeBytes = received
                                             runtimeTotal = total
@@ -1981,7 +2041,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         val result = AndroidRuntimeInstaller.installRuntime(
                                             archive,
                                             requiredJavaMajor,
-                                            File(context.filesDir, "minecraft")
+                                            activeInstance.root
                                         ) { status -> installedRuntimeStatus = status }
                                         installedRuntimeStatus = "Java " + result.javaMajor + " extracted to " + result.runtimeHome.name + " • " + result.filesExtracted + " files. Executable: " + result.javaExecutable.canExecute()
                                     } catch (error: Exception) {
@@ -2004,7 +2064,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 runtimeProbeStatus = "O Engine is starting Java and checking the runtime…"
                                 scope.launch {
                                     try {
-                                        val result = OLauncherEngine.probeRuntime(File(context.filesDir, "minecraft"), requiredJavaMajor)
+                                        val result = OLauncherEngine.probeRuntime(activeInstance.root, requiredJavaMajor)
                                         runtimeProbeStatus = if (result.successful) {
                                             "JAVA TEST PASSED • " + result.runtime.name + " • " + result.output.trim().replace("\n", " ")
                                         } else {
@@ -2032,7 +2092,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 scope.launch {
                                     try {
                                         val preview = OLauncherEngine.prepareCommandPreview(
-                                            File(context.filesDir, "minecraft"), plan
+                                            activeInstance.root, plan
                                         )
                                         val bootstrap = preview.jvmBootstrapPlan
                                         if (bootstrap == null) {
