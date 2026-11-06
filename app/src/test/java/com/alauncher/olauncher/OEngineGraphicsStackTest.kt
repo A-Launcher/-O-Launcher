@@ -9,6 +9,22 @@ import org.junit.Test
 
 class OEngineGraphicsStackTest {
     @Test
+    fun ltwRequiresOpenGlesThreeAndUsesRendererEnvironmentDefaults() {
+        assertTrue(OEngineGraphicsStack.ltwCompatibilityBlocker(2)?.contains("OpenGL ES 3") == true)
+        assertEquals(null, OEngineGraphicsStack.ltwCompatibilityBlocker(3))
+        assertEquals(null, OEngineGraphicsStack.ltwCompatibilityBlocker(4))
+        assertEquals(
+            mapOf(
+                "force_glsl_extensions_warn" to "true",
+                "allow_higher_compat_version" to "true",
+                "allow_glsl_extension_directive_midshader" to "true",
+                "LIBGL_NOERROR" to "1"
+            ),
+            OEngineGraphicsStack.ltwEnvironment()
+        )
+    }
+
+    @Test
     fun preservesMinecraftPinnedLwjglVersionAsReferenceOnly() {
         val assessment = OEngineGraphicsStack.assess(
             classpath = listOf("/game/libraries/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar"),
