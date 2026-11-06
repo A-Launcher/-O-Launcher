@@ -97,3 +97,19 @@ The game-process renderer sequence is now split to match MojoLauncher's observed
 - `OEngineJvmBootstrapPlanner.prepare(..., rendererLibraryAlias = "libGLMojo.so")` can add the corresponding `-Dorg.lwjgl.opengl.libname=libGLMojo.so` JVM property before VM creation. The alias is validated as a shared-library filename.
 
 This is now a staged infrastructure path, not yet a complete game launch. The caller still needs to invoke renderer preparation before JVM creation, pass the matching alias into the JVM plan, install the hook after VM creation but before loading Minecraft classes, and then prove the selected LWJGL binary uses the expected native method. CI compilation and physical-device graphics validation are separate gates.
+
+
+### LTW packaging and launch wiring
+
+The Android CI pipeline now checks out the pinned LTW source revision, builds its release AAR, and places that AAR on the app compile/package classpath. APK verification requires `libltw.so` for all four configured Android ABIs. The APK includes the upstream LGPL-3.0 license text, GNU GPL-3.0 license text, and `THIRD_PARTY_NOTICES.md`.
+
+At runtime, `OEngineLtwArtifactInstaller` copies the ABI-matched `libltw.so` from Android's extracted native-library directory into `files/oengine/renderers/ltw/<abi>/`, verifies the copied bytes against the packaged source with SHA-256, and validates the ELF identity and pinned provenance metadata.
+
+The Installations diagnostic button now sequences:
+1. Resolve the selected Minecraft classpath and require LWJGL 3's `org.lwjgl.system.linux.DynamicLinkLoader` plus the `ndlopen(long,int)` signature.
+2. Prepare the JVM options with `-Dorg.lwjgl.opengl.libname=libGLMojo.so`.
+3. Bind the isolated `:game` process and preload LTW before `JNI_CreateJavaVM`.
+4. Create HotSpot, then register O Engine's retained-handle `ndlopen` hook on the VM-creating HandlerThread.
+5. Leave Minecraft main invocation as a separate explicit step, after the hook reports success.
+
+This wires the loader sequence but does not establish end-to-end graphics compatibility. Android-compatible Minecraft native extraction, real EGL surface/context behavior, game input/render-surface handoff, and a physical-device Minecraft launch test remain open gates.
