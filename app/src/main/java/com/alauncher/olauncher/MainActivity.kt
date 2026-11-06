@@ -1000,14 +1000,54 @@ private fun SkinDestination(images: LauncherImages) {
             Surface(
                 modifier = Modifier.weight(1.25f).height(300.dp),
                 color = Color(0xFF342B25),
-                shape = RoundedCornerShape(24.dp)
+                shape = RoundedCornerShape(24.dp),
+                shadowElevation = 3.dp
             ) {
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF60432F), Color(0xFF282522))))) {
-                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.align(Alignment.Center).size(148.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
-                    Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
-                        Text("YOUR CHARACTER", color = Color(0xFFFFD17A), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                        Text(selectedSkin?.name ?: "Default player", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                        Text("Minecraft Java Edition", color = Color(0xFFD8C9B9), fontSize = 11.sp)
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp))) {
+                    // Reuse the exact Tricky Trials artwork shown in the Home news banner.
+                    Image(
+                        images.trials,
+                        contentDescription = "The Tricky Trials Update character banner",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0f to Color(0x00130908),
+                                0.48f to Color(0x33130908),
+                                1f to Color(0xE6100907)
+                            )
+                        )
+                    )
+                    Image(
+                        images.avatar,
+                        contentDescription = "Player avatar",
+                        modifier = Modifier.align(Alignment.Center).size(132.dp)
+                            .clip(RoundedCornerShape(20.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Column(
+                        Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 17.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            "YOUR CHARACTER",
+                            color = Color(0xFFFFD17A),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.2.sp
+                        )
+                        Text(
+                            selectedSkin?.name ?: "Default player",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text("Minecraft Java Edition", color = Color(0xFFF6EBDD), fontSize = 11.sp)
                     }
                 }
             }
