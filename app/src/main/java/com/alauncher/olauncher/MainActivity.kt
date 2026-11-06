@@ -417,10 +417,10 @@ private fun OLauncherApp() {
                                 }
                                 1 -> InstallationsDestination(images)
                                 2 -> SkinDestination(images)
-                                3 -> MarketplaceDestination(dashboardHeight * 0.88f)
-                                4 -> SettingsDestination()
-                                5 -> AboutDestination()
-                                6 -> LauncherFilesDestination()
+                                3 -> MarketplaceDestination(images, dashboardHeight * 0.88f)
+                                4 -> SettingsDestination(images)
+                                5 -> AboutDestination(images)
+                                6 -> LauncherFilesDestination(images)
                                 else -> AccountDestination(images)
                             }
                         }
@@ -845,7 +845,7 @@ private fun PanelCard(
 
 
 @Composable
-private fun LauncherFilesDestination() {
+private fun LauncherFilesDestination(images: LauncherImages) {
     val context = LocalContext.current
     val root = remember { (context.getExternalFilesDir(null) ?: context.filesDir).resolve("launcher").apply { mkdirs() } }
     var current by remember { mutableStateOf(root) }
@@ -875,6 +875,7 @@ private fun LauncherFilesDestination() {
     }
 
     Column(Modifier.fillMaxWidth().fillMaxHeight().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DestinationHero(images, "Launcher Files", "Manage your launcher folders and files", "FILE MANAGEMENT")
         Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -994,7 +995,7 @@ private fun SkinDestination(images: LauncherImages) {
         }
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageHeading("Skins", "Personalize your Minecraft character", "PLAYER CUSTOMIZATION")
+        DestinationHero(images, "Skins", "Personalize your Minecraft character", "PLAYER CUSTOMIZATION")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Surface(
                 modifier = Modifier.weight(1.25f).height(300.dp),
@@ -1050,13 +1051,50 @@ private fun PageHeading(title: String, subtitle: String, eyebrow: String = "O LA
 }
 
 @Composable
-private fun SettingsDestination() {
+private fun DestinationHero(images: LauncherImages, title: String, subtitle: String, eyebrow: String) {
+    Box(
+        Modifier.fillMaxWidth().height(184.dp).clip(RoundedCornerShape(25.dp))
+    ) {
+        Image(
+            images.hero,
+            contentDescription = "Nether-themed launcher banner",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alignment = Alignment.Center
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xE61A0908), Color(0x9C24100C), Color(0x101A0908))
+                )
+            )
+        )
+        Column(
+            Modifier.align(Alignment.CenterStart).fillMaxWidth(0.76f).padding(start = 25.dp, end = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(eyebrow.uppercase(), color = Color(0xFFFFD17A), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+            Text(title, color = Color.White, fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Color(0xFFF6EBDD), fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Surface(
+            color = Color(0xD9FFF1D9),
+            shape = RoundedCornerShape(11.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(13.dp)
+        ) {
+            Text("JAVA EDITION", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Color(0xFF684323), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+        }
+    }
+}
+
+@Composable
+private fun SettingsDestination(images: LauncherImages) {
     var performance by remember { mutableStateOf(true) }
     var animations by remember { mutableStateOf(true) }
     var compactUi by remember { mutableStateOf(false) }
     var notifications by remember { mutableStateOf(true) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageHeading("Settings", "Tune O Launcher to match the way you play", "PREFERENCES")
+        DestinationHero(images, "Settings", "Tune O Launcher to match the way you play", "PREFERENCES")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsGroup("APPEARANCE", "Customize the launcher interface") {
@@ -1112,19 +1150,9 @@ private fun SettingInfo(label: String, value: String) {
 }
 
 @Composable
-private fun AboutDestination() {
+private fun AboutDestination(images: LauncherImages) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageHeading("About O Launcher", "A home for your Minecraft Java Edition experience", "THE LAUNCHER")
-        Surface(Modifier.fillMaxWidth().height(210.dp), color = Color(0xFF34251F), shape = RoundedCornerShape(24.dp)) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF34251F), Color(0xFF8A492C), Color(0xFFE09A48))))) {
-                Column(Modifier.align(Alignment.CenterStart).padding(start = 28.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("O LAUNCHER", color = Color(0xFFFFD27B), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-                    Text("Your world. Your way.", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
-                    Text("Built for Minecraft Java Edition on Android.", color = Color(0xFFF6EBDD), fontSize = 12.sp)
-                }
-                Icon(Icons.Filled.SportsEsports, contentDescription = null, tint = Color(0x55FFFFFF), modifier = Modifier.align(Alignment.CenterEnd).padding(end = 44.dp).size(116.dp))
-            }
-        }
+        DestinationHero(images, "About O Launcher", "A home for your Minecraft Java Edition experience", "THE LAUNCHER")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             listOf("VERSION" to "Development build", "PLATFORM" to "Android", "EDITION" to "Java Edition").forEach { item ->
                 Surface(Modifier.weight(1f), color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
@@ -1142,7 +1170,7 @@ private fun AboutDestination() {
 private fun AccountDestination(images: LauncherImages) {
     var playerName by remember { mutableStateOf("CREEPERFAN") }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        PageHeading("Player account", "Manage the profile shown in your launcher", "YOUR PROFILE")
+        DestinationHero(images, "Player account", "Manage the profile shown in your launcher", "YOUR PROFILE")
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
@@ -1160,7 +1188,7 @@ private fun AccountDestination(images: LauncherImages) {
 }
 
 @Composable
-private fun MarketplaceDestination(availableHeight: Dp) {
+private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
     val categories = listOf("All", "Mods", "Resource Packs", "Data Packs", "Shaders", "Maps", "Worlds", "More")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
@@ -1169,19 +1197,7 @@ private fun MarketplaceDestination(availableHeight: Dp) {
         val contentHeight = this.maxHeight
         val scale = (contentHeight / 700.dp).coerceIn(0.72f, 1.12f)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp * scale)) {
-        PageHeading("Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
-        Surface(color = Color(0xFF34251F), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF34251F), Color(0xFF8A492C), Color(0xFFE09A48))))) {
-                Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp * scale), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text("MAKE MINECRAFT YOURS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
-                    Text("Explore mods, worlds, resource packs and more to make your world even greater!", color = Color(0xFFE8DDE8), fontSize = (12 * scale).sp, lineHeight = (17 * scale).sp)
-                    Surface(onClick = { selectedCategory = "Mods" }, color = Gold, shape = RoundedCornerShape(10.dp)) {
-                        Text("Browse Mods", Modifier.padding(horizontal = 17.dp * scale, vertical = 9.dp * scale), color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-                Text("O LAUNCHER  •  MARKETPLACE", Modifier.align(Alignment.BottomEnd).padding(16.dp), color = Color(0xCCFFFFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        DestinationHero(images, "Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
         Row(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
             Box(Modifier.weight(1f)) {
@@ -1506,7 +1522,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     val profiles = remember { mutableStateListOf("Default") }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PageHeading("Installations", "Choose game versions and organize your profiles", "GAME SETUP")
+        DestinationHero(images, "Installations", "Choose game versions and organize your profiles", "GAME SETUP")
         Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
