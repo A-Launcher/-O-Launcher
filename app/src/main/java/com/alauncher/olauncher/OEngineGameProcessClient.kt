@@ -29,7 +29,8 @@ class OEngineGameProcessClient(
     context: Context,
     private val onStatus: (Result<OEngineGameProcessStatus>) -> Unit,
     private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
-    private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
+    private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
+    private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -83,6 +84,15 @@ class OEngineGameProcessClient(
                         detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
                     )))
                 }
+                true
+            }
+            OEngineGameProcessService.MSG_INVOKE_MAIN_RESULT -> {
+                val data = message.data
+                onJvmMain(Result.success(OEngineJvmLibraryProbe(
+                    successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                    status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                    detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                )))
                 true
             }
             OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
