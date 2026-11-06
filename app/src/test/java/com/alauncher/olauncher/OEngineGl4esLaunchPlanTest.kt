@@ -35,7 +35,8 @@ class OEngineGl4esLaunchPlanTest {
             val plan = OEngineRendererLaunchPlanner.prepareGl4es(
                 createArtifact(root), root, "arm64-v8a",
                 OEngineGlesDriver(major = 2, minor = 0),
-                lwjgl2NativeLoaderVerified = true
+                lwjgl2NativeLoaderVerified = true,
+                rendererEglLifecycleVerified = true
             )
 
             assertTrue(plan.readyForNativeBootstrap)
@@ -44,6 +45,24 @@ class OEngineGl4esLaunchPlanTest {
             assertEquals("true", plan.environment["allow_glsl_extension_directive_midshader"])
             assertEquals("1", plan.environment["LIBGL_NOERROR"])
             assertFalse(plan.environment.containsKey("LIBGL_EGL"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun blocksBootstrapWhenLwjgl2AdapterExistsButEglLifecycleIsUnverified() {
+        val root = Files.createTempDirectory("oengine-gl4es-egl-block").toFile()
+        try {
+            val plan = OEngineRendererLaunchPlanner.prepareGl4es(
+                createArtifact(root), root, "arm64-v8a",
+                OEngineGlesDriver(major = 2, minor = 0),
+                lwjgl2NativeLoaderVerified = true
+            )
+
+            assertFalse(plan.readyForNativeBootstrap)
+            assertTrue(plan.blockers.any { it.contains("EGL initialization") })
         } finally {
             root.deleteRecursively()
         }
