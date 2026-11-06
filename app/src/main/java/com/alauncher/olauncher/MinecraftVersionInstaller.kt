@@ -108,6 +108,141 @@ object MinecraftVersionInstaller {
         ClientDownloadResult(version.id, target, target.length())
     }
 
+
+    data class DependencyInstallResult(val libraries: Int, val assets: Int, val bytes: Long)
+
+    suspend fun downloadLibrariesAndAssets(
+        version: MinecraftRelease,
+        gameDirectory: File,
+        onProgress: (Long, Long, String) -> Unit
+    ): DependencyInstallResult = withContext(Dispatchers.IO) {
+        val metadata = JSONObject(requestText(version.url))
+        val libraries = metadata.optJSONArray("libraries")
+        val assetIndex = metadata.optJSONObject("assetIndex")
+            ?: throw IllegalStateException("This Minecraft version has no asset index.")
+
+        data class Task(val url: String, val file: File, val sha1: String, val size: Long, val label: String)
+        val tasks = mutableListOf<Task>()
+        val librariesDirectory = File(gameDirectory, "libraries")
+        var libraryCount = 0
+
+        if (libraries != null) {
+            for (i in 0 until libraries.length()) {
+                val library = libraries.optJSONObject(i) ?: continue
+                val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
+                val relativePath = artifact.optString("path")
+                val url = artifact.optString("url")
+                if (relativePath.isBlank() || url.isBlank()) continue
+                val target = File(librariesDirectory, relativePath).canonicalFile
+                if (!target.toPath().startsWith(librariesDirectory.canonicalFile.toPath())) continue
+                tasks.add(Task(url, target, artifact.optString("sha1"), artifact.optLong("size", -1L), "Library: " + library.optString("name")))
+                libraryCount++
+            }
+        }
+
+        val indexId = assetIndex.optString("id").ifBlank { version.id }
+        val indexFile = File(File(gameDirectory, "assets/indexes"), "$indexId.json")
+        tasks.add(Task(assetIndex.getString("url"), indexFile, assetIndex.optString("sha1"), assetIndex.optLong("size", -1L), "Asset index"))
+
+        val totalObjects = JSONObject(requestText(assetIndex.getString("url"))).getJSONObject("objects")
+        val objectBase = File(gameDirectory, "assets/objects")
+        var assetCount = 0
+        val iterator = totalObjects.keys()
+        while (iterator.hasNext()) {
+            val name = iterator.next()
+            val item = totalObjects.getJSONObject(name)
+            val hash = item.getString("hash").lowercase()
+            if (hash.length != 40) continue
+            val target = File(objectBase, hash.substring(0, 2) + "/" + hash)
+            tasks.add(Task(
+                "https://resources.download.minecraft.net/" + hash.substring(0, 2) + "/" + hash,
+                target, hash, item.optLong("size", -1L), "Asset: " + name
+            ))
+            assetCount++
+        }
+
+        val totalBytes = tasks.sumOf { if (it.size > 0L) it.size else 0L }
+        var completedBytes = 0L
+        var completedTasks = 0
+        for (task in tasks) {
+            if (task.file.exists() && task.file.length() > 0L &&
+                (task.sha1.isBlank() || sha1(task.file).equals(task.sha1, ignoreCase = true)) &&
+                (task.size <= 0L || task.file.length() == task.size)
+            ) {
+                completedBytes += if (task.size > 0L) task.size else task.file.length()
+                completedTasks++
+                onProgress(completedBytes, totalBytes, "Already verified: " + task.label + " (" + completedTasks + "/" + tasks.size + ")")
+                continue
+            }
+            val actual = downloadVerified(task.url, task.file, task.sha1, task.size) { received ->
+                onProgress(completedBytes + received, totalBytes, task.label + " (" + (completedTasks + 1) + "/" + tasks.size + ")")
+            }
+            completedBytes += if (task.size > 0L) task.size else actual
+            completedTasks++
+            onProgress(completedBytes, totalBytes, "Downloaded: " + task.label + " (" + completedTasks + "/" + tasks.size + ")")
+        }
+        DependencyInstallResult(libraryCount, assetCount, completedBytes)
+    }
+
+    private fun downloadVerified(
+        address: String,
+        target: File,
+        expectedSha1: String,
+        expectedSize: Long,
+        onBytes: (Long) -> Unit
+    ): Long {
+        val parent = target.parentFile ?: throw IllegalStateException("Invalid download destination.")
+        if (!parent.exists() && !parent.mkdirs()) throw IllegalStateException("Could not create download folder.")
+        val temporary = File(parent, target.name + ".part")
+        if (temporary.exists()) temporary.delete()
+        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
+            connectTimeout = CONNECT_TIMEOUT
+            readTimeout = READ_TIMEOUT
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "O-Launcher/0.1.0")
+        }
+        try {
+            connection.connect()
+            if (connection.responseCode !in 200..299) throw IllegalStateException("Download failed (HTTP " + connection.responseCode + ").")
+            connection.inputStream.use { input ->
+                temporary.outputStream().buffered().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var received = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                        received += count
+                        onBytes(received)
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
+        } finally {
+            connection.disconnect()
+        }
+        val actualSize = temporary.length()
+        if (actualSize <= 0L || (expectedSize > 0L && actualSize != expectedSize)) {
+            temporary.delete()
+            throw IllegalStateException("Downloaded file size mismatch for " + target.name + ".")
+        }
+        if (expectedSha1.isNotBlank() && !sha1(temporary).equals(expectedSha1, ignoreCase = true)) {
+            temporary.delete()
+            throw IllegalStateException("SHA-1 verification failed for " + target.name + ".")
+        }
+        if (target.exists() && !target.delete()) {
+            temporary.delete()
+            throw IllegalStateException("Could not replace " + target.name + ".")
+        }
+        if (!temporary.renameTo(target)) {
+            temporary.copyTo(target, overwrite = true)
+            temporary.delete()
+        }
+        return target.length()
+    }
+
     private fun requestText(address: String): String {
         val connection = (URL(address).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT
