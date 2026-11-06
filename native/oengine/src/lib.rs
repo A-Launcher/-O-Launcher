@@ -155,7 +155,11 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         };
     }
 
-    if !matches!(java_major, 8 | 17 | 21) {\n        return response!("unsupported_java_major", &format!("Java {java_major} has no verified native-load hook profile"));\n    }\n\n    let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
+    if !matches!(java_major, 8 | 17 | 21) {
+        return response!("unsupported_java_major", &format!("Java {java_major} has no verified native-load hook profile"));
+    }
+
+    let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
     let library_handle = match library_state.lock() {
         Ok(guard) => match guard.as_ref() {
             Some((_, handle)) => *handle,
