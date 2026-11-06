@@ -190,3 +190,30 @@ O Engine now has a named instance manager. The existing Default instance retains
 The Installations screen now offers a one-click install-and-prepare action: it verifies/reuses or downloads the selected client JAR, installs the metadata-selected libraries and assets, builds the launch plan, and automatically reuses or downloads/extracts the required Android OpenJDK runtime. Separate download actions remain available for troubleshooting and staged installs.
 
 Mojang native classifier archives are resolved by device architecture and downloaded with metadata size/SHA-1 verification. They are retained in the libraries cache for inspection. They are not yet extracted or treated as Android-ready: Mojang commonly supplies Linux/glibc natives, which are not automatically compatible with Android/Bionic. O Engine must supply or adapt Android-native equivalents and validate ELF dependencies before launch.
+
+
+## Android platform support requirements
+
+Android does not provide a desktop Minecraft Java runtime or desktop OpenGL environment. O Launcher must supply and coordinate the compatibility components rather than assuming they exist on the device.
+
+### Java runtimes
+Bundle or securely download Android-built OpenJDK runtimes and select the runtime from each version's Mojang metadata, with a documented legacy fallback. The current downloadable runtime set is Java 8, 17, 21 and 25. Java 5, 6 and 16 are historical game targets and currently map to newer runtime packages where compatibility permits. Runtime packages must be architecture-specific, integrity-checked, isolated per instance, and validated before use.
+
+### Graphics provider architecture
+Keep graphics providers modular and mutually exclusive per game session:
+- GL4ES: an OpenGL-to-OpenGL ES compatibility option, subject to the exact Minecraft/LWJGL version and feature requirements.
+- LTW: the pinned OpenGL core-to-GLES translation provider; its native artifact is reproducibly built and ELF-validated, but game EGL context interception and runtime loading remain unintegrated.
+- Mesa-based providers: optional software/hardware driver stacks, requiring explicit Android ABI, Vulkan/EGL, licensing, packaging and device compatibility validation.
+- MobileGlues: optional GLES renderer provider, with a separate plugin/native loading contract; do not assume its plugin APK makes its native library accessible to O Launcher.
+Only one provider is activated for a game session. LWJGL remains version-pinned by the selected Minecraft metadata and is not itself a graphics translation layer.
+
+### Input architecture
+O Engine now defines platform-neutral input events and control bindings for touch, keyboard, mouse and gamepad devices. The resolver rejects duplicate physical bindings and invalid event types. Android adapters must translate platform events into this contract, and a later game bridge must deliver them to the active Minecraft/LWJGL input implementation. The current contract is not yet connected to Android event dispatch or the game process.
+
+### Native execution helper
+MojoExec is an engineering reference for native process/JVM execution, not a dependency to blindly import. O Engine must own its process/JVM lifecycle, environment setup, library search paths, signal/exit handling, logging, cancellation and crash reporting. The current Rust JNI hook remains a separate native-loading milestone; the JVM is not yet started in-process.
+
+### Authentication providers
+Microsoft authentication is implemented as a device-code flow and offline profiles are stored locally. Ely.by is an optional future account provider and must use its documented authentication/session protocol; it must not be presented as a Microsoft-authenticated account or silently substituted into Mojang's official authentication flow. Account provider, identity, token storage and launch-session construction must remain explicit and separate.
+
+These components are architecture requirements, not claims that every provider or feature is already operational. Each provider must pass artifact, ABI, license, lifecycle and real-device tests before it is offered as launch-ready.
