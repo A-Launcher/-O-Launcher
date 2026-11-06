@@ -38,7 +38,7 @@ This document records the pinned upstream reference reviewed for O Engine integr
 1. Prefer independently maintained upstream libraries with permissive licenses (MIT, BSD, zlib, Apache-2.0) where technically suitable.
 2. For MojoLauncher LGPL components, keep the component separable, include the exact license and copyright notices, publish corresponding source and modifications as required, and preserve users' ability to replace/relink the LGPL component.
 3. Do not copy MojoLauncher UI, app architecture, account system, or tightly coupled Java classes into O Launcher.
-4. Do not import prebuilt APKs, signing keys, runtime binaries, or opaque native blobs.
+4. Do not import prebuilt APKs, signing keys, or opaque native blobs. A separately licensed native library may be packaged only when its upstream revision, per-ABI binary identity, and exact license are pinned and verified.
 5. Pin every integrated component to an immutable commit/release and record checksums for binary artifacts.
 6. Before enabling full Minecraft launch, verify Android API level, ABI, JDK major, dependent shared libraries, linker namespace behavior, signal handling, exit/abort behavior, and clean shutdown on physical devices.
 7. Keep the current Rust O Engine bridge as the owner of O Engine's public native API. Any upstream LGPL native runtime must sit behind a narrow adapter boundary.
@@ -127,3 +127,19 @@ This directory is diagnostic-only. A Linux ELF file is not an Android native lib
 After Linux native classifiers are extracted to the diagnostic-only folder, O Engine writes `oengine-compatibility-report.json`. It records each shared object's ELF class, machine/Android ABI mapping, and common glibc markers such as `GLIBC_`, `libc.so.6`, and `ld-linux`.
 
 The report deliberately distinguishes likely glibc binaries, ABI mismatches, invalid ELF files, and architecture-matching files whose Android compatibility remains unverified. It is a triage aid only: it does not prove Bionic compatibility, resolve transitive dependencies, or authorize loading these files. The launcher continues to keep the Linux archive folder out of the runtime native search path.
+
+
+### Pinned Android GL4ES compatibility binaries
+
+O Engine's Android CI now downloads the ABI-specific `libgl4es_114.so` shared libraries from MojoLauncher/MojoLauncher at immutable commit `1b8d90424c1cb791321d45f60ac62c54f4b013fa`:
+
+| Android ABI | Upstream Git blob SHA-1 |
+|---|---|
+| arm64-v8a | `964c4a7714bad3011dd59e6f832c958a7513211a` |
+| armeabi-v7a | `caf2962636decc6af10ec8d0e797ac2484cdd0d7` |
+| x86 | `b21cc6eecc1cef296c65b50724a5bb4315c61e8b` |
+| x86_64 | `3c23abbd4f9e0304ab084f88d08f53b9624ecda0` |
+
+The workflow checks each file with `git hash-object` against the upstream blob identity before Android packaging, and checks that all four ABI libraries are present in the APK. It also verifies the upstream GL4ES MIT license file against its Git blob identity and installs it under `assets/licenses/LICENSE-gl4es.txt`.
+
+This is a real Android-native dependency package, not a runtime renderer integration yet. GL4ES is not currently selected or loaded by O Engine, and LWJGL 2's native loading path is still blocked pending an adapter. LTW remains the active integration target for the LWJGL 3 path. Do not report GL4ES as a working game renderer until the LWJGL 2 loader bridge, EGL setup, GL entry points, and physical-device rendering have been validated.
