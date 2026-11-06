@@ -55,3 +55,34 @@ This document records the pinned upstream reference reviewed for O Engine integr
 ### Isolated renderer-hook IPC
 
 Renderer loading and LWJGL hook installation are now exposed as `MSG_INSTALL_RENDERER_HOOK` / `MSG_INSTALL_RENDERER_HOOK_RESULT` through the `:game` process service. The request is handled by the same `HandlerThread` that created embedded HotSpot, checks that VM creation succeeded, and validates that the renderer file is under the supplied private renderer root before calling the native loader and HotSpot hook installer. The hook must be installed before invoking the Minecraft main class, because that call may enter the game loop and occupy the VM-owning thread. This IPC is infrastructure only: no packaged LTW provider is selected or activated automatically, and no end-to-end renderer/device test has passed yet.
+
+
+## MojoLauncher LTW integration reference (verified source path)
+
+Inspected the MojoLauncher/MojoLauncher v3_openjdk branch at commit 1b8d90424c1cb791321d45f60ac62c54f4b013fa, plus its MojoLauncher/mojoexec submodule.
+
+The useful LTW path is small and specific; it does not require copying MojoLauncher's whole launcher:
+
+1. GLESRenderSpec.LTWRenderSpec selects libltw.so, requires host GLES 3+, and identifies the LTW renderer.
+2. GLESRenderSpec.setupEnvironment() chooses a host GLES provider. The provider can use Android's native EGL/GLES libraries or an ANGLE provider and supplies LIBGL_EGL / LIBGL_GLES overrides when needed.
+3. GameRunner calls renderer environment setup and then maybeSetupRenderer() before starting the JVM.
+4. MojoExec.prepareEgl("libltw.so", ...) loads the selected renderer through the configured native-library/namespace route and records the GLES context/version policy.
+5. Mojo adds -Dorg.lwjgl.opengl.libname=libGLMojo.so to the JVM arguments. Its lwjgl_dlopen_hook.c intercepts LWJGL's DynamicLinkLoader.ndlopen(long,int); when LWJGL asks for libGLMojo.so, it returns the prepared renderer EGL handle. Other libraries go through dlopen.
+6. LTW then owns the EGL wrapper path and tracks contexts created/made-current/destroyed through its exported entry points.
+
+Relevant upstream files:
+- app_mojo/src/main/java/git/artdeell/mojo/game/renderer/impl/GLESRenderSpec.java
+- app_mojo/src/main/java/git/artdeell/mojo/game/renderer/extra/GLESProvider.java
+- app_mojo/src/main/java/git/artdeell/mojo/game/renderer/GameRenderer.java
+- app_mojo/src/main/java/git/artdeell/mojo/utils/jre/GameRunner.java
+- app_mojo/src/main/jni/jvm_hooks/lwjgl_dlopen_hook.c
+- mojoexec/mojoexec.c (submodule)
+
+O Engine adaptation:
+- Reuse the upstream LTW AAR built from the pinned MojoLauncher/LTW source; do not extract an opaque library from an APK or copy Mojo's whole application.
+- Adapt the driver-provider selection and pre-JVM renderer preparation into O Engine's typed Kotlin renderer plan.
+- Preserve the existing isolated :game process and Rust JNI hook, but make it behave like the verified Mojo sequence: set EGL/GLES environment and load/retain libltw.so before Minecraft's LWJGL classes initialize; supply the LWJGL OpenGL library alias libGLMojo.so; have the ndlopen hook return the retained LTW handle for that alias and delegate unrelated loads.
+- Keep MojoExec's Android private-namespace bypass optional. Its source is MIT-licensed, but it relies on private linker APIs; only add that path behind an Android-version/device capability gate if ordinary app-namespace loading fails and a device test validates the fallback.
+- Do not mark the renderer ready until the exact LWJGL version used by the selected Minecraft version resolves the alias, and EGL create/make-current/destroy plus GL function lookup are verified on a physical device.
+
+This source inspection resolves the previously unknown LWJGL alias/handle handoff. It does not by itself prove O Engine's current native hook is wired with the same timing or that LTW renders Minecraft on a device.
