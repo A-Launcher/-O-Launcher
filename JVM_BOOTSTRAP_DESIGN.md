@@ -56,3 +56,13 @@ The JVM bootstrap milestone is not complete until all of the following pass:
 - JNI Invocation API specification: https://docs.oracle.com/en/java/javase/26/docs/specs/jni/invocation.html
 - Android Runtime JNI guidance: https://developer.android.com/guide/practices/verifying-apps-art
 - MojoLauncher reference implementation inspected for platform behavior (not copied): `app_mojo/src/main/jni/jre_launcher/jre_launcher.c` and `app_mojo/src/main/java/git/artdeell/mojo/utils/jre/JavaRunner.java` on its `v3_openjdk` branch. Review its LGPL-3.0 license before reusing any code; O Engine's implementation remains original.
+
+## Isolated process foundation status
+
+The first isolated-process slice is now present in the Android app:
+
+- The manifest declares `OEngineGameProcessService` with `android:process=":game"` and `android:exported="false"`.
+- `OEngineGameProcessService` hosts a Messenger endpoint in that process and answers a health-check message with its PID and phase.
+- `OEngineGameProcessClient` binds from the launcher process, requests the handshake, reports a typed status, and owns the binding lifetime through `close()`.
+
+This is only an IPC/process-isolation foundation. It does not yet load OpenJDK, create a VM, launch a Java main class, or connect Minecraft. A caller must also keep the client alive for as long as it needs the binding.
