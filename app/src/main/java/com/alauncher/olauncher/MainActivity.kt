@@ -2256,7 +2256,8 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                         bootstrap.runtime.home,
                                                         bootstrap.workingDirectory,
                                                         jvmLibrary,
-                                                        bootstrap.vmOptions
+                                                        bootstrap.vmOptions,
+                                                        bootstrap.runtime.javaMajor
                                                     )
                                                 } else {
                                                     probingGameProcess = false
