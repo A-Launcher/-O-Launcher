@@ -97,3 +97,26 @@ LTW upstream commit `3f1f4df6c80c925ea34067b1d943a84acce0184d` built successfull
 Independent inspection of all four libraries confirmed exports for `eglGetProcAddress`, `eglCreateContext`, `eglDestroyContext`, `eglMakeCurrent`, and `glXGetProcAddress`. Their direct ELF dependencies are limited to Android system libraries `liblog.so`, `libm.so`, `libdl.so`, and `libc.so`. The dedicated LTW workflow now repeats these checks using the Android NDK's `llvm-nm` and `llvm-readelf` before publishing its artifact.
 
 This validates artifact identity, ABI, required exported symbols, and direct dependencies. It does not prove that Android's linker namespace, the game's exact LWJGL build, or Minecraft's render thread will resolve and use the wrappers correctly. Runtime integration and device tests remain mandatory.
+
+
+## MojoLauncher renderer and JVM-launch reference (inspected 2026-11-06)
+
+O Engine inspected the public MojoLauncher `v3_openjdk` branch at commit `1b8d90424c1cb791321d45f60ac62c54f4b013fa` and its `mojoexec` submodule at `9ec4b836e93900135bad823eaac16ebc81cf6b98`. These are implementation references only; O Engine does not import or copy their launcher code.
+
+The reference establishes a concrete LTW startup sequence:
+
+1. Renderer compatibility checks require GLES 3+ and the selected renderer library to exist.
+2. The renderer selects a host GLES provider (system driver or configured ANGLE) and supplies `LIBGL_EGL` and `LIBGL_GLES` environment values when explicit paths are needed.
+3. Before game startup, the native EGL preparation routine opens the selected renderer library and records the requested GLES context major version.
+4. During JVM native-library loading, a native hook is installed for LWJGL's `org.lwjgl.system.linux.DynamicLinkLoader.ndlopen(long,int)`. The reference implementation redirects its patched LWJGL request for `libGLMojo.so` to the already-prepared renderer EGL handle.
+5. The launcher creates the Android Java runtime in-process with `JNI_CreateJavaVM`, rather than starting the game's JVM through an ordinary child-process command.
+
+The hook target `libGLMojo.so` and the `DynamicLinkLoader.ndlopen` native method are part of MojoLauncher's specific LWJGL integration. They are not assumed to exist in Mojang's unmodified, metadata-pinned LWJGL artifacts. O Engine must own and validate its own Android LWJGL native-loading adapter for each supported LWJGL generation before enabling this renderer path.
+
+### O Engine implementation boundary
+
+O Engine currently has a Java executable smoke test using `ProcessBuilder`; it does not yet create a game JVM in-process. That smoke test cannot install a native hook inside a separate Java process and must not be reused as the Minecraft game-launch mechanism.
+
+A new `OEngineRendererLaunchPlanner` now prepares LTW's pre-JVM configuration: validated LTW artifact and ABI, host GLES version, optional explicit EGL/GLES library paths, `LIBGL_EGL`/`LIBGL_GLES` values, preloading requirement, and explicit blockers until the LWJGL resolver and any required linker-namespace access are verified. It performs no native loads and changes no process environment. JVM unit tests cover missing resolver hooks, GLES 2 rejection, GLES 3.2 readiness, GLES 3.1 warning, explicit driver environment mapping, and external-driver namespace gating.
+
+Next implementation gate: design O Engine's own in-process JVM bootstrap and Android LWJGL native-loader adapter, then prove that the actual Minecraft LWJGL artifacts for each selected version route EGL acquisition through the prepared LTW handle. Do not hardcode MojoLauncher's patched symbol/library names into O Engine or enable LTW until this is demonstrated.
