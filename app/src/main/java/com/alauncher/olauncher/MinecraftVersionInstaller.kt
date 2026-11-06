@@ -244,8 +244,23 @@ object MinecraftVersionInstaller {
             onProgress(completedBytes, totalBytes, "Downloaded: " + task.label + " (" + completedTasks + "/" + tasks.size + ")")
         }
         // Linux classifiers are extracted only for inspection, never treated as Android natives.
+        val nativeInspectionRoot = File(gameDirectory, "natives/${version.id}/linux-archive")
         val nativeFiles = tasks.filter { it.nativeArchive && it.file.isFile }
-            .sumOf { OEngineNativeArchiveInspector.extractLinuxNativeArchive(it.file, File(gameDirectory, "natives/${version.id}/linux-archive")) }
+            .sumOf { OEngineNativeArchiveInspector.extractLinuxNativeArchive(it.file, nativeInspectionRoot) }
+        if (nativeFiles > 0) {
+            val expectedAbi = when (AndroidRuntimeInstaller.deviceArchitecture()) {
+                "arm64" -> "arm64-v8a"
+                "arm" -> "armeabi-v7a"
+                "x86_64" -> "x86_64"
+                "x86" -> "x86"
+                else -> "unknown"
+            }
+            OEngineElfCompatibilityInspector.writeReport(
+                nativeInspectionRoot,
+                expectedAbi,
+                File(nativeInspectionRoot, "oengine-compatibility-report.json")
+            )
+        }
 
         val mappedAssets = materializeLegacyAssetMappings(
             gameDirectory = gameDirectory,
