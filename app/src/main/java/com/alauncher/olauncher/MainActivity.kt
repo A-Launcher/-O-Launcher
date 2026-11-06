@@ -1907,7 +1907,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 dependencyStatus = label
                                             }
                                             val mb = result.bytes / (1024.0 * 1024.0)
-                                            dependencyStatus = "Verified ${result.libraries} libraries and ${result.assets} assets • ${"%.1f".format(mb)} MB"
+                                            dependencyStatus = "Verified ${result.libraries} libraries and ${result.assets} assets • staged ${result.nativeArchives} Linux native archives / ${result.nativeFiles} files (not assumed Android-compatible) • ${"%.1f".format(mb)} MB"
                                         } catch (error: Exception) {
                                             dependencyStatus = error.message ?: "Library and asset download failed."
                                         } finally {
