@@ -2388,6 +2388,10 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             }
                                         )
                                     },
+                                    onJvmMainStarted = { started ->
+                                        launchingMinecraft = false
+                                        gameProcessStatus = "MINECRAFT MAIN DISPATCHED • " + started.status + " • " + started.detail
+                                    },
                                     onJvmMain = { result ->
                                         launchingMinecraft = false
                                         gameProcessStatus = result.fold(
