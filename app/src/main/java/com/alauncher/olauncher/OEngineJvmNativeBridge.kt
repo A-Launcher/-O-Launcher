@@ -79,12 +79,8 @@ object OEngineJvmNativeBridge {
      * Loads a renderer from O Engine's private renderer directory and installs
      * the LWJGL hook. The native handle is retained until the game process exits.
      */
-    internal fun loadRendererAndInstallLwjglHook(
-        rendererFile: File,
-        rendererRoot: File,
-        targetClassName: String,
-        selectedAlias: String
-    ): Boolean {
+    /** Load and retain the renderer before JNI_CreateJavaVM, matching Mojo's startup order. */
+    internal fun preloadRenderer(rendererFile: File, rendererRoot: File): Long {
         check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
         val root = rendererRoot.canonicalFile
         val library = rendererFile.canonicalFile
@@ -97,8 +93,15 @@ object OEngineJvmNativeBridge {
             if (detail.isBlank()) "Android's native linker could not load the renderer in O Engine's process namespace."
             else detail
         }
-        return installLwjglHook(targetClassName, selectedAlias, handle)
+        return handle
     }
+
+    internal fun loadRendererAndInstallLwjglHook(
+        rendererFile: File,
+        rendererRoot: File,
+        targetClassName: String,
+        selectedAlias: String
+    ): Boolean = installLwjglHook(targetClassName, selectedAlias, preloadRenderer(rendererFile, rendererRoot))
 
     internal fun installLwjglHook(
         targetClassName: String,
