@@ -119,7 +119,7 @@ object OEngineLwjglNativeResolver {
         }
 
         val surface = when {
-            generation == OEngineLwjglGeneration.LWJGL2 -> OEngineLwjglLoaderSurface.LEGACY_LWJGL2
+            generation == OEngineLwjglGeneration.LWJGL2 -> OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD
             generation == OEngineLwjglGeneration.LWJGL3 && dynamicLoaderPresent ->
                 OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX
             else -> OEngineLwjglLoaderSurface.UNKNOWN
@@ -130,7 +130,7 @@ object OEngineLwjglNativeResolver {
         }
 
         when (surface) {
-            OEngineLwjglLoaderSurface.LEGACY_LWJGL2 ->
+            OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
                 blockers += "LWJGL 2 uses a legacy native-loading path; no verified O Engine Android interception adapter exists."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
