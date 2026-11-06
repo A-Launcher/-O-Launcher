@@ -342,14 +342,24 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
         Box(Modifier.fillMaxSize().background(MediaGray))
-        // Invisible hit target sits exactly over the Play Now button baked into the supplied reference art.
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            Box(
-                Modifier.align(Alignment.BottomStart)
-                    .padding(start = maxWidth * 0.018f, bottom = maxHeight * 0.095f)
-                    .size(width = maxWidth * 0.255f, height = maxHeight * 0.16f)
-                    .clickable(onClick = onPlay)
-            )
+        // Keep the primary action visible while the hero artwork is still a placeholder.
+        Surface(
+            onClick = onPlay,
+            color = Gold,
+            contentColor = Ink,
+            shape = RoundedCornerShape(13.dp),
+            shadowElevation = 3.dp,
+            modifier = Modifier.align(Alignment.BottomStart)
+                .padding(start = 22.dp, bottom = 20.dp)
+        ) {
+            Row(
+                Modifier.padding(horizontal = 25.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Icon(Icons.Filled.SportsEsports, contentDescription = null, modifier = Modifier.size(19.dp))
+                Text("PLAY NOW", fontSize = 15.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-0.2).sp)
+            }
         }
     }
 }
