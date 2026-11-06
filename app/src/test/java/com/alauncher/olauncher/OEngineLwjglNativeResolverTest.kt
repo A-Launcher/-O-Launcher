@@ -15,7 +15,7 @@ class OEngineLwjglNativeResolverTest {
         val root = Files.createTempDirectory("oengine-lwjgl3").toFile()
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
-                "org/lwjgl/system/linux/DynamicLinkLoader.class" to "dlopen dlsym dlclose".toByteArray())
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass(methodName = "other"))
             val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
 
             assertEquals(OEngineLwjglGeneration.LWJGL3, resolution.generation)
@@ -31,7 +31,7 @@ class OEngineLwjglNativeResolverTest {
         val root = Files.createTempDirectory("oengine-mojo-marker").toFile()
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
-                "org/lwjgl/system/linux/DynamicLinkLoader.class" to "ndlopen (JI)J".toByteArray())
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass())
             val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
 
             assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
@@ -68,6 +68,55 @@ class OEngineLwjglNativeResolverTest {
             assertTrue(result.blockers.any { it.contains("org.lwjgl.opengl.libname") })
             assertTrue(result.blockers.any { it.contains("GL4ES") })
         } finally { root.deleteRecursively() }
+    }
+
+
+    @Test
+    fun rejectsNdlopenConstantPoolStringsWithoutNativeStaticMethod() {
+        val root = Files.createTempDirectory("oengine-lwjgl3-decoy").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass(native = false))
+            val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
+            assertFalse(resolution.ndlopenSignaturePresent)
+            assertTrue(resolution.blockers.any { it.contains("ndlopen(long,int)") })
+        } finally { root.deleteRecursively() }
+    }
+
+    private fun lwjglClass(
+        methodName: String = "ndlopen",
+        descriptor: String = "(JI)J",
+        native: Boolean = true,
+        static: Boolean = true
+    ): ByteArray {
+        val bytes = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(bytes).use { out ->
+            out.writeInt(0xCAFEBABE.toInt())
+            out.writeShort(0)
+            out.writeShort(52)
+            out.writeShort(7)
+            out.writeByte(1); out.writeUTF("org/lwjgl/system/linux/DynamicLinkLoader")
+            out.writeByte(7); out.writeShort(1)
+            out.writeByte(1); out.writeUTF("java/lang/Object")
+            out.writeByte(7); out.writeShort(3)
+            out.writeByte(1); out.writeUTF(methodName)
+            out.writeByte(1); out.writeUTF(descriptor)
+            out.writeShort(0x0021)
+            out.writeShort(2)
+            out.writeShort(4)
+            out.writeShort(0) // interfaces
+            out.writeShort(0) // fields
+            out.writeShort(1) // methods
+            var access = 0x0001
+            if (native) access = access or 0x0100
+            if (static) access = access or 0x0008
+            out.writeShort(access)
+            out.writeShort(5)
+            out.writeShort(6)
+            out.writeShort(0) // method attributes
+            out.writeShort(0) // class attributes
+        }
+        return bytes.toByteArray()
     }
 
     private fun jar(root: File, relative: String, vararg entries: Pair<String, ByteArray>): File {
