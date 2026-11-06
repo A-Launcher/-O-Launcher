@@ -133,6 +133,11 @@ object OLauncherEngine {
             jvmBootstrapPlan = jvmBootstrapPlan
         )
     }
+    suspend fun probeJvmInvocationApi(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe =
+        withContext(Dispatchers.IO) {
+            OEngineJvmNativeBridge.probe(plan)
+        }
+
     suspend fun probeRuntime(gameRoot: File, javaMajor: Int): OEngineProbeResult = withContext(Dispatchers.IO) {
         val runtime = findRuntime(gameRoot, javaMajor)
             ?: throw IllegalStateException("O Engine cannot find a valid installed Java " + javaMajor + " runtime.")
