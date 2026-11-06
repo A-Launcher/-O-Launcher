@@ -1267,6 +1267,35 @@ private fun AccountDestination(images: LauncherImages) {
     var showOfflineForm by remember { mutableStateOf(false) }
     var offlineError by remember { mutableStateOf("") }
 
+    LaunchedEffect(Unit) {
+        val savedRefreshToken = MicrosoftTokenVault.load(context)
+        if (!savedRefreshToken.isNullOrBlank()) {
+            busy = true
+            status = "Restoring Microsoft session…"
+            try {
+                val account = MinecraftAuth.refreshAccount(savedRefreshToken)
+                MicrosoftTokenVault.save(context, account.refreshToken)
+                prefs.edit()
+                    .putString("microsoft_name", account.name)
+                    .putString("microsoft_uuid", account.uuid)
+                    .putBoolean("is_offline", false)
+                    .apply()
+                playerName = account.name
+                playerUuid = account.uuid
+                isOffline = false
+                signedIn = true
+                hasRecoveredMicrosoftAccount = false
+                status = "Microsoft session restored. Minecraft Java profile verified."
+            } catch (e: Exception) {
+                hasRecoveredMicrosoftAccount = true
+                status = e.message?.takeIf { it.isNotBlank() }
+                    ?: "Saved Microsoft session could not be restored. Please sign in again."
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         DestinationHero(images, "Player account", "Connect a Microsoft account or create an offline profile", "YOUR PROFILE")
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
