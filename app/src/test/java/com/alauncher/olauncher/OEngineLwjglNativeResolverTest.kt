@@ -11,7 +11,7 @@ import org.junit.Test
 
 class OEngineLwjglNativeResolverTest {
     @Test
-    fun identifiesUpstreamLwjgl3WithoutClaimingHookSupport() {
+    fun blocksUpstreamLwjgl3WhenNdlopenSignatureIsAbsent() {
         val root = Files.createTempDirectory("oengine-lwjgl3").toFile()
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
@@ -22,12 +22,12 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
             assertTrue(resolution.dynamicLinkLoaderClassPresent)
             assertFalse(resolution.ndlopenSignaturePresent)
-            assertTrue(resolution.blockers.any { it.contains("adapter is not implemented") })
+            assertTrue(resolution.blockers.any { it.contains("ndlopen(long,int)") })
         } finally { root.deleteRecursively() }
     }
 
     @Test
-    fun recognizesUpstreamNdlopenSignatureWithoutAssumingMojoPatch() {
+    fun recognizesUpstreamNdlopenSignatureForOEngineHook() {
         val root = Files.createTempDirectory("oengine-mojo-marker").toFile()
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
@@ -36,7 +36,8 @@ class OEngineLwjglNativeResolverTest {
 
             assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
             assertTrue(resolution.ndlopenSignaturePresent)
-            assertTrue(resolution.blockers.any { it.contains("adapter is not implemented") })
+            assertTrue(resolution.blockers.isEmpty())
+            assertTrue(resolution.warnings.any { it.contains("register its retained-renderer ndlopen hook") })
         } finally { root.deleteRecursively() }
     }
 
