@@ -246,7 +246,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
                     textStyle = LocalTextStyle.current.copy(color = Ink, fontSize = 13.sp),
                     decorationBox = { inner ->
                         Box {
-                            if (query.isEmpty()) Text("SEARCH FOR ANYTHING...", color = Muted, fontSize = 13.sp)
+                            if (query.isEmpty()) Text("SEARCH FOR ANYTHING...", color = Muted, fontSize = 13.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
                             inner()
                         }
                     },
@@ -363,7 +363,7 @@ private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(7.dp))
-            Text("Jun 30, 2024", color = Muted, fontSize = 11.sp)
+            Text("JUN 30, 2024", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
         }
     }
 }
@@ -390,7 +390,7 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
         Column(Modifier.fillMaxSize().padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(23.dp))
             Spacer(Modifier.height(4.dp))
-            Text(label, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(label.uppercase(), fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
@@ -417,7 +417,7 @@ private fun NewsCard(image: ImageBitmap, title: String, description: String, dat
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(5.dp))
-                    Text(date, color = Muted, fontSize = 9.sp)
+                    Text(date.uppercase(), color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)
                 }
             }
         }
@@ -429,10 +429,10 @@ private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
     Surface(color = Color(0xFFFFF0D9), shape = RoundedCornerShape(22.dp), modifier = modifier) {
         Row(Modifier.fillMaxSize().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("♛  Join Realms", fontWeight = FontWeight.Black, fontSize = 16.sp)
-                Text("Play with friends anywhere, anytime!", fontSize = 11.sp, color = Ink)
+                Text("♛  JOIN REALMS", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 16.sp)
+                Text("PLAY WITH FRIENDS ANYWHERE, ANYTIME!", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Ink)
                 Surface(color = Ink, shape = RoundedCornerShape(25.dp)) {
-                    Text("Learn More  →", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+                    Text("LEARN MORE  →", color = Color.White, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
                 }
             }
             MediaPlaceholder(Modifier.width(92.dp).fillMaxHeight(), RoundedCornerShape(0.dp))
