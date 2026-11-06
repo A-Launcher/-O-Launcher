@@ -1131,25 +1131,41 @@ private fun DestinationHero(images: LauncherImages, title: String, subtitle: Str
 
 @Composable
 private fun SettingsDestination(images: LauncherImages) {
-    var performance by remember { mutableStateOf(true) }
-    var animations by remember { mutableStateOf(true) }
-    var compactUi by remember { mutableStateOf(false) }
-    var notifications by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    val preferences = remember(context) {
+        context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
+    }
+    var performance by remember(context) { mutableStateOf(preferences.getBoolean("performance", true)) }
+    var animations by remember(context) { mutableStateOf(preferences.getBoolean("animations", true)) }
+    var compactUi by remember(context) { mutableStateOf(preferences.getBoolean("compact_ui", false)) }
+    var notifications by remember(context) { mutableStateOf(preferences.getBoolean("notifications", true)) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         DestinationHero(images, "Settings", "Tune O Launcher to match the way you play", "PREFERENCES")
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsGroup("APPEARANCE", "Customize the launcher interface") {
-                    SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) { animations = it }
-                    SettingToggle("Compact interface", "Reduce spacing in content panels", compactUi) { compactUi = it }
+                    SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) {
+                        animations = it
+                        preferences.edit().putBoolean("animations", it).apply()
+                    }
+                    SettingToggle("Compact interface", "Reduce spacing in content panels", compactUi) {
+                        compactUi = it
+                        preferences.edit().putBoolean("compact_ui", it).apply()
+                    }
                 }
                 SettingsGroup("PERFORMANCE", "Control launcher resource usage") {
-                    SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) { performance = it }
+                    SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) {
+                        performance = it
+                        preferences.edit().putBoolean("performance", it).apply()
+                    }
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SettingsGroup("NOTIFICATIONS", "Choose what O Launcher can tell you") {
-                    SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) { notifications = it }
+                    SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) {
+                        notifications = it
+                        preferences.edit().putBoolean("notifications", it).apply()
+                    }
                 }
                 SettingsGroup("ABOUT THIS DEVICE", "Launcher environment") {
                     SettingInfo("Platform", "Android · Landscape")
@@ -1760,7 +1776,19 @@ private fun InstallationsDestination(images: LauncherImages) {
     }
     var showCreateProfile by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf("") }
-    val profiles = remember { mutableStateListOf("Default") }
+    val profilePreferences = remember(context) {
+        context.getSharedPreferences("o_launcher_profiles", android.content.Context.MODE_PRIVATE)
+    }
+    val profiles = remember(context) {
+        val saved = profilePreferences.getStringSet("names", null).orEmpty()
+        mutableStateListOf<String>().apply {
+            addAll(saved.filter { it.isNotBlank() }.sortedWith(compareBy<String> { !it.equals("Default", true) }.thenBy { it.lowercase() }))
+            if (none { it.equals("Default", true) }) add(0, "Default")
+        }
+    }
+    fun persistProfiles() {
+        profilePreferences.edit().putStringSet("names", profiles.toSet()).apply()
+    }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         DestinationHero(images, "Installations", "Choose game versions and organize your profiles", "GAME SETUP")
@@ -2457,19 +2485,22 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Spacer(Modifier.width(11.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Black, fontSize = 14.sp)
-                                Text("Minecraft $selectedVersion  •  Local profile draft", color = Muted, fontSize = 11.sp)
+                                Text("Minecraft $selectedVersion  •  Saved on this device", color = Muted, fontSize = 11.sp)
                             }
                             if (index == 0) {
                                 Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(8.dp)) {
                                     Text("DEFAULT", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
                                 }
                             } else {
-                                TextButton(onClick = { profiles.removeAt(index) }) { Text("REMOVE", color = Muted, fontSize = 10.sp) }
+                                TextButton(onClick = {
+                                    profiles.removeAt(index)
+                                    persistProfiles()
+                                }) { Text("REMOVE", color = Muted, fontSize = 10.sp) }
                             }
                         }
                     }
                 }
-                Text("Profiles are currently saved only while this screen is open. Persistent storage and version downloads are not connected yet.", color = Muted, fontSize = 11.sp)
+                Text("Profile names are saved locally on this device. Version and mod-loader assignment are separate features still in progress.", color = Muted, fontSize = 11.sp)
             }
         }
     }
@@ -2492,7 +2523,11 @@ private fun InstallationsDestination(images: LauncherImages) {
             confirmButton = {
                 TextButton(
                     enabled = profileName.isNotBlank() && profiles.none { it.equals(profileName.trim(), ignoreCase = true) },
-                    onClick = { profiles.add(profileName.trim()); showCreateProfile = false }
+                    onClick = {
+                        profiles.add(profileName.trim())
+                        persistProfiles()
+                        showCreateProfile = false
+                    }
                 ) { Text("CREATE") }
             },
             dismissButton = { TextButton(onClick = { showCreateProfile = false }) { Text("CANCEL") } }
