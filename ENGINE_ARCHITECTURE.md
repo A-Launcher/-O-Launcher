@@ -176,3 +176,8 @@ O Engine now resolves the Java target for each Minecraft version using Mojang's 
 Historical bytecode target and installable Android runtime are distinct. Since the current Android runtime source does not publish Java 5/6/16 builds, O Engine maps Java 5/6 targets to Java 8 and Java 16 targets to Java 17, both newer compatible runtimes. Modern targets 8/17/21/25 map directly. Unknown metadata targets are preserved and will fail with an explicit unavailable-runtime message rather than silently selecting a different Java major.
 
 The official version list now includes Mojang release and snapshot entries, so 26.x snapshots are selectable. Metadata remains authoritative for snapshot runtime selection. The UI reports both the game's Java target and the actual Android runtime major selected.
+
+
+## MojoLauncher engineering reference and licensing boundary
+
+MojoLauncher `v3_openjdk` was inspected as an implementation reference for multi-runtime discovery/selection, in-process JVM loading, Java-version-specific native-library hooks (Java 8, 17 and 21 signatures differ), renderer setup, host EGL/GLES environment preparation, LWJGL native-load interception, and legacy-version renderer compatibility decisions. O Engine will implement its own Kotlin/Rust modules and tests around those concepts rather than wholesale-importing Mojo's launcher implementation. The inspected MojoLauncher repository is LGPL-3.0; any future source reuse or binary distribution must preserve applicable license notices and source-offer obligations. LTW and MobileGlues retain their separate upstream licenses.
