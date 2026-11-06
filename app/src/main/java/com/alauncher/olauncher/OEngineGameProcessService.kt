@@ -18,6 +18,10 @@ import java.io.File
  * All JNI_CreateJavaVM work runs on its dedicated HandlerThread, away from the launcher UI process.
  */
 class OEngineGameProcessService : Service() {
+    override fun onCreate() {
+        super.onCreate()
+        OEngineSessionLog.append(this, "GAME_PROCESS", "Isolated game-process service created; pid=" + Process.myPid())
+    }
     private var workerThread: HandlerThread? = null
     @Volatile private var jvmCreationAttempted = false
     @Volatile private var jvmCreated = false
@@ -30,6 +34,7 @@ class OEngineGameProcessService : Service() {
         Messenger(Handler(thread.looper) { message ->
             when (message.what) {
                 MSG_HEALTH_CHECK -> {
+                    OEngineSessionLog.append(this, "IPC_HEALTH", "Health check received")
                     val reply = Message.obtain(null, MSG_HEALTH_CHECK_RESULT).apply {
                         data.putBoolean(KEY_READY, true)
                         data.putInt(KEY_PID, Process.myPid())
@@ -40,6 +45,7 @@ class OEngineGameProcessService : Service() {
                     true
                 }
                 MSG_PREPARE_RENDERER -> {
+                    OEngineSessionLog.append(this, "RENDERER_PRELOAD", "Renderer preload requested")
                     val reply = Message.obtain(null, MSG_PREPARE_RENDERER_RESULT)
                     try {
                         check(!jvmCreationAttempted) { "Renderer and driver environment must be prepared before JVM creation." }
@@ -75,6 +81,7 @@ class OEngineGameProcessService : Service() {
                     true
                 }
                 MSG_INSTALL_RENDERER_HOOK -> {
+                    OEngineSessionLog.append(this, "RENDERER_HOOK", "LWJGL native-loader hook installation requested")
                     val reply = Message.obtain(null, MSG_INSTALL_RENDERER_HOOK_RESULT)
                     try {
                         check(jvmCreated) { "HotSpot must be created before installing a renderer hook." }
