@@ -414,6 +414,8 @@ private fun OLauncherApp() {
                                 FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
                             } else if (tab == 2) {
                                 SkinDestination(images)
+                            } else if (tab == 3) {
+                                MarketplaceDestination()
                             } else if (tab == 6) {
                                 LauncherFilesDestination()
                             } else {
@@ -1008,6 +1010,59 @@ private fun SkinDestination(images: LauncherImages) {
                     Image(preview, contentDescription = "Selected skin preview", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
                 }
                 Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketplaceDestination() {
+    val categories = listOf("All", "Mods", "Resource Packs", "Data Packs", "Shaders", "Maps", "Worlds", "More")
+    var selectedCategory by remember { mutableStateOf("All") }
+    var search by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().height(174.dp)) {
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF35162F), Color(0xFF7D263B), Color(0xFF24172F))))) {
+                Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text("BETTER MINECRAFT WITH MODS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("Explore mods, worlds, resource packs and more to make your world even greater!", color = Color(0xFFE8DDE8), fontSize = 12.sp, lineHeight = 17.sp)
+                    Surface(onClick = { selectedCategory = "Mods" }, color = Gold, shape = RoundedCornerShape(10.dp)) {
+                        Text("Browse Mods", Modifier.padding(horizontal = 17.dp, vertical = 9.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+                Text("NETHER  •  COMMUNITY CONTENT", Modifier.align(Alignment.BottomEnd).padding(16.dp), color = Color(0x99FFFFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Row(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
+            Box(Modifier.weight(1f)) {
+                if (search.isEmpty()) Text("Search for mods, worlds, and more...", color = Muted, fontSize = 12.sp)
+                BasicTextField(value = search, onValueChange = { search = it }, singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 12.sp))
+            }
+            Icon(Icons.Filled.ExpandMore, contentDescription = "Filters", tint = Ink, modifier = Modifier.size(20.dp))
+        }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            categories.forEach { category ->
+                val selected = selectedCategory == category
+                Surface(onClick = { selectedCategory = category }, color = if (selected) Color(0xFF342139) else Panel, shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)) {
+                    Text(category, Modifier.padding(horizontal = 15.dp, vertical = 9.dp), color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(if (search.isBlank()) "Featured $selectedCategory" else "Search results", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Ink)
+                Text("CurseForge community content", color = Muted, fontSize = 11.sp)
+            }
+            Text("VIEW ALL  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(172.dp)) {
+            Column(Modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
+                Spacer(Modifier.height(8.dp))
+                Text("CurseForge connection pending", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ink)
+                Text("Your API application is under review. Live projects, creators, ratings and downloads will appear here as soon as the key is configured.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
             }
         }
     }
