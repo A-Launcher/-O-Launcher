@@ -26,7 +26,7 @@ internal object OEngineNativeArchiveInspector {
                     throw IllegalStateException("Unsafe path in native archive: " + entry.name)
                 }
                 val name = normalized.substringAfterLast('/')
-                val isSharedObject = name.endsWith(".so") || Regex("""\\.so\\.[0-9.]+$""").containsMatchIn(name)
+                val isSharedObject = name.endsWith(".so") || Regex("""\.so\.[0-9.]+$""").containsMatchIn(name)
                 if (!isSharedObject) {
                     zip.closeEntry()
                     continue
