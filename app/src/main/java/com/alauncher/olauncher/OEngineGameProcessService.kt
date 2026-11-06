@@ -35,6 +35,24 @@ class OEngineGameProcessService : Service() {
                     runCatching { message.replyTo?.send(reply) }
                     true
                 }
+                MSG_INVOKE_MAIN -> {
+                    val reply = Message.obtain(null, MSG_INVOKE_MAIN_RESULT)
+                    try {
+                        val mainClass = message.data.getString(KEY_MAIN_CLASS).orEmpty()
+                        val arguments = message.data.getStringArray(KEY_GAME_ARGUMENTS)?.toList().orEmpty()
+                        require(mainClass.isNotBlank()) { "Minecraft main class is empty." }
+                        val result = OEngineJvmNativeBridge.invokeMain(mainClass, arguments)
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
+                        reply.data.putString(KEY_PROBE_STATUS, result.status)
+                        reply.data.putString(KEY_PROBE_DETAIL, result.detail)
+                    } catch (error: Throwable) {
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+                        reply.data.putString(KEY_PROBE_STATUS, "main_invoke_error")
+                        reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
+                    }
+                    runCatching { message.replyTo?.send(reply) }
+                    true
+                }
                 MSG_CREATE_JVM -> {
                     val reply = Message.obtain(null, MSG_CREATE_JVM_RESULT)
                     try {
@@ -144,6 +162,8 @@ class OEngineGameProcessService : Service() {
         const val MSG_PROBE_JVM_LIBRARY_RESULT = 4
         const val MSG_CREATE_JVM = 5
         const val MSG_CREATE_JVM_RESULT = 6
+        const val MSG_INVOKE_MAIN = 7
+        const val MSG_INVOKE_MAIN_RESULT = 8
         const val KEY_VM_OPTIONS = "oengine.vm_options"
         const val KEY_JAVA_MAJOR = "oengine.java_major"
         const val KEY_MAIN_CLASS = "oengine.main_class"
