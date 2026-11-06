@@ -1243,8 +1243,7 @@ private fun AccountDestination(images: LauncherImages) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
-    val recoveredMicrosoftToken = remember { MicrosoftTokenVault.load(context) }
-    var hasRecoveredMicrosoftAccount by remember { mutableStateOf(recoveredMicrosoftToken != null) }
+    var hasRecoveredMicrosoftAccount by remember { mutableStateOf(MicrosoftTokenVault.load(context) != null) }
     var playerName by remember { mutableStateOf(
         if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_name", "Saved Microsoft account") ?: "Saved Microsoft account"
         else prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
