@@ -60,11 +60,13 @@ class OEngineLwjglNativeResolverTest {
     fun recognizesLwjgl2AsLegacyAndUnsupported() {
         val root = Files.createTempDirectory("oengine-lwjgl2").toFile()
         try {
-            val core = jar(root, "org/lwjgl/lwjgl/2.9.4/lwjgl-2.9.4.jar")
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4/lwjgl-2.9.4.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray())
             val result = OEngineLwjglNativeResolver.resolve(listOf(core))
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
-            assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2, result.loaderSurface)
-            assertTrue(result.blockers.isNotEmpty())
+            assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
+            assertTrue(result.blockers.any { it.contains("org.lwjgl.opengl.libname") })
+            assertTrue(result.blockers.any { it.contains("GL4ES") })
         } finally { root.deleteRecursively() }
     }
 
