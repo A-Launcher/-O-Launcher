@@ -21,7 +21,7 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglGeneration.LWJGL3, resolution.generation)
             assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
             assertTrue(resolution.dynamicLinkLoaderClassPresent)
-            assertFalse(resolution.mojoNdlopenMarkerPresent)
+            assertFalse(resolution.ndlopenSignaturePresent)
             assertTrue(resolution.blockers.any { it.contains("adapter is not implemented") })
         } finally { root.deleteRecursively() }
     }
