@@ -503,20 +503,147 @@ private fun PanelCard(
 @Composable
 private fun Destination(tab: Int) {
     val title = listOf("Home", "Installations", "Skins", "Marketplace", "Settings", "About")[tab.coerceIn(0, 5)]
-    Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, fontSize = 27.sp, fontWeight = FontWeight.Black)
-            Text(
-                when (tab) {
-                    1 -> "Your Minecraft versions, game profiles and installations will appear here."
-                    2 -> "Preview and manage your player skins here."
-                    3 -> "Browse community content and launcher add-ons here."
-                    4 -> "Customize O Launcher preferences here."
-                    else -> "O Launcher information and credits."
-                },
-                color = Muted, fontSize = 14.sp
-            )
-            Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    if (tab == 1) {
+        InstallationsDestination()
+    } else {
+        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(title, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                Text(
+                    when (tab) {
+                        2 -> "Preview and manage your player skins here."
+                        3 -> "Browse community content and launcher add-ons here."
+                        4 -> "Customize O Launcher preferences here."
+                        else -> "O Launcher information and credits."
+                    },
+                    color = Muted, fontSize = 14.sp
+                )
+                Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
         }
+    }
+}
+
+@Composable
+private fun InstallationsDestination() {
+    val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
+    var selectedVersion by remember { mutableStateOf("1.21.4") }
+    var versionMenu by remember { mutableStateOf(false) }
+    var showCreateProfile by remember { mutableStateOf(false) }
+    var profileName by remember { mutableStateOf("") }
+    val profiles = remember { mutableStateListOf("Default") }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("GAME INSTALLATIONS", fontSize = 23.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
+                        Text("Choose the Minecraft version for your launcher profile.", color = Muted, fontSize = 12.sp)
+                    }
+                    Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(12.dp)) {
+                        Text("JAVA EDITION", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("GAME VERSION", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Box {
+                            Surface(
+                                onClick = { versionMenu = true },
+                                color = Panel,
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Border),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Inventory2, contentDescription = null, tint = Ink, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text("Minecraft $selectedVersion", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.weight(1f))
+                                    Icon(Icons.Filled.ExpandMore, contentDescription = "Choose version", tint = Ink)
+                                }
+                            }
+                            DropdownMenu(expanded = versionMenu, onDismissRequest = { versionMenu = false }) {
+                                versions.forEach { version ->
+                                    DropdownMenuItem(
+                                        text = { Text("Minecraft $version") },
+                                        onClick = { selectedVersion = version; versionMenu = false },
+                                        leadingIcon = { if (selectedVersion == version) Icon(Icons.Filled.Checkroom, contentDescription = null) }
+                                    )
+                                }
+                            }
+                        }
+                        Text("Version choices are launcher UI entries only. The game files have not been downloaded.", color = Muted, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("GAME PROFILES", fontSize = 19.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
+                        Text("Separate settings for different play styles.", color = Muted, fontSize = 12.sp)
+                    }
+                    Button(
+                        onClick = { profileName = ""; showCreateProfile = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
+                    ) {
+                        Text("+ CREATE PROFILE", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                profiles.forEachIndexed { index, name ->
+                    Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(MediaGray), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.SportsEsports, contentDescription = null, tint = Gold)
+                            }
+                            Spacer(Modifier.width(11.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(name, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                                Text("Minecraft $selectedVersion  •  Local profile draft", color = Muted, fontSize = 11.sp)
+                            }
+                            if (index == 0) {
+                                Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(8.dp)) {
+                                    Text("DEFAULT", modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                            } else {
+                                TextButton(onClick = { profiles.removeAt(index) }) { Text("REMOVE", color = Muted, fontSize = 10.sp) }
+                            }
+                        }
+                    }
+                }
+                Text("Profiles are currently saved only while this screen is open. Persistent storage and version downloads are not connected yet.", color = Muted, fontSize = 11.sp)
+            }
+        }
+    }
+
+    if (showCreateProfile) {
+        AlertDialog(
+            onDismissRequest = { showCreateProfile = false },
+            title = { Text("CREATE GAME PROFILE") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Give this profile a name.", color = Muted, fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = profileName,
+                        onValueChange = { profileName = it },
+                        singleLine = true,
+                        label = { Text("Profile name") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = profileName.isNotBlank() && profiles.none { it.equals(profileName.trim(), ignoreCase = true) },
+                    onClick = { profiles.add(profileName.trim()); showCreateProfile = false }
+                ) { Text("CREATE") }
+            },
+            dismissButton = { TextButton(onClick = { showCreateProfile = false }) { Text("CANCEL") } }
+        )
     }
 }
