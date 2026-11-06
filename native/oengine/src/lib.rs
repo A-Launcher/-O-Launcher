@@ -34,6 +34,22 @@ fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
 }
 
+fn is_valid_lwjgl_class_name(value: &str) -> bool {
+    value.len() <= 512
+        && value.split('.').all(|part| {
+            !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
+}
+
+fn is_valid_renderer_alias(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value.starts_with("lib")
+        && value.ends_with(".so")
+        && !value.contains('/')
+        && !value.as_bytes().contains(&0)
+}
+
 #[no_mangle]
 pub extern "C" fn oengine_native_abi_version() -> u32 {
     ABI_VERSION
@@ -695,15 +711,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value.into(),
         Err(error) => { set_error(&format!("Cannot read renderer alias: {error}")); return 0; },
     };
-    if class_name.len() > 512
-        || !class_name.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
-        || alias.is_empty()
-        || alias.len() > 128
-        || !alias.starts_with("lib")
-        || !alias.ends_with(".so")
-        || alias.contains('/')
-        || alias.as_bytes().contains(&0)
-    {
+    if !is_valid_lwjgl_class_name(&class_name) || !is_valid_renderer_alias(&alias) {
         set_error("Invalid target class name or renderer alias format.");
         return 0;
     }
@@ -824,6 +832,26 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lwjgl_class_names_must_be_valid_dotted_names() {
+        assert!(is_valid_lwjgl_class_name("org.lwjgl.system.Library"));
+        assert!(!is_valid_lwjgl_class_name(""));
+        assert!(!is_valid_lwjgl_class_name("org..Library"));
+        assert!(!is_valid_lwjgl_class_name("org/lwjgl/Library"));
+        assert!(!is_valid_lwjgl_class_name("org.lwjgl.Library;"));
+        assert!(!is_valid_lwjgl_class_name(&"a".repeat(513)));
+    }
+
+    #[test]
+    fn renderer_alias_must_be_a_bare_shared_library_name() {
+        assert!(is_valid_renderer_alias("libGLMojo.so"));
+        assert!(!is_valid_renderer_alias(""));
+        assert!(!is_valid_renderer_alias("libGLMojo"));
+        assert!(!is_valid_renderer_alias("/system/lib/libGLMojo.so"));
+        assert!(!is_valid_renderer_alias("libGLMojo.so\\0evil"));
+        assert!(!is_valid_renderer_alias(&format!("lib{}.so", "x".repeat(126))));
+    }
 
     #[test]
     fn exact_renderer_alias_is_redirected() {
