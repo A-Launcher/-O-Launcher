@@ -45,8 +45,8 @@ class OEngineGameProcessService : Service() {
                         check(!jvmCreationAttempted) { "Renderer and driver environment must be prepared before JVM creation." }
                         val rendererFile = File(message.data.getString(KEY_RENDERER_FILE).orEmpty())
                         val rendererRoot = File(message.data.getString(KEY_RENDERER_ROOT).orEmpty())
-                        require(rendererFile.name in setOf("libltw.so", OEngineGraphicsStack.GL4ES_LIBRARY)) {
-                            "Unsupported renderer library; expected pinned LTW or GL4ES."
+                        require(rendererFile.name == "libltw.so") {
+                            "Only LTW currently has a verified O Engine/LWJGL 3 preload route. GL4ES is staged for future LWJGL 2 integration and must not enter the LTW hook."
                         }
                         rendererLibraryName = rendererFile.name
                         val eglPath = message.data.getString(KEY_RENDERER_EGL).orEmpty()
@@ -84,8 +84,8 @@ class OEngineGameProcessService : Service() {
                         require(alias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) {
                             "The selected renderer must use the verified libGLMojo.so LWJGL alias."
                         }
-                        check(rendererLibraryName in setOf("libltw.so", OEngineGraphicsStack.GL4ES_LIBRARY)) {
-                            "No supported renderer library was staged."
+                        check(rendererLibraryName == "libltw.so") {
+                            "The libGLMojo.so hook is currently verified only for LTW; GL4ES requires a separate LWJGL 2 adapter."
                         }
                         val installed = OEngineJvmNativeBridge.installLwjglHook(
                             targetClass, alias, rendererHandle
@@ -141,6 +141,9 @@ class OEngineGameProcessService : Service() {
                         }
                         require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
                         check(rendererHandle != 0L) { "A renderer must be preloaded before HotSpot creation." }
+                        check(rendererLibraryName == "libltw.so") {
+                            "This JVM bootstrap profile is LTW-only; GL4ES cannot use the LTW LWJGL alias."
+                        }
                         require(options.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
                             "The JVM must use the libGLMojo.so LWJGL alias for the staged renderer."
                         }
