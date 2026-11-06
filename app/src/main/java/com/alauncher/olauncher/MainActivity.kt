@@ -57,6 +57,7 @@ private val Ink = Color(0xFF211F1B)
 private val Muted = Color(0xFF766E64)
 private val Gold = Color(0xFFFFC64D)
 private val Border = Color(0xFFEADBC8)
+private val MediaGray = Color(0xFF444444)
 
 private data class LauncherImages(
     val hero: ImageBitmap,
@@ -215,18 +216,18 @@ private fun OLauncherApp() {
 }
 
 @Composable
+private fun MediaPlaceholder(modifier: Modifier = Modifier, shape: RoundedCornerShape = RoundedCornerShape(12.dp)) {
+    Box(modifier.clip(shape).background(MediaGray))
+}
+
+@Composable
 private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Image(
-            images.logo,
-            contentDescription = "Minecraft Java Edition",
-            modifier = Modifier.width(190.dp).height(48.dp),
-            contentScale = ContentScale.Fit
-        )
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MediaGray))
         Surface(
             Modifier.weight(1f).height(46.dp),
             color = Color(0xFFFFF8F0),
@@ -275,7 +276,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
         ) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Image(images.avatar, contentDescription = "Creeper avatar", modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)))
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(MediaGray))
                 Spacer(Modifier.width(8.dp))
                 Text("CreeperFan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Spacer(Modifier.width(7.dp))
@@ -299,7 +300,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(images.avatar, contentDescription = "O Launcher Creeper icon", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)))
+        Box(Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)).background(MediaGray))
         Spacer(Modifier.height(8.dp))
         entries.forEach { (icon, label, index) ->
             val selected = tab == index
@@ -323,7 +324,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(17.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(images.avatar, contentDescription = null, modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)))
+                    Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(MediaGray))
                     Spacer(Modifier.width(5.dp))
                     Column {
                         Text("CreeperFan", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -343,7 +344,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 @Composable
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
-        Image(images.hero, contentDescription = "The End awaits Minecraft Nether hero", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+        Box(Modifier.fillMaxSize().background(MediaGray))
         // Invisible hit target sits exactly over the Play Now button baked into the supplied reference art.
         BoxWithConstraints(Modifier.fillMaxSize()) {
             Box(
@@ -359,7 +360,7 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 @Composable
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
     PanelCard("What's New?", "View all  →", modifier) {
-        Image(images.whatsNew, contentDescription = "The Nether Update artwork", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp)), contentScale = ContentScale.Crop)
+        MediaPlaceholder(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(15.dp))
         Text("The Nether Update", fontWeight = FontWeight.Black, fontSize = 15.sp)
         Text("New biomes, new features!", color = Muted, fontSize = 12.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -412,7 +413,7 @@ private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) 
 private fun NewsCard(image: ImageBitmap, title: String, description: String, date: String, modifier: Modifier = Modifier) {
     Surface(color = Color(0xFFFFF4E6), shape = RoundedCornerShape(18.dp), modifier = modifier) {
         Column(Modifier.fillMaxSize()) {
-            Image(image, contentDescription = title, modifier = Modifier.fillMaxWidth().height(82.dp), contentScale = ContentScale.Crop)
+            MediaPlaceholder(Modifier.fillMaxWidth().height(82.dp), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, fontWeight = FontWeight.Black, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(description, color = Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -437,7 +438,7 @@ private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
                     Text("Learn More  →", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
                 }
             }
-            Image(images.realms, contentDescription = "Minecraft floating island castle", modifier = Modifier.width(92.dp).fillMaxHeight(), contentScale = ContentScale.Fit)
+            MediaPlaceholder(Modifier.width(92.dp).fillMaxHeight(), RoundedCornerShape(0.dp))
         }
     }
 }
