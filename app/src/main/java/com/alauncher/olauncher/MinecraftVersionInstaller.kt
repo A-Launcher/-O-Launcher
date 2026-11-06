@@ -349,8 +349,10 @@ object MinecraftVersionInstaller {
             val legacy = metadata.optString("minecraftArguments")
             if (legacy.isNotBlank()) {
                 val tokens = Regex("""\"([^\"]*)\"|'([^']*)'|(\S+)""")
-                    it.groups[1]?.value ?: it.groups[2]?.value ?: it.groups[3]?.value.orEmpty()
-                }
+                    .findAll(legacy)
+                    .map { match ->
+                        match.groups[1]?.value ?: match.groups[2]?.value ?: match.groups[3]?.value.orEmpty()
+                    }
                 tokens.forEach { gameArguments.add(substitute(it)) }
             }
         }
