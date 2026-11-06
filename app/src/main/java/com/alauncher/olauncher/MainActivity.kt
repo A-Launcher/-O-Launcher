@@ -2235,30 +2235,41 @@ private fun InstallationsDestination(images: LauncherImages) {
                             enabled = preparedLaunchPlan != null && !probingGameProcess && !installingRuntime && !downloadingRuntime,
                             onClick = {
                                 val launchPlan = preparedLaunchPlan ?: return@Button
-                                val bootstrap = OLauncherEngine.prepareCommandPreview(activeInstance.root, launchPlan).jvmBootstrapPlan
+                                val preview = OLauncherEngine.prepareCommandPreview(
+                                    activeInstance.root, launchPlan, rendererLibraryAlias = "libGLMojo.so"
+                                )
+                                val bootstrap = preview.jvmBootstrapPlan
                                 val jvmLibrary = bootstrap?.jvmLibrary
                                 if (bootstrap == null || !bootstrap.structurallyReady || jvmLibrary == null) {
                                     gameProcessStatus = "JVM CREATION BLOCKED • " +
                                         (bootstrap?.blockers?.joinToString(" • ") ?: "Prepare a valid Minecraft Java runtime first.")
                                     return@Button
                                 }
+                                val lwjgl = OEngineLwjglNativeResolver.resolve(launchPlan.classpath.map(::File))
+                                if (lwjgl.generation != OEngineLwjglGeneration.LWJGL3 ||
+                                    !lwjgl.dynamicLinkLoaderClassPresent || !lwjgl.ndlopenSignaturePresent
+                                ) {
+                                    gameProcessStatus = "LTW STARTUP BLOCKED • Selected LWJGL does not expose the verified DynamicLinkLoader.ndlopen(long,int) surface."
+                                    return@Button
+                                }
+                                val artifact = try {
+                                    OEngineLtwArtifactInstaller.install(context)
+                                } catch (error: Exception) {
+                                    gameProcessStatus = "LTW ARTIFACT BLOCKED • " + (error.message ?: "Pinned LTW is missing from this APK.")
+                                    return@Button
+                                }
+                                val rendererRoot = File(context.filesDir, "oengine/renderers").canonicalFile
                                 probingGameProcess = true
-                                gameProcessStatus = "Starting HotSpot in the isolated :game process…"
+                                gameProcessStatus = "Starting :game; staging LTW before HotSpot…"
                                 lateinit var client: OEngineGameProcessClient
                                 client = OEngineGameProcessClient(
-                                    context,
-                                    { result ->
+                                    context = context,
+                                    onStatus = { result ->
                                         result.fold(
                                             onSuccess = { status ->
                                                 if (status.ready) {
-                                                    gameProcessStatus = "GAME PROCESS READY • creating Java VM…"
-                                                    client.createJvm(
-                                                        bootstrap.runtime.home,
-                                                        bootstrap.workingDirectory,
-                                                        jvmLibrary,
-                                                        bootstrap.vmOptions,
-                                                        bootstrap.runtime.javaMajor
-                                                    )
+                                                    gameProcessStatus = "GAME PROCESS READY • preloading pinned LTW…"
+                                                    client.prepareRenderer(artifact.libraryFile, rendererRoot, null, null)
                                                 } else {
                                                     probingGameProcess = false
                                                     gameProcessStatus = "GAME PROCESS NOT READY • " + status.phase
@@ -2270,42 +2281,78 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             }
                                         )
                                     },
-                                    {},
-                                    { result ->
-                                        probingGameProcess = false
-                                        gameProcessStatus = result.fold(
-                                            onSuccess = { created ->
-                                                (if (created.successful) "HOTSPOT VM CREATED" else "HOTSPOT VM CREATION FAILED") +
-                                                    " • " + created.status + " • " + created.detail
-                                            },
-                                            onFailure = { error ->
-                                                "HOTSPOT VM CREATION ERROR • " + (error.message ?: "Unknown VM error")
-                                            }
-                                        )
-                                    },
-                                    { result ->
+                                    onJvmCreate = { result ->
                                         result.fold(
-                                            onSuccess = { launched ->
-                                                gameProcessStatus = if (launched.successful) {
-                                                    "MINECRAFT MAIN RETURNED • " + launched.detail
+                                            onSuccess = { created ->
+                                                if (created.successful) {
+                                                    gameProcessStatus = "HOTSPOT CREATED • installing LWJGL LTW hook…"
+                                                    client.installRendererHook(
+                                                        artifact.libraryFile,
+                                                        rendererRoot,
+                                                        "org.lwjgl.system.linux.DynamicLinkLoader",
+                                                        "libGLMojo.so"
+                                                    )
                                                 } else {
-                                                    "MINECRAFT MAIN FAILED • " + launched.status + " • " + launched.detail
+                                                    probingGameProcess = false
+                                                    gameProcessStatus = "HOTSPOT VM CREATION FAILED • " + created.status + " • " + created.detail
                                                 }
                                             },
                                             onFailure = { error ->
-                                                gameProcessStatus = "MINECRAFT MAIN IPC ERROR • " + (error.message ?: "Unknown error")
+                                                probingGameProcess = false
+                                                gameProcessStatus = "HOTSPOT VM CREATION ERROR • " + (error.message ?: "Unknown VM error")
+                                            }
+                                        )
+                                    },
+                                    onRendererHook = { result ->
+                                        probingGameProcess = false
+                                        gameProcessStatus = result.fold(
+                                            onSuccess = { hook ->
+                                                if (hook.successful) {
+                                                    "LTW PRELOADED + LWJGL HOOK INSTALLED • HotSpot is ready; invoke Minecraft main next."
+                                                } else {
+                                                    "LWJGL LTW HOOK FAILED • " + hook.status + " • " + hook.detail
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                "LWJGL LTW HOOK ERROR • " + (error.message ?: "Unknown hook error")
+                                            }
+                                        )
+                                    },
+                                    onRendererPreload = { result ->
+                                        result.fold(
+                                            onSuccess = { preload ->
+                                                if (preload.successful) {
+                                                    gameProcessStatus = "LTW PRELOADED • creating HotSpot with libGLMojo.so alias…"
+                                                    client.createJvm(
+                                                        bootstrap.runtime.home,
+                                                        bootstrap.workingDirectory,
+                                                        jvmLibrary,
+                                                        bootstrap.vmOptions,
+                                                        bootstrap.runtime.javaMajor
+                                                    )
+                                                } else {
+                                                    probingGameProcess = false
+                                                    gameProcessStatus = "LTW PRELOAD FAILED • " + preload.status + " • " + preload.detail
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                probingGameProcess = false
+                                                gameProcessStatus = "LTW PRELOAD ERROR • " + (error.message ?: "Unknown renderer error")
                                             }
                                         )
                                     }
                                 )
                                 gameProcessClient?.close()
                                 gameProcessClient = client
-                                client.connect()
+                                if (!client.connect()) {
+                                    probingGameProcess = false
+                                    gameProcessStatus = "GAME PROCESS CONNECTION FAILED."
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A563B), contentColor = Color.White),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(if (probingGameProcess) "CREATING HOTSPOT JVM…" else "CREATE JVM + CORE CLASS TEST", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(if (probingGameProcess) "PREPARING LTW + HOTSPOT…" else "PRELOAD LTW + CREATE JVM", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text("This attempts JNI_CreateJavaVM in :game and resolves java.lang.String. It runs a tiny Java main method, not Minecraft's main class or the game.", color = Muted, fontSize = 10.sp)
                         Text("EXPERIMENTAL: Android ART and HotSpot coexistence is device-dependent. A native failure may restart only the separate :game process.", color = Color(0xFFD6A06C), fontSize = 10.sp)
