@@ -47,6 +47,7 @@ object OEngineLwjglNativeResolver {
     private val artifactPattern = Regex(
         """(?:^|/)org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/\1-\2\.jar$"""
     )
+    const val DYNAMIC_LINK_LOADER_CLASS_NAME = "org.lwjgl.system.linux.DynamicLinkLoader"
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
     private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
 
