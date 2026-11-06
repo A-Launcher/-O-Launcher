@@ -23,7 +23,7 @@ object MinecraftVersionInstaller {
         val releases = buildList {
             for (index in 0 until entries.length()) {
                 val item = entries.getJSONObject(index)
-                if (item.optString("type") == "release" || item.optString("type") == "snapshot") {
+                if (item.optString("type") in setOf("release", "snapshot", "old_beta", "old_alpha")) {
                     add(MinecraftRelease(item.getString("id"), item.optString("type"), item.getString("url")))
                 }
             }
