@@ -21,7 +21,7 @@ internal object OEngineNativeArchiveInspector {
                     zip.closeEntry()
                     continue
                 }
-                val normalized = entry.name.replace('\\\\', '/')
+                val normalized = entry.name.replace('\\', '/')
                 if (normalized.startsWith("/") || normalized.split('/').any { it == ".." }) {
                     throw IllegalStateException("Unsafe path in native archive: " + entry.name)
                 }
