@@ -66,6 +66,11 @@ class OEngineGameProcessClient(
             onStatus(result)
         }
     }
+    private val rendererPreloadTimeoutRunnable = Runnable {
+        if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+            onRendererPreload(Result.failure(IllegalStateException("The isolated game process did not finish LTW preload within 30 seconds.")))
+        }
+    }
     private val rendererTimeoutRunnable = Runnable {
         if (rendererResponseDelivered.compareAndSet(false, true)) {
             onRendererHook(Result.failure(IllegalStateException("The isolated game process did not finish renderer hook installation within 30 seconds.")))
@@ -98,6 +103,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_PREPARE_RENDERER_RESULT -> {
                 if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
                     val data = message.data
                     onRendererPreload(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -236,6 +242,7 @@ class OEngineGameProcessClient(
             return false
         }
         rendererPreloadResponseDelivered.set(false)
+        timeoutHandler.postDelayed(rendererPreloadTimeoutRunnable, 30_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_PREPARE_RENDERER).apply {
             data.putString(OEngineGameProcessService.KEY_RENDERER_FILE, rendererFile.canonicalPath)
             data.putString(OEngineGameProcessService.KEY_RENDERER_ROOT, rendererRoot.canonicalPath)
@@ -247,6 +254,7 @@ class OEngineGameProcessClient(
             target.send(request)
             true
         } catch (error: RemoteException) {
+            timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
             if (rendererPreloadResponseDelivered.compareAndSet(false, true)) onRendererPreload(Result.failure(error))
             false
         }
@@ -325,6 +333,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
             timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
+            timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
