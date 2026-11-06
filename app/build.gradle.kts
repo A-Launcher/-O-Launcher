@@ -21,13 +21,6 @@ android {
 
     buildFeatures { compose = true }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-
     // Load the user's original PNG sidebar icons from the repository artwork folder.
     sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
     sourceSets.getByName("main").assets.srcDir("../artwork/quick_links")
