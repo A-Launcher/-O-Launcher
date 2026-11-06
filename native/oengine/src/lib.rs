@@ -620,6 +620,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Err(_) => { set_error("Renderer library state lock is poisoned".to_owned()); return 0; },
     };
     if let Some((_, handle)) = guard.iter().find(|(loaded, _)| loaded == &path) {
+        set_error(String::new());
         return *handle as jlong;
     }
     libc::dlerror();
