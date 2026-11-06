@@ -74,3 +74,9 @@ The isolated process now exposes a second Messenger request for a JVM linker dia
 The diagnostic runs on a dedicated HandlerThread, has bounded IPC timeouts, and retains the validated library handle only in the game process. This still does not call `JNI_CreateJavaVM`, install JDK native-library hooks, or launch Minecraft. The Android linker may not honor all runtime environment changes on every API level; device verification is required.
 
 The Rust diagnostic opens `libjvm.so` with `RTLD_NOW | RTLD_GLOBAL`, matching the upstream Android JVM bootstrap loading strategy so symbols from the selected runtime can participate in process-wide native resolution. This is only a loader visibility choice; it does not establish that all runtime dependencies are present or that VM creation is safe.
+
+## Experimental HotSpot VM creation smoke test
+
+The Installations diagnostics now include an explicit action that runs inside the private `:game` process. The service revalidates the selected runtime and canonical `libjvm.so` path, retains the library with global symbol visibility, applies the runtime environment paths, and forwards the typed VM options to the Rust JNI bridge. The bridge resolves `JNI_CreateJavaVM`, constructs JNI 1.8 `JavaVMInitArgs`, and attempts to create exactly one VM per game process. On success it resolves `java/lang/String` through the new VM's JNI environment as a minimal core-class smoke test.
+
+This is deliberately experimental: Android ART is already present in the process, and HotSpot coexistence is non-standard and device/runtime dependent. A native crash can terminate the isolated `:game` process; the launcher UI is in a separate process and has a bounded 60-second result timeout. The smoke test does not yet invoke a Java `main` method, install JDK native-library hooks, or launch Minecraft. Do not report it as a working Minecraft launch until it has passed on real devices.
