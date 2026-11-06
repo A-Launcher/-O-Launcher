@@ -22,6 +22,7 @@ class OEngineGameProcessService : Service() {
     @Volatile private var jvmCreationAttempted = false
     @Volatile private var jvmCreated = false
     @Volatile private var rendererHandle: Long = 0L
+    @Volatile private var rendererLibraryName: String? = null
     @Volatile private var rendererHookInstalled = false
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
@@ -44,6 +45,10 @@ class OEngineGameProcessService : Service() {
                         check(!jvmCreationAttempted) { "Renderer and driver environment must be prepared before JVM creation." }
                         val rendererFile = File(message.data.getString(KEY_RENDERER_FILE).orEmpty())
                         val rendererRoot = File(message.data.getString(KEY_RENDERER_ROOT).orEmpty())
+                        require(rendererFile.name in setOf("libltw.so", OEngineGraphicsStack.GL4ES_LIBRARY)) {
+                            "Unsupported renderer library; expected pinned LTW or GL4ES."
+                        }
+                        rendererLibraryName = rendererFile.name
                         val eglPath = message.data.getString(KEY_RENDERER_EGL).orEmpty()
                         val glesPath = message.data.getString(KEY_RENDERER_GLES).orEmpty()
                         fun applyDriverOverride(key: String, value: String) {
@@ -76,7 +81,12 @@ class OEngineGameProcessService : Service() {
                         check(rendererHandle != 0L) { "Renderer must be preloaded before JVM creation." }
                         val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
                         val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
-                        require(alias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) { "LTW must use the verified libGLMojo.so LWJGL alias." }
+                        require(alias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) {
+                            "The selected renderer must use the verified libGLMojo.so LWJGL alias."
+                        }
+                        check(rendererLibraryName in setOf("libltw.so", OEngineGraphicsStack.GL4ES_LIBRARY)) {
+                            "No supported renderer library was staged."
+                        }
                         val installed = OEngineJvmNativeBridge.installLwjglHook(
                             targetClass, alias, rendererHandle
                         )
@@ -100,7 +110,7 @@ class OEngineGameProcessService : Service() {
                         val arguments = message.data.getStringArray(KEY_GAME_ARGUMENTS)?.toList().orEmpty()
                         require(mainClass.isNotBlank()) { "Minecraft main class is empty." }
                         check(jvmCreated) { "HotSpot has not been created successfully in the isolated game process." }
-                        check(rendererHookInstalled) { "LTW must be preloaded and its LWJGL hook installed before Minecraft main can run." }
+                        check(rendererHookInstalled) { "A renderer must be preloaded and its LWJGL hook installed before Minecraft main can run." }
                         require(arguments.size <= 16_384 && arguments.all { it.length <= 65_536 && '\u0000' !in it }) {
                             "Minecraft game arguments exceed the IPC safety limits."
                         }
@@ -130,9 +140,9 @@ class OEngineGameProcessService : Service() {
                             "The JVM library must be inside the selected runtime directory."
                         }
                         require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
-                        check(rendererHandle != 0L) { "LTW must be preloaded before HotSpot creation." }
+                        check(rendererHandle != 0L) { "A renderer must be preloaded before HotSpot creation." }
                         require(options.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
-                            "The JVM must use the libGLMojo.so LWJGL alias for the staged LTW renderer."
+                            "The JVM must use the libGLMojo.so LWJGL alias for the staged renderer."
                         }
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
