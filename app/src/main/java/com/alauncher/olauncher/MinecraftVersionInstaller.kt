@@ -109,7 +109,7 @@ object MinecraftVersionInstaller {
     }
 
 
-    data class DependencyInstallResult(val libraries: Int, val assets: Int, val bytes: Long)
+    data class DependencyInstallResult(val libraries: Int, val assets: Int, val mappedAssets: Int, val bytes: Long)
 
     suspend fun downloadLibrariesAndAssets(
         version: MinecraftRelease,
@@ -158,7 +158,8 @@ object MinecraftVersionInstaller {
         val indexFile = File(File(gameDirectory, "assets/indexes"), "$indexId.json")
         tasks.add(Task(assetIndex.getString("url"), indexFile, assetIndex.optString("sha1"), assetIndex.optLong("size", -1L), "Asset index"))
 
-        val totalObjects = JSONObject(requestText(assetIndex.getString("url"))).getJSONObject("objects")
+        val assetIndexMetadata = JSONObject(requestText(assetIndex.getString("url")))
+        val totalObjects = assetIndexMetadata.getJSONObject("objects")
         val objectBase = File(gameDirectory, "assets/objects")
         var assetCount = 0
         val iterator = totalObjects.keys()
@@ -195,7 +196,72 @@ object MinecraftVersionInstaller {
             completedTasks++
             onProgress(completedBytes, totalBytes, "Downloaded: " + task.label + " (" + completedTasks + "/" + tasks.size + ")")
         }
-        DependencyInstallResult(libraryCount, assetCount, completedBytes)
+        val mappedAssets = materializeLegacyAssetMappings(
+            gameDirectory = gameDirectory,
+            indexId = indexId,
+            objects = totalObjects,
+            createVirtual = assetIndexMetadata.optBoolean("virtual", false),
+            mapToResources = assetIndexMetadata.optBoolean("map_to_resources", false)
+        )
+        DependencyInstallResult(libraryCount, assetCount, mappedAssets, completedBytes)
+    }
+
+    private fun materializeLegacyAssetMappings(
+        gameDirectory: File,
+        indexId: String,
+        objects: JSONObject,
+        createVirtual: Boolean,
+        mapToResources: Boolean
+    ): Int {
+        if (!createVirtual && !mapToResources) return 0
+        val objectBase = File(gameDirectory, "assets/objects").canonicalFile
+        val destinations = buildList {
+            if (createVirtual) add(File(gameDirectory, "assets/virtual/$indexId").canonicalFile)
+            if (mapToResources) add(File(gameDirectory, "resources").canonicalFile)
+        }
+        var created = 0
+        val iterator = objects.keys()
+        while (iterator.hasNext()) {
+            val assetName = iterator.next()
+            val item = objects.getJSONObject(assetName)
+            val hash = item.optString("hash").lowercase()
+            if (hash.length != 40 || !hash.all { it in "0123456789abcdef" }) continue
+            val source = File(objectBase, hash.substring(0, 2) + "/" + hash).canonicalFile
+            if (!source.isFile || (item.optLong("size", -1L) > 0L && source.length() != item.optLong("size"))) {
+                throw IllegalStateException("Required asset object is missing or has an invalid size: $assetName")
+            }
+            if (!sha1(source).equals(hash, ignoreCase = true)) {
+                throw IllegalStateException("Required asset object failed SHA-1 verification: $assetName")
+            }
+            for (destinationRoot in destinations) {
+                val target = File(destinationRoot, assetName).canonicalFile
+                if (!target.toPath().startsWith(destinationRoot.toPath())) continue
+                if (target.isFile && target.length() == source.length() &&
+                    sha1(target).equals(hash, ignoreCase = true)
+                ) continue
+                val parent = target.parentFile ?: continue
+                if (!parent.exists() && !parent.mkdirs()) {
+                    throw IllegalStateException("Could not create legacy asset folder for $assetName")
+                }
+                val temporary = File(parent, target.name + ".part")
+                if (temporary.exists()) temporary.delete()
+                source.copyTo(temporary, overwrite = true)
+                if (!sha1(temporary).equals(hash, ignoreCase = true)) {
+                    temporary.delete()
+                    throw IllegalStateException("Legacy asset mapping verification failed: $assetName")
+                }
+                if (target.exists() && !target.delete()) {
+                    temporary.delete()
+                    throw IllegalStateException("Could not replace legacy asset mapping: $assetName")
+                }
+                if (!temporary.renameTo(target)) {
+                    temporary.copyTo(target, overwrite = true)
+                    temporary.delete()
+                }
+                created++
+            }
+        }
+        return created
     }
 
     private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
