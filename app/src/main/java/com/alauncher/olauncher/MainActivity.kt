@@ -60,7 +60,6 @@ private val Ink = Color(0xFF211F1B)
 private val Muted = Color(0xFF766E64)
 private val Gold = Color(0xFFFFC64D)
 private val Border = Color(0xFFEADBC8)
-private val MediaGray = Color(0xFF444444)
 
 private data class LauncherImages(
     val hero: ImageBitmap,
@@ -219,11 +218,6 @@ private fun OLauncherApp() {
 }
 
 @Composable
-private fun MediaPlaceholder(modifier: Modifier = Modifier, shape: RoundedCornerShape = RoundedCornerShape(12.dp)) {
-    Box(modifier.clip(shape).background(MediaGray))
-}
-
-@Composable
 private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
     var showNotifications by remember { mutableStateOf(false) }
     var showProfile by remember { mutableStateOf(false) }
@@ -363,7 +357,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
         Image(images.hero, contentDescription = "Minecraft featured banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        // Keep the primary action visible while the hero artwork is still a placeholder.
+        // Keep the primary action anchored to the lower-left, as in the desktop reference.
         Surface(
             onClick = onPlay,
             color = Gold,
@@ -599,9 +593,12 @@ private fun InstallationsDestination() {
                 profiles.forEachIndexed { index, name ->
                     Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(MediaGray), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Filled.SportsEsports, contentDescription = null, tint = Gold)
-                            }
+                            Image(
+                                images.avatar,
+                                contentDescription = "Profile avatar",
+                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Crop
+                            )
                             Spacer(Modifier.width(11.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Black, fontSize = 14.sp)
