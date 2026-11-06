@@ -135,7 +135,7 @@ object OEngineJvmBootstrapPlanner {
                 "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared"
         )
         rendererLibraryAlias?.let { alias ->
-            require(alias.matches(Regex("lib[A-Za-z0-9_-]+\\\\.so"))) {
+            require(alias.matches(Regex("""lib[A-Za-z0-9_-]+\.so"""))) {
                 "Renderer library alias must be a shared-library filename such as libGLMojo.so."
             }
             ownedVmProperties["-Dorg.lwjgl.opengl.libname"] = alias
