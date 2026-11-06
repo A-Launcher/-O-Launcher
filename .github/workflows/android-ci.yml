@@ -25,6 +25,25 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Set up Rust for Android native build
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Install Android NDK and cargo-ndk
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          cargo install cargo-ndk --locked
+
+      - name: Build O Engine Rust native library for all Android ABIs
+        working-directory: native/oengine
+        run: |
+          set -euo pipefail
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o ../../app/src/main/jniLibs build --release
+
       - name: Install original uploaded artwork (preserve filenames)
         run: |
           set -euo pipefail
@@ -43,7 +62,7 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
-      - name: Verify native JVM probe ABI artifacts
+      - name: Verify Rust native engine and JNI exports in APK
         env:
           APK_PATH: app/build/outputs/apk/debug/app-debug.apk
         run: |
@@ -55,16 +74,16 @@ jobs:
           import os, zipfile, subprocess, tempfile
           apk = os.environ["APK_PATH"]
           expected_abis = {"arm64-v8a", "armeabi-v7a", "x86", "x86_64"}
-          symbol = "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProbeJvmLibrary"
+          symbols = {"Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProbeJvmLibrary", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInstallLwjglHook"}
           with zipfile.ZipFile(apk) as archive:
               entries = {
                   name.split("/")[1]: name
                   for name in archive.namelist()
-                  if name.startswith("lib/") and name.endswith("/liboengine_bootstrap.so")
+                  if name.startswith("lib/") and name.endswith("/liboengine_native.so")
               }
               missing = expected_abis - set(entries)
               if missing:
-                  raise SystemExit(f"Native JVM probe missing ABIs: {sorted(missing)}")
+                  raise SystemExit(f"Rust native engine missing ABIs: {sorted(missing)}")
               for abi in sorted(expected_abis):
                   with tempfile.NamedTemporaryFile(suffix=".so") as native:
                       native.write(archive.read(entries[abi]))
@@ -74,9 +93,10 @@ jobs:
                           text=True
                       )
                       exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
-                      if symbol not in exported:
-                          raise SystemExit(f"{abi}: JNI probe export is missing")
-                      print(f"{abi}: verified {symbol}")
+                      absent = symbols - exported
+                      if absent:
+                          raise SystemExit(f"{abi}: JNI exports are missing: {sorted(absent)}")
+                      print(f"{abi}: verified Rust engine and JNI exports: {sorted(symbols)}")
           PY
 
       - name: Upload APK
