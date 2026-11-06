@@ -159,3 +159,11 @@ The Rust integration must build reproducibly for `arm64-v8a`, `armeabi-v7a`, `x8
 
 Inspection of the official upstream LWJGL 3.3.1 and 3.3.3 generated `DynamicLinkLoader.java` confirms that `ndlopen(long,int)` with JNI descriptor `(JI)J` is already a standard upstream native method. MojoLauncher registers a replacement implementation for that method using JNI `RegisterNatives`; the method name itself is not a Mojo-only patch marker. O Engine's resolver therefore treats this signature as an upstream interception candidate, not as proof of a modified Mojo LWJGL build. The O Engine adapter remains blocked until it is implemented and verified against the actual selected class and JVM class loader.
 
+
+
+## Rust native core bootstrap
+
+The repository now has an independent Rust `cdylib` crate under `native/oengine` and a dedicated CI workflow. Host tests exercise exact renderer-alias matching and ensure unrelated native libraries are not redirected. Android CI cross-builds `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64` and validates that each ELF artifact exists.
+
+This first Rust stage is deliberately policy-only: it does not call `dlopen`, register JNI methods, hook LWJGL, or retain renderer handles. It establishes reproducible Rust compilation and a narrow C ABI before native process integration. The existing C++ JVM diagnostic remains in the Android app until the Rust bridge has equivalent ABI and runtime tests.
+
