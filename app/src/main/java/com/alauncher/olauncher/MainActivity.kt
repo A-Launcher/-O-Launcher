@@ -48,7 +48,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -231,8 +230,8 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text("MINECRAFT", fontSize = 27.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-1.8).sp)
-            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = 0.8.sp)
+            Text("MINECRAFT", fontSize = 27.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.8).sp)
+            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, , letterSpacing = 0.8.sp)
         }
         Surface(
             Modifier.weight(1f).height(46.dp),
@@ -323,7 +322,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(images.logo, contentDescription = "O Launcher logo", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Fit)
+        Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(8.dp))
         entries.forEach { (icon, label, index) ->
             val selected = tab == index
