@@ -1723,6 +1723,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var requiredJavaMajor by remember { mutableStateOf(17) }
     var downloadingRuntime by remember { mutableStateOf(false) }
     var installingRuntime by remember { mutableStateOf(false) }
+    var probingRuntime by remember { mutableStateOf(false) }
+    var runtimeProbeStatus by remember { mutableStateOf("Java process has not been tested on this device.") }
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
@@ -1967,7 +1969,33 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (installingRuntime) "EXTRACTING JAVA " + requiredJavaMajor + "…" else "EXTRACT / INSTALL JAVA " + requiredJavaMajor, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(installedRuntimeStatus, color = Muted, fontSize = 11.sp)
-                        Text("The runtime is extracted and version-checked, but JVM startup, graphics integration, and Minecraft launching are not yet connected.", color = Muted, fontSize = 10.sp)
+                        Button(
+                            enabled = !probingRuntime && !installingRuntime && !downloadingRuntime,
+                            onClick = {
+                                probingRuntime = true
+                                runtimeProbeStatus = "O Engine is starting Java and checking the runtime…"
+                                scope.launch {
+                                    try {
+                                        val result = OLauncherEngine.probeRuntime(File(context.filesDir, "minecraft"), requiredJavaMajor)
+                                        runtimeProbeStatus = if (result.successful) {
+                                            "JAVA TEST PASSED • " + result.runtime.name + " • " + result.output.trim().replace("\n", " ")
+                                        } else {
+                                            "JAVA TEST FAILED (exit " + result.exitCode + ") • " + result.output.takeLast(700)
+                                        }
+                                    } catch (error: Exception) {
+                                        runtimeProbeStatus = error.message ?: "O Engine could not start this Java runtime."
+                                    } finally {
+                                        probingRuntime = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF365E83), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingRuntime) "TESTING JAVA…" else "TEST JAVA WITH O ENGINE", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(runtimeProbeStatus, color = Muted, fontSize = 11.sp)
+                        Text("O Engine owns runtime discovery and process startup. A successful Java test is required before we connect Minecraft and graphics.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
