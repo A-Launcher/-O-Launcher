@@ -36,6 +36,29 @@ class OEngineGameProcessService : Service() {
                     runCatching { message.replyTo?.send(reply) }
                     true
                 }
+                MSG_INSTALL_RENDERER_HOOK -> {
+                    val reply = Message.obtain(null, MSG_INSTALL_RENDERER_HOOK_RESULT)
+                    try {
+                        check(jvmCreated) { "HotSpot must be created before installing a renderer." }
+                        val rendererFile = File(message.data.getString(KEY_RENDERER_FILE).orEmpty())
+                        val rendererRoot = File(message.data.getString(KEY_RENDERER_ROOT).orEmpty())
+                        val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
+                        val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
+                        val installed = OEngineJvmNativeBridge.loadRendererAndInstallLwjglHook(
+                            rendererFile, rendererRoot, targetClass, alias
+                        )
+                        check(installed) { "HotSpot rejected the LWJGL native-loader hook." }
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
+                        reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_installed")
+                        reply.data.putString(KEY_PROBE_DETAIL, "Renderer loaded and LWJGL interception registered in :game.")
+                    } catch (error: Throwable) {
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+                        reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_error")
+                        reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
+                    }
+                    runCatching { message.replyTo?.send(reply) }
+                    true
+                }
                 MSG_INVOKE_MAIN -> {
                     val reply = Message.obtain(null, MSG_INVOKE_MAIN_RESULT)
                     try {
@@ -170,10 +193,16 @@ class OEngineGameProcessService : Service() {
         const val MSG_CREATE_JVM_RESULT = 6
         const val MSG_INVOKE_MAIN = 7
         const val MSG_INVOKE_MAIN_RESULT = 8
+        const val MSG_INSTALL_RENDERER_HOOK = 9
+        const val MSG_INSTALL_RENDERER_HOOK_RESULT = 10
         const val KEY_VM_OPTIONS = "oengine.vm_options"
         const val KEY_JAVA_MAJOR = "oengine.java_major"
         const val KEY_MAIN_CLASS = "oengine.main_class"
         const val KEY_GAME_ARGUMENTS = "oengine.game_arguments"
+        const val KEY_RENDERER_FILE = "oengine.renderer_file"
+        const val KEY_RENDERER_ROOT = "oengine.renderer_root"
+        const val KEY_LWJGL_TARGET_CLASS = "oengine.lwjgl_target_class"
+        const val KEY_RENDERER_ALIAS = "oengine.renderer_alias"
         const val KEY_RUNTIME_HOME = "oengine.runtime_home"
         const val KEY_WORKING_DIRECTORY = "oengine.working_directory"
         const val KEY_JVM_LIBRARY = "oengine.jvm_library"
