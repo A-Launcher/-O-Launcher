@@ -16,7 +16,7 @@ private const val MS_CLIENT_ID = "00000000402b5328"
 private const val MS_SCOPE = "service::user.auth.xboxlive.com::MBI_SSL offline_access"
 private const val VAULT_ALIAS = "o_launcher_microsoft_refresh"
 
-data class MinecraftAccount(val name: String, val uuid: String, val refreshToken: String)
+data class MinecraftAccount(val name: String, val uuid: String, val refreshToken: String, val accessToken: String)
 data class MicrosoftDeviceCode(val deviceCode: String, val userCode: String, val verificationUri: String, val expiresIn: Int, val interval: Int)
 
 object MinecraftAuth {
@@ -50,7 +50,7 @@ object MinecraftAuth {
         val name = profile.optString("name").ifBlank { "Minecraft Player" }
         val uuid = profile.optString("id")
         if (uuid.isBlank()) error("Minecraft returned an empty player profile. Check that this Microsoft account owns Java Edition.")
-        MinecraftAccount(name, uuid, rotatedRefreshToken)
+        MinecraftAccount(name, uuid, rotatedRefreshToken, mc.getString("access_token"))
     }
 
     suspend fun completeDeviceLogin(device: MicrosoftDeviceCode): MinecraftAccount = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -91,7 +91,7 @@ object MinecraftAuth {
         val name = profile.optString("name").ifBlank { "Minecraft Player" }
         val uuid = profile.optString("id")
         if (uuid.isBlank()) error("Minecraft returned an empty player profile.")
-        MinecraftAccount(name, uuid, refresh)
+        MinecraftAccount(name, uuid, refresh, mc.getString("access_token"))
     }
 
     private fun form(url: String, fields: Map<String,String>) = request(url, "POST", encode(fields), "application/x-www-form-urlencoded")
