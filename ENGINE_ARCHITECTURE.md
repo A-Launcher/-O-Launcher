@@ -135,3 +135,13 @@ The launch preview now includes this structural JVM plan when a matching runtime
 The app now builds an original NDK/CMake library, `liboengine_bootstrap.so`, for arm64-v8a, armeabi-v7a, x86 and x86_64. Its Kotlin bridge is lazy: it is not loaded during normal launcher startup. When explicitly called with a structurally valid JVM plan, the native diagnostic opens that plan's `libjvm.so`, checks that both `JNI_CreateJavaVM` and `JNI_GetCreatedJavaVMs` are exported, closes the handle, and returns a structured status. It does not create a VM or execute Minecraft.
 
 Android CI now inspects the built APK and verifies that the native probe library and its JNI entry point exist for all four ABIs. This verifies packaging and symbol export only. A device-side probe is still required to establish whether each downloaded Android JRE can actually be opened from O Launcher's linker namespace; successful symbol discovery is not a green light to create the VM. The next native milestone is a guarded, one-shot VM creation path with version-specific class-loader/native-library hooks and an explicit teardown/failure model.
+
+
+## Version-aware LWJGL native resolver
+
+O Engine now inspects the exact Minecraft classpath before renderer startup. The resolver extracts Maven-layout LWJGL module names and versions, distinguishes LWJGL 2 from LWJGL 3, detects mixed major generations and conflicting module versions, and inspects the LWJGL 3 core JAR for the Linux `DynamicLinkLoader` class without loading game classes or executing native code.
+
+The resolver deliberately treats Mojo's `ndlopen` marker as a warning that a patched interface may be present—not as permission to reuse it. Upstream LWJGL 3, LWJGL 2, unknown generations, missing core JARs, and Mojo-patched markers all remain blocked until O Engine has a separately verified Android interception adapter for that exact interface. The command preview now reports these version-specific blockers instead of using one generic LWJGL warning.
+
+This is metadata/JAR inspection and unit-tested decision logic only. It does not install a Java instrumentation hook, intercept `dlopen`, preload LTW, or launch Minecraft. The next gate is to inspect upstream LWJGL's public EGL/FunctionProvider seams for each supported metadata version and implement an O Engine-owned adapter that routes game EGL context lifecycle calls through LTW.
+
