@@ -25,6 +25,8 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeInvokeMain(mainClass: String, arguments: Array<String>): String
 
+    private external fun nativeLoadRenderer(rendererPath: String): Long
+
     private external fun nativeInstallLwjglHook(targetClassName: String, selectedAlias: String, rendererHandle: Long): Boolean
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
@@ -71,6 +73,29 @@ object OEngineJvmNativeBridge {
      * Installs the LWJGL 3 loader hook against a class resolved inside embedded HotSpot.
      * The renderer handle must already be loaded and remain valid for the game session.
      */
+    /**
+     * Loads a renderer from O Engine's private renderer directory and installs
+     * the LWJGL hook. The native handle is retained until the game process exits.
+     */
+    internal fun loadRendererAndInstallLwjglHook(
+        rendererFile: File,
+        rendererRoot: File,
+        targetClassName: String,
+        selectedAlias: String
+    ): Boolean {
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        val root = rendererRoot.canonicalFile
+        val library = rendererFile.canonicalFile
+        require(library.toPath().startsWith(root.toPath()) && library.isFile && library.length() > 0L) {
+            "Renderer library must be a non-empty file inside O Engine's private renderer directory."
+        }
+        val handle = nativeLoadRenderer(library.absolutePath)
+        check(handle != 0L) {
+            "Android's native linker could not load the renderer in O Engine's process namespace."
+        }
+        return installLwjglHook(targetClassName, selectedAlias, handle)
+    }
+
     internal fun installLwjglHook(
         targetClassName: String,
         selectedAlias: String,
