@@ -181,3 +181,12 @@ The official version list now includes Mojang release and snapshot entries, so 2
 ## MojoLauncher engineering reference and licensing boundary
 
 MojoLauncher `v3_openjdk` was inspected as an implementation reference for multi-runtime discovery/selection, in-process JVM loading, Java-version-specific native-library hooks (Java 8, 17 and 21 signatures differ), renderer setup, host EGL/GLES environment preparation, LWJGL native-load interception, and legacy-version renderer compatibility decisions. O Engine will implement its own Kotlin/Rust modules and tests around those concepts rather than wholesale-importing Mojo's launcher implementation. The inspected MojoLauncher repository is LGPL-3.0; any future source reuse or binary distribution must preserve applicable license notices and source-offer obligations. LTW and MobileGlues retain their separate upstream licenses.
+
+
+## Instance isolation and automatic Android runtime selection
+
+O Engine now has a named instance manager. The existing Default instance retains the legacy `filesDir/minecraft` path, while additional instances receive isolated `instances/<id>/game` roots for versions, libraries, assets, saves, and configuration. The Installations screen can create and switch instances; install and launch preparation operations use the selected instance root.
+
+Preparing a launch plan now automatically checks the selected instance for the required Android OpenJDK runtime. A validated existing runtime is reused; otherwise O Launcher downloads and extracts the requested supported runtime. The runtime choice comes from Mojang version metadata where available and the documented legacy compatibility policy otherwise. This automatic setup is triggered by launch preparation after the client and dependency files are installed; the current UI still exposes separate client/dependency download actions.
+
+Mojang native classifier archives are now downloaded with their metadata hashes and safely extracted into the version's `natives` staging directory, honoring metadata exclusions and rejecting path traversal. These classifiers are commonly Linux builds. Extracting them is not proof they are Android/Bionic-compatible; the renderer and native ABI gates must still validate actual Android libraries before game launch.
