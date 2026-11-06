@@ -96,7 +96,8 @@ object OLauncherEngine {
                 workingDirectory = enginePaths.root,
                 mainClass = plan.mainClass,
                 requestedVmOptions = plan.jvmArguments,
-                applicationArguments = plan.gameArguments
+                applicationArguments = plan.gameArguments,
+                androidRelease = android.os.Build.VERSION.RELEASE
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
