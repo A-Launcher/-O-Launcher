@@ -1731,6 +1731,12 @@ private fun InstallationsDestination(images: LauncherImages) {
     var jvmNativeProbeStatus by remember { mutableStateOf("JVM native library has not been inspected by the Android linker.") }
     var probingGraphics by remember { mutableStateOf(false) }
     var graphicsProbeStatus by remember { mutableStateOf("Android graphics backend has not been probed.") }
+    var probingGameProcess by remember { mutableStateOf(false) }
+    var gameProcessStatus by remember { mutableStateOf("The isolated game process has not been checked.") }
+    var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
+    DisposableEffect(gameProcessClient) {
+        onDispose { gameProcessClient?.close() }
+    }
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
@@ -2141,6 +2147,38 @@ private fun InstallationsDestination(images: LauncherImages) {
                         }
                         Text(jvmNativeProbeStatus, color = Muted, fontSize = 11.sp)
                         Text("This only checks whether Android can open libjvm.so and find JNI_CreateJavaVM / JNI_GetCreatedJavaVMs. It does not create the JVM or launch Minecraft.", color = Muted, fontSize = 10.sp)
+                        Button(
+                            enabled = !probingGameProcess,
+                            onClick = {
+                                gameProcessClient?.close()
+                                probingGameProcess = true
+                                gameProcessStatus = "Starting the separate :game process and checking IPC…"
+                                val client = OEngineGameProcessClient(context) { result ->
+                                    gameProcessStatus = result.fold(
+                                        onSuccess = { status ->
+                                            probingGameProcess = false
+                                            if (status.ready) {
+                                                "GAME PROCESS IPC PASSED • PID " + status.pid + " • " + status.processName + " • " + status.phase
+                                            } else {
+                                                "GAME PROCESS NOT READY • " + status.phase
+                                            }
+                                        },
+                                        onFailure = { error ->
+                                            probingGameProcess = false
+                                            "GAME PROCESS IPC FAILED • " + (error.message ?: "Unknown process error")
+                                        }
+                                    )
+                                }
+                                gameProcessClient = client
+                                if (!client.connect()) probingGameProcess = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4F755C), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingGameProcess) "CHECKING GAME PROCESS…" else "TEST ISOLATED GAME PROCESS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(gameProcessStatus, color = Muted, fontSize = 11.sp)
+                        Text("This starts the private :game Android process and checks Messenger IPC only. It does not load Java or launch Minecraft.", color = Muted, fontSize = 10.sp)
                         Button(
                             enabled = !probingGraphics,
                             onClick = {
