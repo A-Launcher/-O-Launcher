@@ -9,6 +9,8 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 use std::sync::{Mutex, OnceLock, RwLock};
 
+mod elf_hinter;
+
 const ABI_VERSION: u32 = 1;
 
 #[derive(Clone)]
