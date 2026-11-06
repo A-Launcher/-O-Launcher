@@ -111,6 +111,7 @@ class OEngineGameProcessService : Service() {
                     true
                 }
                 MSG_INVOKE_MAIN -> {
+                    OEngineSessionLog.append(this, "MINECRAFT_MAIN_REQUEST", "Main invocation received")
                     val reply = Message.obtain(null, MSG_INVOKE_MAIN_RESULT)
                     try {
                         val mainClass = message.data.getString(KEY_MAIN_CLASS).orEmpty()
@@ -134,12 +135,15 @@ class OEngineGameProcessService : Service() {
                             data.putString(KEY_PROBE_STATUS, "main_dispatched")
                             data.putString(KEY_PROBE_DETAIL, "Validated launch arguments; dispatching $mainClass on the isolated HotSpot runtime.")
                         }
+                        OEngineSessionLog.append(this, "MINECRAFT_MAIN_DISPATCH", "Dispatching main class " + mainClass + " with " + arguments.size + " arguments; credential values omitted")
                         message.replyTo?.send(started)
                         val result = OEngineJvmNativeBridge.invokeMain(mainClass, arguments)
+                        OEngineSessionLog.append(this, if (result.successful) "MINECRAFT_MAIN_RETURNED" else "MINECRAFT_MAIN_FAILED", result.status + " • " + result.detail)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
                         reply.data.putString(KEY_PROBE_DETAIL, result.detail)
                     } catch (error: Throwable) {
+                        OEngineSessionLog.append(this, "MINECRAFT_MAIN_EXCEPTION", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "main_invoke_error")
                         reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
@@ -148,6 +152,7 @@ class OEngineGameProcessService : Service() {
                     true
                 }
                 MSG_CREATE_JVM -> {
+                    OEngineSessionLog.append(this, "HOTSPOT_CREATE", "JNI_CreateJavaVM request received")
                     val reply = Message.obtain(null, MSG_CREATE_JVM_RESULT)
                     try {
                         val runtimeHome = File(message.data.getString(KEY_RUNTIME_HOME).orEmpty()).canonicalFile
@@ -188,14 +193,17 @@ class OEngineGameProcessService : Service() {
                         jvmCreationAttempted = true
                         val result = OEngineJvmNativeBridge.createJvm(options, javaMajor)
                         jvmCreated = result.successful
+                        OEngineSessionLog.append(this, if (result.successful) "HOTSPOT_CREATED" else "HOTSPOT_CREATE_FAILED", result.status + " • " + result.detail)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
                         reply.data.putString(KEY_PROBE_DETAIL, result.detail)
                     } catch (error: LinkageError) {
+                        OEngineSessionLog.append(this, "HOTSPOT_LINK_ERROR", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "native_link_error")
                         reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
                     } catch (error: Exception) {
+                        OEngineSessionLog.append(this, "HOTSPOT_CREATE_EXCEPTION", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "create_error")
                         reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
@@ -248,6 +256,7 @@ class OEngineGameProcessService : Service() {
     override fun onBind(intent: Intent?): IBinder = messenger.binder
 
     override fun onDestroy() {
+        OEngineSessionLog.append(this, "GAME_PROCESS_DESTROY", "Service destroyed; jvmCreated=" + jvmCreated + ", jvmCreationAttempted=" + jvmCreationAttempted)
         // JNI requires the VM-creating thread to remain attached until we implement a
         // coordinated DetachCurrentThread shutdown path.
         if (!jvmCreationAttempted) {
