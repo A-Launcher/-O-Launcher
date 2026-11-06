@@ -11,7 +11,9 @@ package com.alauncher.olauncher
  * keeps their provider lifecycles separate; only one is selected for a game session.
  * LTW is built from its pinned upstream source in CI, packaged as a separate AAR,
  * copied into O Engine private storage, and explicitly preloaded in the game process.
- * MobileGlues remains a catalog-only provider until its own adapter is integrated.
+ * MobileGlues remains a catalog-only provider until its own adapter is integrated. GL4ES is
+ * packaged as a pinned Android compatibility dependency, but is not a selectable or active
+ * provider until the LWJGL 2 loading adapter and EGL path are verified.
  */
 object OEngineGraphicsStack {
     const val LWJGL_LATEST_REFERENCE = "3.4.3"
@@ -24,6 +26,9 @@ object OEngineGraphicsStack {
     const val MOBILEGLUES_MIN_GLES_MINOR = 0
     const val MOBILEGLUES_PREFERRED_GLES_MAJOR = 3
     const val MOBILEGLUES_PREFERRED_GLES_MINOR = 2
+    const val GL4ES_LIBRARY = "libgl4es_114.so"
+    const val GL4ES_UPSTREAM_COMMIT = "1b8d90424c1cb791321d45f60ac62c54f4b013fa"
+    const val GL4ES_LICENSE = "MIT"
 
     private val lwjglArtifactPattern = Regex(
         """/org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/"""
