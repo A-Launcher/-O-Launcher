@@ -267,6 +267,7 @@ object MinecraftVersionInstaller {
     data class LaunchPlan(
         val version: String,
         val mainClass: String,
+        val javaMajorVersion: Int,
         val classpath: List<String>,
         val gameArguments: List<String>,
         val jvmArguments: List<String>
@@ -286,6 +287,9 @@ object MinecraftVersionInstaller {
             throw IllegalStateException("Download and verify the Minecraft client before preparing launch settings.")
         }
         val metadata = JSONObject(metadataFile.readText())
+        val javaMajorVersion = metadata.optJSONObject("javaVersion")?.optInt("majorVersion", 8) ?: 8
+        val mainClass = metadata.optString("mainClass")
+        if (mainClass.isBlank()) throw IllegalStateException("Minecraft version metadata does not contain a main class.")
         val classpath = mutableListOf<String>()
         classpath.add(clientJar.absolutePath)
         val libraries = metadata.optJSONArray("libraries")
@@ -358,7 +362,7 @@ object MinecraftVersionInstaller {
         }
         val jvmArguments = mutableListOf<String>()
         collectArguments(modernArguments?.optJSONArray("jvm"), jvmArguments)
-        LaunchPlan(version.id, metadata.optString("mainClass"), classpath.distinct(), gameArguments, jvmArguments)
+        LaunchPlan(version.id, mainClass, javaMajorVersion, classpath.distinct(), gameArguments, jvmArguments)
     }
 
     private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
