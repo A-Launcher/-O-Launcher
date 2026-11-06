@@ -2,6 +2,8 @@ package com.alauncher.olauncher
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.activity.ComponentActivity
@@ -184,7 +186,7 @@ private fun OLauncherApp() {
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
                             WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
-                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.245f))
+                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.245f)) { destination -> tab = destination }
                             RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.225f))
                         }
                     }
@@ -379,24 +381,26 @@ private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun QuickLinks(modifier: Modifier = Modifier) {
+private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit) {
+    val context = LocalContext.current
+    fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
     PanelCard("QUICK LINKS", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.weight(1f))
-            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.weight(1f))
-            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.weight(1f))
+            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us") }
+            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
+            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.weight(1f))
-            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.weight(1f))
-            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.weight(1f))
+            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.weight(1f)) { onNavigate(3) }
+            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.weight(1f)) { onNavigate(2) }
+            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.weight(1f)) { openPage("https://www.minecraft.net/redeem") }
         }
     }
 }
 
 @Composable
-private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = Color(0xFFFFF0DA), shape = RoundedCornerShape(15.dp)) {
+private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier, color = Color(0xFFFFF0DA), shape = RoundedCornerShape(15.dp)) {
         Column(Modifier.fillMaxSize().padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(23.dp))
             Spacer(Modifier.height(4.dp))
