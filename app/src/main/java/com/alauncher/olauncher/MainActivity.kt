@@ -1720,8 +1720,19 @@ private fun LoaderOptionCard(
 private fun InstallationsDestination(images: LauncherImages) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val profilePreferences = remember(context) {
+        context.getSharedPreferences("o_launcher_profiles", android.content.Context.MODE_PRIVATE)
+    }
+    var selectedProfile by remember(context) {
+        mutableStateOf(profilePreferences.getString("selected_profile", "Default") ?: "Default")
+    }
+    var selectedVersion by remember(context) {
+        mutableStateOf(profilePreferences.getString("version.$selectedProfile", "Loading…") ?: "Loading…")
+    }
+    var selectedLoader by remember(context) {
+        mutableStateOf(profilePreferences.getString("loader.$selectedProfile", "Vanilla") ?: "Vanilla")
+    }
     var versions by remember { mutableStateOf<List<MinecraftRelease>>(emptyList()) }
-    var selectedVersion by remember { mutableStateOf("Loading…") }
     var selectedRelease by remember { mutableStateOf<MinecraftRelease?>(null) }
     var versionMenu by remember { mutableStateOf(false) }
     var versionsLoading by remember { mutableStateOf(true) }
@@ -1765,8 +1776,12 @@ private fun InstallationsDestination(images: LauncherImages) {
         try {
             val (loaded, latest) = MinecraftVersionInstaller.fetchReleases()
             versions = loaded
-            selectedRelease = loaded.firstOrNull { it.id == latest } ?: loaded.firstOrNull()
+            val savedVersion = profilePreferences.getString("version.$selectedProfile", null)
+            selectedRelease = loaded.firstOrNull { it.id == savedVersion }
+                ?: loaded.firstOrNull { it.id == latest }
+                ?: loaded.firstOrNull()
             selectedVersion = selectedRelease?.id ?: "Unavailable"
+            selectedRelease?.let { profilePreferences.edit().putString("version.$selectedProfile", it.id).apply() }
             versionStatus = "Loaded ${loaded.size} official releases + snapshots. Latest release: $latest"
         } catch (error: Exception) {
             versionStatus = error.message ?: "Could not load Minecraft versions."
@@ -1776,9 +1791,6 @@ private fun InstallationsDestination(images: LauncherImages) {
     }
     var showCreateProfile by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf("") }
-    val profilePreferences = remember(context) {
-        context.getSharedPreferences("o_launcher_profiles", android.content.Context.MODE_PRIVATE)
-    }
     val profiles = remember(context) {
         val saved = profilePreferences.getStringSet("names", null).orEmpty()
         mutableStateListOf<String>().apply {
@@ -1873,7 +1885,12 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 versions.forEach { version ->
                                     DropdownMenuItem(
                                         text = { Text("Minecraft ${version.id}") },
-                                        onClick = { selectedVersion = version.id; selectedRelease = version; versionMenu = false },
+                                        onClick = {
+                                            selectedVersion = version.id
+                                            selectedRelease = version
+                                            profilePreferences.edit().putString("version.$selectedProfile", version.id).apply()
+                                            versionMenu = false
+                                        },
                                         leadingIcon = { if (selectedVersion == version.id) Icon(Icons.Filled.Checkroom, contentDescription = null) }
                                     )
                                 }
@@ -2432,7 +2449,6 @@ private fun InstallationsDestination(images: LauncherImages) {
 
         Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                var selectedLoader by remember { mutableStateOf("Vanilla") }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("MOD LOADERS", fontSize = 20.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
@@ -2443,12 +2459,24 @@ private fun InstallationsDestination(images: LauncherImages) {
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    LoaderOptionCard("Fabric", "Fast, lightweight", R.drawable.loader_fabric, selectedLoader == "Fabric", { selectedLoader = "Fabric" }, Modifier.weight(1f))
-                    LoaderOptionCard("NeoForge", "Modern mod platform", R.drawable.loader_neoforge, selectedLoader == "NeoForge", { selectedLoader = "NeoForge" }, Modifier.weight(1f))
+                    LoaderOptionCard("Fabric", "Fast, lightweight", R.drawable.loader_fabric, selectedLoader == "Fabric", {
+                        selectedLoader = "Fabric"
+                        profilePreferences.edit().putString("loader.$selectedProfile", "Fabric").apply()
+                    }, Modifier.weight(1f))
+                    LoaderOptionCard("NeoForge", "Modern mod platform", R.drawable.loader_neoforge, selectedLoader == "NeoForge", {
+                        selectedLoader = "NeoForge"
+                        profilePreferences.edit().putString("loader.$selectedProfile", "NeoForge").apply()
+                    }, Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    LoaderOptionCard("Forge", "Classic mod platform", R.drawable.loader_forge, selectedLoader == "Forge", { selectedLoader = "Forge" }, Modifier.weight(1f))
-                    LoaderOptionCard("OptiFine", "Graphics and performance", R.drawable.loader_optifine, selectedLoader == "OptiFine", { selectedLoader = "OptiFine" }, Modifier.weight(1f))
+                    LoaderOptionCard("Forge", "Classic mod platform", R.drawable.loader_forge, selectedLoader == "Forge", {
+                        selectedLoader = "Forge"
+                        profilePreferences.edit().putString("loader.$selectedProfile", "Forge").apply()
+                    }, Modifier.weight(1f))
+                    LoaderOptionCard("OptiFine", "Graphics and performance", R.drawable.loader_optifine, selectedLoader == "OptiFine", {
+                        selectedLoader = "OptiFine"
+                        profilePreferences.edit().putString("loader.$selectedProfile", "OptiFine").apply()
+                    }, Modifier.weight(1f))
                 }
                 Text("Selected: $selectedLoader  •  Selection is visual for now; loader downloads and installation are not connected yet.", color = Muted, fontSize = 11.sp)
                 if (selectedLoader == "OptiFine") {
@@ -2474,7 +2502,19 @@ private fun InstallationsDestination(images: LauncherImages) {
                     }
                 }
                 profiles.forEachIndexed { index, name ->
-                    Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        color = if (selectedProfile == name) Color(0xFFFFE7B8) else Color(0xFFFFF2DF),
+                        shape = RoundedCornerShape(15.dp),
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            selectedProfile = name
+                            selectedVersion = profilePreferences.getString("version.$name", selectedRelease?.id ?: "Unavailable") ?: "Unavailable"
+                            selectedRelease = versions.firstOrNull { it.id == selectedVersion }
+                            selectedLoader = profilePreferences.getString("loader.$name", "Vanilla") ?: "Vanilla"
+                            profilePreferences.edit().putString("selected_profile", name).apply()
+                            preparedLaunchPlan = null
+                            launchPlanStatus = "Selected profile: $name"
+                        }
+                    ) {
                         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                             Image(
                                 images.avatar,
@@ -2485,7 +2525,11 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Spacer(Modifier.width(11.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(name, fontWeight = FontWeight.Black, fontSize = 14.sp)
-                                Text("Minecraft $selectedVersion  •  Saved on this device", color = Muted, fontSize = 11.sp)
+                                Text(
+                                    "Minecraft ${profilePreferences.getString("version.$name", if (name == selectedProfile) selectedVersion else "Not selected") ?: "Not selected"}  •  ${profilePreferences.getString("loader.$name", "Vanilla") ?: "Vanilla"}",
+                                    color = Muted,
+                                    fontSize = 11.sp
+                                )
                             }
                             if (index == 0) {
                                 Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(8.dp)) {
@@ -2493,14 +2537,23 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 }
                             } else {
                                 TextButton(onClick = {
+                                    val removedName = profiles[index]
                                     profiles.removeAt(index)
+                                    profilePreferences.edit().remove("version.$removedName").remove("loader.$removedName").apply()
+                                    if (selectedProfile == removedName) {
+                                        selectedProfile = "Default"
+                                        selectedVersion = profilePreferences.getString("version.Default", selectedRelease?.id ?: "Unavailable") ?: "Unavailable"
+                                        selectedRelease = versions.firstOrNull { it.id == selectedVersion }
+                                        selectedLoader = profilePreferences.getString("loader.Default", "Vanilla") ?: "Vanilla"
+                                        profilePreferences.edit().putString("selected_profile", "Default").apply()
+                                    }
                                     persistProfiles()
                                 }) { Text("REMOVE", color = Muted, fontSize = 10.sp) }
                             }
                         }
                     }
                 }
-                Text("Profile names are saved locally on this device. Version and mod-loader assignment are separate features still in progress.", color = Muted, fontSize = 11.sp)
+                Text("Selected profile: $selectedProfile. Each profile remembers its Minecraft version and preferred loader; loader installation is still in progress.", color = Muted, fontSize = 11.sp)
             }
         }
     }
@@ -2524,7 +2577,16 @@ private fun InstallationsDestination(images: LauncherImages) {
                 TextButton(
                     enabled = profileName.isNotBlank() && profiles.none { it.equals(profileName.trim(), ignoreCase = true) },
                     onClick = {
-                        profiles.add(profileName.trim())
+                        val newName = profileName.trim()
+                        profiles.add(newName)
+                        selectedProfile = newName
+                        selectedVersion = selectedRelease?.id ?: "Unavailable"
+                        selectedLoader = "Vanilla"
+                        profilePreferences.edit()
+                            .putString("selected_profile", newName)
+                            .putString("version.$newName", selectedVersion)
+                            .putString("loader.$newName", selectedLoader)
+                            .apply()
                         persistProfiles()
                         showCreateProfile = false
                     }
