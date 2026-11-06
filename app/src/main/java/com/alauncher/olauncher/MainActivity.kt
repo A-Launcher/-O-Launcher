@@ -74,6 +74,7 @@ private data class LauncherImages(
     val trials: ImageBitmap,
     val camel: ImageBitmap,
     val realms: ImageBitmap,
+    val realmsCrown: ImageBitmap,
     val installations: ImageBitmap,
     val skins: ImageBitmap,
     val marketplace: ImageBitmap,
@@ -332,12 +333,15 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
             realms = readAssetImage(context, "reference_ui/59c8b720-d9cf-11f1-9dc3-a5410c9336b4.png")
                 ?: createRealmsArtwork(),
+            realmsCrown = readAssetImage(context, "reference_ui/IMG_20261106_130717.png")
+                ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.YELLOW),
             installations = readAssetImage(context, "reference_ui/IMG_20261106_125005.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
             skins = readAssetImage(context, "reference_ui/IMG_20261106_125022.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
             marketplace = readAssetImage(context, "reference_ui/IMG_20261106_125137.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
             settings = readAssetImage(context, "reference_ui/IMG_20261106_125258.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
             about = readAssetImage(context, "reference_ui/IMG_20261106_125311.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
-            avatar = cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
+            avatar = readAssetImage(context, "reference_ui/IMG_20261106_130824.png")
+                ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             logo = logo
         )
     }
@@ -733,7 +737,12 @@ private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxSize().padding(start = 13.dp, top = 9.dp, bottom = 9.dp, end = 5.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("♛", color = Gold, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                    Image(
+                        bitmap = images.realmsCrown,
+                        contentDescription = "Realms",
+                        modifier = Modifier.size(23.dp),
+                        contentScale = ContentScale.Fit
+                    )
                     Spacer(Modifier.width(6.dp))
                     Text("JOIN REALMS", fontWeight = FontWeight.Black, fontSize = 16.sp, fontStyle = FontStyle.Italic, maxLines = 1)
                 }
