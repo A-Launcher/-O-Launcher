@@ -1734,6 +1734,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     }
     var versions by remember { mutableStateOf<List<MinecraftRelease>>(emptyList()) }
     var selectedRelease by remember { mutableStateOf<MinecraftRelease?>(null) }
+    var latestReleaseId by remember { mutableStateOf<String?>(null) }
     var versionMenu by remember { mutableStateOf(false) }
     var versionsLoading by remember { mutableStateOf(true) }
     var versionStatus by remember { mutableStateOf("Loading official Minecraft releases…") }
@@ -1776,6 +1777,7 @@ private fun InstallationsDestination(images: LauncherImages) {
         try {
             val (loaded, latest) = MinecraftVersionInstaller.fetchReleases()
             versions = loaded
+            latestReleaseId = latest
             val savedVersion = profilePreferences.getString("version.$selectedProfile", null)
             selectedRelease = loaded.firstOrNull { it.id == savedVersion }
                 ?: loaded.firstOrNull { it.id == latest }
@@ -1800,6 +1802,21 @@ private fun InstallationsDestination(images: LauncherImages) {
     }
     fun persistProfiles() {
         profilePreferences.edit().putStringSet("names", profiles.toSet()).apply()
+    }
+    fun restoreProfile(name: String) {
+        selectedProfile = name
+        val savedVersion = profilePreferences.getString("version.$name", null)
+        selectedRelease = versions.firstOrNull { it.id == savedVersion }
+            ?: versions.firstOrNull { it.id == latestReleaseId }
+            ?: versions.firstOrNull()
+        selectedVersion = selectedRelease?.id ?: "Unavailable"
+        selectedRelease?.let { release ->
+            profilePreferences.edit().putString("version.$name", release.id).apply()
+        }
+        selectedLoader = profilePreferences.getString("loader.$name", "Vanilla") ?: "Vanilla"
+        profilePreferences.edit().putString("selected_profile", name).apply()
+        preparedLaunchPlan = null
+        launchPlanStatus = "Selected profile: $name"
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2506,13 +2523,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                         color = if (selectedProfile == name) Color(0xFFFFE7B8) else Color(0xFFFFF2DF),
                         shape = RoundedCornerShape(15.dp),
                         modifier = Modifier.fillMaxWidth().clickable {
-                            selectedProfile = name
-                            selectedVersion = profilePreferences.getString("version.$name", selectedRelease?.id ?: "Unavailable") ?: "Unavailable"
-                            selectedRelease = versions.firstOrNull { it.id == selectedVersion }
-                            selectedLoader = profilePreferences.getString("loader.$name", "Vanilla") ?: "Vanilla"
-                            profilePreferences.edit().putString("selected_profile", name).apply()
-                            preparedLaunchPlan = null
-                            launchPlanStatus = "Selected profile: $name"
+                            restoreProfile(name)
                         }
                     ) {
                         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2541,11 +2552,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     profiles.removeAt(index)
                                     profilePreferences.edit().remove("version.$removedName").remove("loader.$removedName").apply()
                                     if (selectedProfile == removedName) {
-                                        selectedProfile = "Default"
-                                        selectedVersion = profilePreferences.getString("version.Default", selectedRelease?.id ?: "Unavailable") ?: "Unavailable"
-                                        selectedRelease = versions.firstOrNull { it.id == selectedVersion }
-                                        selectedLoader = profilePreferences.getString("loader.Default", "Vanilla") ?: "Vanilla"
-                                        profilePreferences.edit().putString("selected_profile", "Default").apply()
+                                        restoreProfile("Default")
                                     }
                                     persistProfiles()
                                 }) { Text("REMOVE", color = Muted, fontSize = 10.sp) }
