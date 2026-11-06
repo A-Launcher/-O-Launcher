@@ -895,8 +895,8 @@ private fun LauncherFilesDestination() {
                 }
             }
         }
-        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
-            Column(Modifier.fillMaxSize().padding(14.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 240.dp, max = 520.dp)) {
+            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (entries.isEmpty()) Text("This folder is empty. Create a folder or import files to get started.", color = Muted, modifier = Modifier.padding(18.dp), fontSize = 13.sp)
                 entries.forEach { file ->
                     Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(13.dp), modifier = Modifier.fillMaxWidth()) {
