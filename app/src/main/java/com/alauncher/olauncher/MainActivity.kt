@@ -1720,6 +1720,11 @@ private fun InstallationsDestination(images: LauncherImages) {
     var dependencyStatus by remember { mutableStateOf("Libraries and assets are not installed yet.") }
     var launchPlanStatus by remember { mutableStateOf("Launch configuration has not been prepared.") }
     var preparingLaunchPlan by remember { mutableStateOf(false) }
+    var requiredJavaMajor by remember { mutableStateOf(17) }
+    var downloadingRuntime by remember { mutableStateOf(false) }
+    var runtimeBytes by remember { mutableStateOf(0L) }
+    var runtimeTotal by remember { mutableStateOf(0L) }
+    var runtimeStatus by remember { mutableStateOf("Android Java runtime has not been downloaded.") }
 
     LaunchedEffect(Unit) {
         try {
@@ -1878,6 +1883,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release, File(context.filesDir, "minecraft")
                                         )
+                                        requiredJavaMajor = plan.javaMajorVersion
                                         launchPlanStatus = "Prepared ${plan.version}: Java ${plan.javaMajorVersion} required • ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Compatible Android runtime and graphics bridge are still required."
                                     } catch (error: Exception) {
                                         launchPlanStatus = error.message ?: "Could not prepare launch configuration."
@@ -1892,7 +1898,45 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (preparingLaunchPlan) "PREPARING…" else "PREPARE LAUNCH CONFIG", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(launchPlanStatus, color = Muted, fontSize = 11.sp)
-                        Text("The client JAR, Android-rule-compatible Maven artifacts, asset objects and client logging config are downloaded into app storage and checked against Mojang SHA-1/size metadata. Android native runtime integration and launching still need work.", color = Muted, fontSize = 10.sp)
+                        Button(
+                            enabled = !downloadingRuntime,
+                            onClick = {
+                                downloadingRuntime = true
+                                runtimeBytes = 0L
+                                runtimeTotal = 0L
+                                runtimeStatus = "Downloading Android Java $requiredJavaMajor runtime archive…"
+                                scope.launch {
+                                    try {
+                                        val result = AndroidRuntimeInstaller.downloadRuntime(
+                                            requiredJavaMajor,
+                                            File(context.filesDir, "minecraft")
+                                        ) { received, total ->
+                                            runtimeBytes = received
+                                            runtimeTotal = total
+                                        }
+                                        val mb = result.bytes / (1024.0 * 1024.0)
+                                        runtimeStatus = "Downloaded Java ${result.javaMajor} (${result.architecture}) archive • ${"%.1f".format(mb)} MB. Extraction and runtime registration are the next step."
+                                    } catch (error: Exception) {
+                                        runtimeStatus = error.message ?: "Could not download Android Java runtime."
+                                    } finally {
+                                        downloadingRuntime = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF557F9E), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (downloadingRuntime) "DOWNLOADING JAVA $requiredJavaMajor…" else "DOWNLOAD JAVA $requiredJavaMajor RUNTIME", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        if (downloadingRuntime) {
+                            LinearProgressIndicator(
+                                progress = { if (runtimeTotal > 0L) (runtimeBytes.toFloat() / runtimeTotal).coerceIn(0f, 1f) else 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF557F9E)
+                            )
+                        }
+                        Text(runtimeStatus, color = Muted, fontSize = 11.sp)
+                        Text("The runtime package is downloaded and XZ-validated, but not yet extracted or registered. The graphics bridge and actual game launch still need integration.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
