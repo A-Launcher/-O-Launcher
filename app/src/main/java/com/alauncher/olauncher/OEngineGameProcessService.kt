@@ -114,11 +114,12 @@ class OEngineGameProcessService : Service() {
                         require(arguments.size <= 16_384 && arguments.all { it.length <= 65_536 && '\u0000' !in it }) {
                             "Minecraft game arguments exceed the IPC safety limits."
                         }
-                        val authArguments = arguments.filter { it.startsWith("--") }
-                        require(arguments.any { it.contains("auth_access_token") }) {
-                            "Minecraft launch arguments are missing the authenticated access-token placeholder."
+                        val accessTokenFlag = arguments.indexOfFirst { it == "--accessToken" || it == "--access-token" }
+                        require(accessTokenFlag >= 0 && accessTokenFlag + 1 < arguments.size) {
+                            "Minecraft launch arguments are missing the access-token option."
                         }
-                        require(arguments.none { it == "0" }) {
+                        val minecraftAccessToken = arguments[accessTokenFlag + 1]
+                        require(minecraftAccessToken.isNotBlank() && minecraftAccessToken != "0") {
                             "A placeholder access token cannot be used for an authenticated Minecraft launch."
                         }
                         val result = OEngineJvmNativeBridge.invokeMain(mainClass, arguments)
