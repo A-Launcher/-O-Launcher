@@ -79,7 +79,8 @@ private data class LauncherImages(
     val skins: ImageBitmap,
     val marketplace: ImageBitmap,
     val settings: ImageBitmap,
-    val about: ImageBitmap
+    val about: ImageBitmap,
+    val home: ImageBitmap
 )
 
 private fun fallbackBitmap(color: Int): Bitmap =
@@ -335,11 +336,12 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: createRealmsArtwork(),
             realmsCrown = readAssetImage(context, "reference_ui/IMG_20261106_130717.png")
                 ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.YELLOW),
-            installations = readAssetImage(context, "reference_ui/IMG_20261106_125005.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
-            skins = readAssetImage(context, "reference_ui/IMG_20261106_125022.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
-            marketplace = readAssetImage(context, "reference_ui/IMG_20261106_125137.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
-            settings = readAssetImage(context, "reference_ui/IMG_20261106_125258.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
-            about = readAssetImage(context, "reference_ui/IMG_20261106_125311.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
+            installations = readAssetImage(context, "2c484ef06d618170c43f2a2d288a85b4-removebg-preview.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
+            skins = readAssetImage(context, "c09fde2532c9b9645a64208dc1500146-removebg-preview.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
+            marketplace = readAssetImage(context, "488492b1bb75fdbe827502ca1971af25-removebg-preview.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
+            settings = readAssetImage(context, "39667c1838a0eb444686e797eccf1cd1-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
+            about = readAssetImage(context, "203e305e530e01e9668893e7aad11194-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
+            home = readAssetImage(context, "04dcbaa24e1e838ef4beb7e104552196-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             avatar = readAssetImage(context, "reference_ui/IMG_20261106_130824.png")
                 ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             logo = logo
@@ -549,8 +551,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (index == 0) {
-                        // Home is drawn natively so its silhouette matches the reference navigation set.
-                        Icon(Icons.Filled.Home, contentDescription = label, tint = Ink, modifier = Modifier.size(32.dp))
+                        Image(images.home, contentDescription = label, modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
                     } else {
                         val sidebarIcon = when (index) {
                             1 -> images.installations
@@ -559,7 +560,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                             4 -> images.settings
                             else -> images.about
                         }
-                        Image(sidebarIcon, contentDescription = label, modifier = Modifier.size(38.dp), contentScale = ContentScale.Crop)
+                        Image(sidebarIcon, contentDescription = label, modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
                     }
                     Spacer(Modifier.height(3.dp))
                     Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.35).sp)
