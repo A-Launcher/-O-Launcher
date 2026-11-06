@@ -553,7 +553,6 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
             contentAlignment = Alignment.CenterStart
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.width(320.dp).height(90.dp), contentScale = ContentScale.Fit)
                 Spacer(Modifier.height(2.dp))
                 Text("The End", color = Color.White, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
                 Text("awaits...", color = Gold, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
