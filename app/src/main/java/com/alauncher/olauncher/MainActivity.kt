@@ -73,7 +73,12 @@ private data class LauncherImages(
     val spring: ImageBitmap,
     val trials: ImageBitmap,
     val camel: ImageBitmap,
-    val realms: ImageBitmap
+    val realms: ImageBitmap,
+    val installations: ImageBitmap,
+    val skins: ImageBitmap,
+    val marketplace: ImageBitmap,
+    val settings: ImageBitmap,
+    val about: ImageBitmap
 )
 
 private fun fallbackBitmap(color: Int): Bitmap =
@@ -325,7 +330,13 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
             camel = readAssetImage(context, "news_camel.png")
                 ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
-            realms = createRealmsArtwork(),
+            realms = readAssetImage(context, "reference_ui/59c8b720-d9cf-11f1-9dc3-a5410c9336b4.png")
+                ?: createRealmsArtwork(),
+            installations = readAssetImage(context, "reference_ui/IMG_20261106_125005.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
+            skins = readAssetImage(context, "reference_ui/IMG_20261106_125022.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
+            marketplace = readAssetImage(context, "reference_ui/IMG_20261106_125137.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
+            settings = readAssetImage(context, "reference_ui/IMG_20261106_125258.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
+            about = readAssetImage(context, "reference_ui/IMG_20261106_125311.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
             avatar = cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             logo = logo
         )
@@ -506,12 +517,12 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
 @Composable
 private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modifier: Modifier = Modifier) {
     val entries = listOf(
-        Triple(Icons.Filled.Home, "HOME", 0),
-        Triple(Icons.Filled.Inventory2, "INSTALLATIONS", 1),
-        Triple(Icons.Filled.Checkroom, "SKINS", 2),
-        Triple(Icons.Filled.Storefront, "MARKETPLACE", 3),
-        Triple(Icons.Filled.Settings, "SETTINGS", 4),
-        Triple(Icons.Filled.Info, "ABOUT", 5)
+        "HOME" to 0,
+        "INSTALLATIONS" to 1,
+        "SKINS" to 2,
+        "MARKETPLACE" to 3,
+        "SETTINGS" to 4,
+        "ABOUT" to 5
     )
     Column(
         modifier.clip(RoundedCornerShape(25.dp)).background(Panel).padding(horizontal = 7.dp, vertical = 10.dp),
@@ -519,7 +530,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
     ) {
         Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 7.dp).size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(7.dp))
-        entries.forEach { (icon, label, index) ->
+        entries.forEach { (label, index) ->
             val selected = tab == index
             Surface(
                 onClick = { onTab(index) },
@@ -533,7 +544,19 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                     Modifier.padding(vertical = 9.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(25.dp))
+                    if (index == 0) {
+                        // Home is drawn natively so its silhouette matches the reference navigation set.
+                        Icon(Icons.Filled.Home, contentDescription = label, tint = Ink, modifier = Modifier.size(25.dp))
+                    } else {
+                        val sidebarIcon = when (index) {
+                            1 -> images.installations
+                            2 -> images.skins
+                            3 -> images.marketplace
+                            4 -> images.settings
+                            else -> images.about
+                        }
+                        Image(sidebarIcon, contentDescription = label, modifier = Modifier.size(25.dp), contentScale = ContentScale.Fit)
+                    }
                     Spacer(Modifier.height(3.dp))
                     Text(label, fontSize = 9.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.35).sp)
                 }
