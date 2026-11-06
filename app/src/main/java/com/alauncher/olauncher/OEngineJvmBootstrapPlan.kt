@@ -58,7 +58,16 @@ object OEngineJvmBootstrapPlanner {
         val home = runtime.home.canonicalFile
         val java = runtime.executable.canonicalFile
         if (!java.isFile) blockers += "Selected Android Java executable is missing."
-        if (!File(home, "release").isFile) blockers += "Selected runtime release metadata is missing."
+        val releaseFile = File(home, "release")
+        if (!releaseFile.isFile) {
+            blockers += "Selected runtime release metadata is missing."
+        } else {
+            val releaseVersion = Regex("""JAVA_VERSION="(?:1\\.)?(\\d+)""").find(releaseFile.readText())
+                ?.groupValues?.get(1)?.toIntOrNull()
+            if (releaseVersion != runtime.javaMajor) {
+                blockers += "Selected runtime release version does not match Java " + runtime.javaMajor + "."
+            }
+        }
 
         val resolvedClasspath = classpath.map { it.canonicalFile }
         if (resolvedClasspath.isEmpty()) blockers += "Minecraft classpath is empty."
@@ -71,7 +80,7 @@ object OEngineJvmBootstrapPlanner {
 
         val workDir = workingDirectory.canonicalFile
         if (!workDir.isDirectory) blockers += "Minecraft working directory is missing."
-        if (mainClass.isBlank() || mainClass.contains('/')) {
+        if (!mainClass.matches(Regex("""[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)*"""))) {
             blockers += "Minecraft main class must be a dotted Java class name."
         }
 
