@@ -19,6 +19,9 @@ android {
 
     buildFeatures { compose = true }
 
+    // Load the user's original PNG sidebar icons from the repository artwork folder.
+    sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
