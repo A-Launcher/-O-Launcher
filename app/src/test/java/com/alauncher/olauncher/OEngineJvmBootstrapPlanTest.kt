@@ -35,7 +35,7 @@ class OEngineJvmBootstrapPlanTest {
                 androidRelease = "15",
                 timezoneId = "Africa/Cairo",
                 availableProcessors = 8,
-                rendererLibraryAlias = "libGLMojo.so"
+                rendererLibraryAlias = OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS
             )
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
