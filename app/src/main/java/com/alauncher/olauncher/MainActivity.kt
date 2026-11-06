@@ -2285,6 +2285,37 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (probingGameProcess) "CHECKING GAME PROCESS…" else "TEST ISOLATED GAME PROCESS", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text(gameProcessStatus, color = Muted, fontSize = 11.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(
+                                onClick = {
+                                    gameSessionLog = OEngineSessionLog.read(context)
+                                    showGameSessionLog = true
+                                },
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("VIEW SESSION LOG", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                            }
+                            Text("Private diagnostic log • tokens and raw game arguments are not recorded", color = Muted, fontSize = 9.sp)
+                        }
+                        if (showGameSessionLog) {
+                            AlertDialog(
+                                onDismissRequest = { showGameSessionLog = false },
+                                title = { Text("O ENGINE SESSION LOG") },
+                                text = {
+                                    Column(modifier = Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                                        Text(gameSessionLog, fontSize = 10.sp, color = Ink)
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        gameSessionLog = OEngineSessionLog.read(context)
+                                    }) { Text("REFRESH") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showGameSessionLog = false }) { Text("CLOSE") }
+                                }
+                            )
+                        }
                         Text("This starts the private :game Android process and checks Messenger IPC only. It does not load Java or launch Minecraft.", color = Muted, fontSize = 10.sp)
                         Button(
                             enabled = preparedLaunchPlan != null && !probingGameProcess && !installingRuntime && !downloadingRuntime,
