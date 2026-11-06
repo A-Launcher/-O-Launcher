@@ -226,7 +226,14 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Image(images.logo, contentDescription = "O Launcher", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+        Column(
+            modifier = Modifier.width(245.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("MINECRAFT", fontSize = 27.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-1.8).sp)
+            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = 0.8.sp)
+        }
         Surface(
             Modifier.weight(1f).height(46.dp),
             color = Color(0xFFFFF8F0),
@@ -338,15 +345,25 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         }
         Spacer(Modifier.weight(1f))
         Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(17.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
+                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(29.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(5.dp))
-                    Column {
-                        Text("CREEPERFAN", fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
+                    Column(Modifier.weight(1f)) {
+                        Text("CreeperFan", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("● Online", fontSize = 9.sp, color = Color(0xFF398C37), fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.weight(1f))
                     Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(16.dp))
+                }
+                Divider(color = Border)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF35A34A)))
+                    Spacer(Modifier.width(5.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Latest Release", fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text("1.21.10", fontSize = 9.sp, color = Muted)
+                    }
+                    Icon(Icons.Filled.ExpandMore, contentDescription = "Release options", modifier = Modifier.size(15.dp))
                 }
             }
         }
@@ -357,23 +374,45 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
 private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, onPlay: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(27.dp))) {
         Image(images.hero, contentDescription = "Minecraft featured banner", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        // Keep the primary action anchored to the lower-left, as in the desktop reference.
-        Surface(
-            onClick = onPlay,
-            color = Gold,
-            contentColor = Ink,
-            shape = RoundedCornerShape(13.dp),
-            shadowElevation = 3.dp,
-            modifier = Modifier.align(Alignment.BottomStart)
-                .padding(start = 22.dp, bottom = 20.dp)
+        Box(
+            Modifier.align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .fillMaxWidth(0.43f)
+                .background(Brush.horizontalGradient(listOf(Color(0xCC1A0808), Color(0x001A0808))))
+                .padding(start = 25.dp, top = 18.dp, bottom = 62.dp),
+            contentAlignment = Alignment.CenterStart
         ) {
-            Row(
-                Modifier.padding(horizontal = 25.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                Icon(Icons.Filled.SportsEsports, contentDescription = null, modifier = Modifier.size(19.dp))
-                Text("PLAY NOW", fontSize = 15.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-0.2).sp)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("MINECRAFT", color = Color.White, fontSize = 39.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-2.1).sp)
+                Text("JAVA EDITION", color = Color.White, fontSize = 22.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = 0.6.sp)
+                Spacer(Modifier.height(2.dp))
+                Text("The End", color = Color.White, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
+                Text("awaits...", color = Gold, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
+                Text("Face the Nether, explore new challenges and discover more!", color = Color.White, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(onClick = onPlay, color = Gold, contentColor = Ink, shape = RoundedCornerShape(28.dp), shadowElevation = 4.dp) {
+                        Row(Modifier.padding(horizontal = 26.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Icon(Icons.Filled.SportsEsports, contentDescription = null, modifier = Modifier.size(21.dp))
+                            Text("Play Now", fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                    Surface(onClick = onPlay, color = Color(0xFFFFF8EE), shape = CircleShape, modifier = Modifier.size(52.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.ExpandMore, contentDescription = "More play options", tint = Ink, modifier = Modifier.size(28.dp)) }
+                    }
+                }
+            }
+        }
+        Row(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 13.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(5) { index ->
+                Box(
+                    Modifier.width(if (index == 0) 25.dp else 9.dp).height(9.dp)
+                        .clip(CircleShape).background(if (index == 0) Color.White else Color.White.copy(alpha = .72f))
+                )
             }
         }
     }
