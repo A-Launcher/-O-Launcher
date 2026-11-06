@@ -393,11 +393,11 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            if (tab == 1 || tab == 5) {
-                if (tab == 1) {
-                    InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                } else {
-                    AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+            if (tab == 1 || tab == 5 || tab == 7) {
+                when (tab) {
+                    1 -> InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                    5 -> AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                    else -> CreateAccountReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                 }
             } else {
                 Row(
@@ -406,7 +406,7 @@ private fun OLauncherApp() {
                 ) {
                     Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
                     Column(Modifier.weight(1f).fillMaxHeight()) {
-                        TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp))
+                        TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp), onAccountClick = { tab = 7 })
                         Spacer(Modifier.height(gap))
                         Row(
                             Modifier.weight(1f).fillMaxWidth(),
@@ -470,7 +470,7 @@ private fun OLauncherApp() {
 }
 
 @Composable
-private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
+private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier, onAccountClick: () -> Unit = {}) {
     var showNotifications by remember { mutableStateOf(false) }
     var showProfile by remember { mutableStateOf(false) }
     Row(
@@ -528,7 +528,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             }
         }
         Surface(
-            onClick = { showProfile = true },
+            onClick = onAccountClick,
             color = Panel,
             shape = RoundedCornerShape(28.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
@@ -1099,6 +1099,32 @@ private fun Destination(tab: Int, images: LauncherImages) {
                 Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun CreateAccountReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val reference = remember(context) { readAssetImage(context, "IMG_20261106_154508.png") }
+    Box(modifier = modifier.background(Color(0xFF241A17))) {
+        if (reference != null) {
+            Image(
+                bitmap = reference,
+                contentDescription = "O Launcher Create Account screen",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Create Account artwork could not be loaded", color = Color.White)
+            }
+        }
+        Box(
+            Modifier.align(Alignment.TopStart)
+                .fillMaxWidth(0.16f)
+                .fillMaxHeight(0.13f)
+                .clickable(onClick = onBack)
+        )
     }
 }
 
