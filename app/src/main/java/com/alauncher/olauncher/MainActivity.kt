@@ -2236,7 +2236,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             onClick = {
                                 val launchPlan = preparedLaunchPlan ?: return@Button
                                 val preview = OLauncherEngine.prepareCommandPreview(
-                                    activeInstance.root, launchPlan, rendererLibraryAlias = "libGLMojo.so"
+                                    activeInstance.root, launchPlan, rendererLibraryAlias = OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS
                                 )
                                 val bootstrap = preview.jvmBootstrapPlan
                                 val jvmLibrary = bootstrap?.jvmLibrary
