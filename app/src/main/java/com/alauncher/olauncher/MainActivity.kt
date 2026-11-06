@@ -336,9 +336,9 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: createRealmsArtwork(),
             realmsCrown = readAssetImage(context, "reference_ui/IMG_20261106_130717.png")
                 ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.YELLOW),
-            installations = readAssetImage(context, "2c484ef06d618170c43f2a2d288a85b4-removebg-preview.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
+            installations = readAssetImage(context, "488492b1bb75fdbe827502ca1971af25-removebg-preview.png") ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
             skins = readAssetImage(context, "c09fde2532c9b9645a64208dc1500146-removebg-preview.png") ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
-            marketplace = readAssetImage(context, "488492b1bb75fdbe827502ca1971af25-removebg-preview.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
+            marketplace = readAssetImage(context, "2c484ef06d618170c43f2a2d288a85b4-removebg-preview.png") ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
             settings = readAssetImage(context, "39667c1838a0eb444686e797eccf1cd1-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
             about = readAssetImage(context, "203e305e530e01e9668893e7aad11194-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
             home = readAssetImage(context, "04dcbaa24e1e838ef4beb7e104552196-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
