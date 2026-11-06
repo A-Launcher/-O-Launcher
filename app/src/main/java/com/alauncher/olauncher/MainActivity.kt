@@ -698,27 +698,73 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 
 @Composable
 private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) {
+    var selectedNews by remember { mutableStateOf<String?>(null) }
     PanelCard("Featured News", "View all  →", modifier) {
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            NewsCard(images.spring, "SPRING TO LIFE", "A FRESH NEW LOOK FOR MINECRAFT!", "Mar 25, 2025", Modifier.weight(1f))
-            NewsCard(images.trials, "THE TRICKY TRIALS UPDATE", "TAKE ON NEW CHALLENGES!", "Jun 13, 2024", Modifier.weight(1f))
-            NewsCard(images.camel, "CAMEL! RIDE IN STYLE", "EXPLORE THE DESERT WITH CAMELS.", "Apr 3, 2024", Modifier.weight(1f))
+            NewsCard(images.spring, "SPRING TO LIFE", "A FRESH NEW LOOK FOR MINECRAFT!", "Mar 25, 2025", Modifier.weight(1f)) { selectedNews = "SPRING TO LIFE" }
+            NewsCard(images.trials, "THE TRICKY TRIALS UPDATE", "TAKE ON NEW CHALLENGES!", "Jun 13, 2024", Modifier.weight(1f)) { selectedNews = "THE TRICKY TRIALS UPDATE" }
+            NewsCard(images.camel, "CAMEL! RIDE IN STYLE", "EXPLORE THE DESERT WITH CAMELS.", "Apr 3, 2024", Modifier.weight(1f)) { selectedNews = "CAMEL! RIDE IN STYLE" }
         }
+    }
+    selectedNews?.let { title ->
+        AlertDialog(
+            onDismissRequest = { selectedNews = null },
+            title = { Text(title) },
+            text = { Text("Minecraft news article preview. Article links will be connected in the news browser stage.") },
+            confirmButton = {
+                TextButton(onClick = { selectedNews = null }) { Text("Close") }
+            }
+        )
     }
 }
 
 @Composable
-private fun NewsCard(image: ImageBitmap, title: String, description: String, date: String, modifier: Modifier = Modifier) {
-    Surface(color = Color(0xFFFFF4E6), shape = RoundedCornerShape(18.dp), modifier = modifier) {
+private fun NewsCard(
+    image: ImageBitmap,
+    title: String,
+    description: String,
+    date: String,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit
+) {
+    Surface(
+        color = Color(0xFFFFF4E6),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 1.dp,
+        modifier = modifier
+    ) {
         Column(Modifier.fillMaxSize()) {
-            Image(image, contentDescription = title, modifier = Modifier.fillMaxWidth().height(82.dp).clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)), contentScale = ContentScale.Crop)
-            Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Image(
+                image,
+                contentDescription = title,
+                modifier = Modifier.fillMaxWidth().height(104.dp)
+                    .clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp)),
+                // Preserve the complete uploaded thumbnail, including its News badge.
+                contentScale = ContentScale.FillBounds
+            )
+            Column(
+                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
                 Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = (-0.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(description.replace("!", "!"), color = Muted, fontWeight = FontWeight.Normal, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(description, color = Muted, fontWeight = FontWeight.Normal, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(5.dp))
                     Text(date, color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Normal)
+                    Spacer(Modifier.weight(1f))
+                    Surface(
+                        onClick = onOpen,
+                        color = Color(0xFFFFD978),
+                        shape = CircleShape,
+                        shadowElevation = 3.dp,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.ArrowForward, contentDescription = "Open $title", tint = Ink, modifier = Modifier.size(20.dp))
+                        }
+                    }
                 }
             }
         }
