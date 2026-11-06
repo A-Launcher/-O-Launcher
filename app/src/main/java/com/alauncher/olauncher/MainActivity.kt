@@ -177,7 +177,7 @@ private fun OLauncherApp() {
                                 HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
                                 FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
                             } else {
-                                Destination(tab)
+                                Destination(tab, images)
                             }
                         }
                         Column(
@@ -534,10 +534,10 @@ private fun PanelCard(
 }
 
 @Composable
-private fun Destination(tab: Int) {
+private fun Destination(tab: Int, images: LauncherImages) {
     val title = listOf("Home", "Installations", "Skins", "Marketplace", "Settings", "About")[tab.coerceIn(0, 5)]
     if (tab == 1) {
-        InstallationsDestination()
+        InstallationsDestination(images)
     } else {
         Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -558,7 +558,7 @@ private fun Destination(tab: Int) {
 }
 
 @Composable
-private fun InstallationsDestination() {
+private fun InstallationsDestination(images: LauncherImages) {
     val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
     var selectedVersion by remember { mutableStateOf("1.21.4") }
     var versionMenu by remember { mutableStateOf(false) }
