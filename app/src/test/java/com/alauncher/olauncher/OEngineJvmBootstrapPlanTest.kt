@@ -34,7 +34,8 @@ class OEngineJvmBootstrapPlanTest {
                 applicationArguments = listOf("--username", "Player"),
                 androidRelease = "15",
                 timezoneId = "Africa/Cairo",
-                availableProcessors = 8
+                availableProcessors = 8,
+                rendererLibraryAlias = "libGLMojo.so"
             )
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
@@ -52,6 +53,7 @@ class OEngineJvmBootstrapPlanTest {
             assertTrue(plan.vmOptions.contains("-Duser.timezone=Africa/Cairo"))
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.vulkan.libname=libvulkan.so"))
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared"))
+            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.opengl.libname=libGLMojo.so"))
             assertTrue(plan.vmOptions.contains("-XX:ActiveProcessorCount=8"))
             assertTrue(plan.vmOptions.any { it == "-Djna.boot.library.path=" + nativeDir.canonicalPath })
             assertEquals(listOf("--username", "Player"), plan.applicationArguments)
