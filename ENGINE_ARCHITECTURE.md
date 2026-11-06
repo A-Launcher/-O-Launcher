@@ -153,3 +153,9 @@ O Engine will use Rust as the preferred language for new native engine subsystem
 
 The Rust integration must build reproducibly for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`, expose a narrow C ABI to Kotlin/JNI, and include host-side unit tests plus Android ABI/link checks. No native component will create the game JVM or load a renderer until the selected JRE, LWJGL adapter, renderer artifact, and Android linker visibility have all passed explicit preflight gates.
 
+
+
+### Upstream LWJGL native hook verification correction
+
+Inspection of the official upstream LWJGL 3.3.1 and 3.3.3 generated `DynamicLinkLoader.java` confirms that `ndlopen(long,int)` with JNI descriptor `(JI)J` is already a standard upstream native method. MojoLauncher registers a replacement implementation for that method using JNI `RegisterNatives`; the method name itself is not a Mojo-only patch marker. O Engine's resolver therefore treats this signature as an upstream interception candidate, not as proof of a modified Mojo LWJGL build. The O Engine adapter remains blocked until it is implemented and verified against the actual selected class and JVM class loader.
+
