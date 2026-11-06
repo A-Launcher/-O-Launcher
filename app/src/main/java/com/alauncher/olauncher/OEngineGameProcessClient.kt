@@ -214,7 +214,9 @@ class OEngineGameProcessClient(
         rendererFile: File,
         rendererRoot: File,
         targetClassName: String,
-        selectedAlias: String
+        selectedAlias: String,
+        eglLibraryPath: String? = null,
+        glesLibraryPath: String? = null
     ): Boolean {
         val target = serviceMessenger
         if (closed.get() || target == null) {
@@ -228,6 +230,8 @@ class OEngineGameProcessClient(
             data.putString(OEngineGameProcessService.KEY_RENDERER_ROOT, rendererRoot.canonicalPath)
             data.putString(OEngineGameProcessService.KEY_LWJGL_TARGET_CLASS, targetClassName)
             data.putString(OEngineGameProcessService.KEY_RENDERER_ALIAS, selectedAlias)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_EGL, eglLibraryPath)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_GLES, glesLibraryPath)
             replyTo = replyMessenger
         }
         return try {
