@@ -2153,7 +2153,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 gameProcessClient?.close()
                                 probingGameProcess = true
                                 gameProcessStatus = "Starting the separate :game process and checking IPC…"
-                                val client = OEngineGameProcessClient(context) { result ->
+                                val client = OEngineGameProcessClient(context, { result ->
                                     gameProcessStatus = result.fold(
                                         onSuccess = { status ->
                                             probingGameProcess = false
@@ -2168,7 +2168,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             "GAME PROCESS IPC FAILED • " + (error.message ?: "Unknown process error")
                                         }
                                     )
-                                }
+                                })
                                 gameProcessClient = client
                                 if (!client.connect()) probingGameProcess = false
                             },
