@@ -888,7 +888,7 @@ private fun LauncherFilesDestination() {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("LAUNCHER FILES", fontSize = 23.sp, fontWeight = FontWeight.Black)
+                        Text("LAUNCHER FILES", fontSize = (23 * scale).sp, fontWeight = FontWeight.Black)
                         Text("Manage your launcher folder without opening a separate file manager.", color = Muted, fontSize = 12.sp)
                     }
                     Button(onClick = { newName = ""; showCreate = true }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
@@ -1029,19 +1029,21 @@ private fun SkinDestination(images: LauncherImages) {
 }
 
 @Composable
-private fun MarketplaceDestination() {
+private fun MarketplaceDestination(availableHeight: Dp) {
     val categories = listOf("All", "Mods", "Resource Packs", "Data Packs", "Shaders", "Maps", "Worlds", "More")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().height(174.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().height(availableHeight)) {
+        val scale = (maxHeight / 700.dp).coerceIn(0.72f, 1.12f)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp * scale)) {
+        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(maxHeight * 0.25f)) {
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF35162F), Color(0xFF7D263B), Color(0xFF24172F))))) {
-                Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp * scale), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text("BETTER MINECRAFT WITH MODS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
-                    Text("Explore mods, worlds, resource packs and more to make your world even greater!", color = Color(0xFFE8DDE8), fontSize = 12.sp, lineHeight = 17.sp)
+                    Text("Explore mods, worlds, resource packs and more to make your world even greater!", color = Color(0xFFE8DDE8), fontSize = (12 * scale).sp, lineHeight = (17 * scale).sp)
                     Surface(onClick = { selectedCategory = "Mods" }, color = Gold, shape = RoundedCornerShape(10.dp)) {
-                        Text("Browse Mods", Modifier.padding(horizontal = 17.dp, vertical = 9.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Browse Mods", Modifier.padding(horizontal = 17.dp * scale, vertical = 9.dp * scale), color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
                 Text("NETHER  •  COMMUNITY CONTENT", Modifier.align(Alignment.BottomEnd).padding(16.dp), color = Color(0x99FFFFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -1070,13 +1072,15 @@ private fun MarketplaceDestination() {
             }
             Text("VIEW ALL  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
-        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(172.dp)) {
-            Column(Modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(maxHeight * 0.25f)) {
+            Column(Modifier.fillMaxSize().padding(18.dp * scale), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
                 Spacer(Modifier.height(8.dp))
                 Text("CurseForge connection pending", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ink)
                 Text("Your API application is under review. Live projects, creators, ratings and downloads will appear here as soon as the key is configured.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
             }
+        }
+    }
         }
     }
 }
