@@ -6,12 +6,12 @@ import org.junit.Test
 
 class OEngineJavaCompatibilityTest {
     @Test fun mapsLegacyAndClassicVersionsToJavaEightRuntime() {
-        listOf("c0.0.11a", "b1.7.3", "1.5.2").forEach { version ->
+        listOf("c0.0.11a", "1.5.2").forEach { version ->
             val result = OEngineJavaCompatibility.resolve(version)
             assertEquals(5, result.targetJavaMajor)
             assertEquals(8, result.runtimeJavaMajor)
         }
-        listOf("1.6.1", "1.11.2").forEach { version ->
+        listOf("b1.7.3", "1.6.1", "1.11.2").forEach { version ->
             val result = OEngineJavaCompatibility.resolve(version)
             assertEquals(6, result.targetJavaMajor)
             assertEquals(8, result.runtimeJavaMajor)
