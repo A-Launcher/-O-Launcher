@@ -8,6 +8,7 @@ use libc::{c_char, c_void};
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::sync::{Mutex, OnceLock, RwLock};
+use std::thread::ThreadId;
 
 mod elf_hinter;
 
@@ -23,6 +24,8 @@ static HOOK_CONFIG: OnceLock<RwLock<Option<HookConfig>>> = OnceLock::new();
 static JVM_LIBRARY: OnceLock<Mutex<Option<(CString, usize)>>> = OnceLock::new();
 static JVM_INSTANCE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 static NATIVE_LOAD_HOOK: OnceLock<Mutex<Option<(i32, usize, usize)>>> = OnceLock::new();
+static HOTSPOT_ENV: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
+static HOTSPOT_CREATOR_THREAD: OnceLock<Mutex<Option<ThreadId>>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -237,6 +240,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
 
     *instance_guard = Some(vm as usize);
+    *HOTSPOT_ENV.get_or_init(|| Mutex::new(None)).lock().map_err(|_| ()).unwrap() = Some(vm_env as usize);
+    *HOTSPOT_CREATOR_THREAD.get_or_init(|| Mutex::new(None)).lock().map_err(|_| ()).unwrap() = Some(std::thread::current().id());
     let mut hot_spot_env = match JNIEnv::from_raw(&mut vm_env as *mut *mut c_void as *mut RawJNIEnv) {
         Ok(value) => value,
         Err(error) => return response!("created_env_error", &format!("VM created but JNIEnv could not be wrapped: {error}")),
@@ -295,6 +300,365 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Err(error) => {
             if hot_spot_env.exception_check().unwrap_or(false) { let _ = hot_spot_env.exception_clear(); }
             response!("java_main_invoke_error", &format!("VM created but smoke-test main failed: {error}"))
+        }
+    }
+}
+
+
+/// Invokes a Java main class on the same HandlerThread that created HotSpot.
+/// This deliberately rejects calls from other threads: the saved JNIEnv is thread-confined.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInvokeMain(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    main_class: jstring,
+    arguments: jni::sys::jobjectArray,
+) -> jstring {
+    if raw_env.is_null() || main_class.is_null() || arguments.is_null() {
+        return ptr::null_mut();
+    }
+    let mut android_env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return ptr::null_mut(),
+    };
+    let respond = |env: &mut JNIEnv, status: &str, detail: &str| {
+        env.new_string(format!("{status}:{detail}"))
+            .map(|value| value.into_raw())
+            .unwrap_or(ptr::null_mut())
+    };
+
+    let class_name: String = match android_env.get_string(&JString::from_raw(main_class)) {
+        Ok(value) => value.into(),
+        Err(error) => return respond(&mut android_env, "invalid_main_class", &error.to_string()),
+    };
+    if !class_name.matches('.').count().gt(&0)
+        || !class_name.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ' = unsafe extern "system" fn(*mut RawJNIEnv, jobject, jstring, jboolean);
+type J17NativeLoad = unsafe extern "system" fn(*mut RawJNIEnv, jni::sys::jclass, jobject, jstring, jboolean, jboolean, jboolean) -> jboolean;
+type J21NativeLoad = unsafe extern "system" fn(*mut RawJNIEnv, jni::sys::jclass, jobject, jstring, jboolean, jboolean) -> jboolean;
+
+fn preload_for_native_load(raw_env: *mut RawJNIEnv, name: jstring) -> Option<elf_hinter::PreloadedDependencies> {
+    if raw_env.is_null() || name.is_null() { return None; }
+    let mut env = unsafe { JNIEnv::from_raw(raw_env).ok()? };
+    let java_name = unsafe { JString::from_raw(name) };
+    let name: String = env.get_string(&java_name).ok()?.into();
+    if name.is_empty() || name.len() > 4096 { return None; }
+    elf_hinter::preload_named_library(&name).ok()
+}
+
+unsafe extern "system" fn native_load_java8(
+    raw_env: *mut RawJNIEnv, receiver: jobject, name: jstring, builtin: jboolean
+) {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 8).map(|(_, ptr, _)| *ptr));
+    if let Some(original) = original {
+        let function: J8NativeLoad = std::mem::transmute(original);
+        function(raw_env, receiver, name, builtin);
+    }
+}
+
+unsafe extern "system" fn native_load_java17(
+    raw_env: *mut RawJNIEnv, class: jni::sys::jclass, library: jobject, name: jstring,
+    builtin: jboolean, is_jni: jboolean, throw_on_fail: jboolean
+) -> jboolean {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 17).map(|(_, ptr, _)| *ptr));
+    original.map(|ptr| {
+        let function: J17NativeLoad = std::mem::transmute(ptr);
+        function(raw_env, class, library, name, builtin, is_jni, throw_on_fail)
+    }).unwrap_or(0)
+}
+
+unsafe extern "system" fn native_load_java21(
+    raw_env: *mut RawJNIEnv, class: jni::sys::jclass, library: jobject, name: jstring,
+    builtin: jboolean, throw_on_fail: jboolean
+) -> jboolean {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 21 || *major == 171).map(|(_, ptr, _)| *ptr));
+    original.map(|ptr| {
+        let function: J21NativeLoad = std::mem::transmute(ptr);
+        function(raw_env, class, library, name, builtin, throw_on_fail)
+    }).unwrap_or(0)
+}
+
+unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Result<(), String> {
+    if !matches!(java_major, 8 | 17 | 21) {
+        return Err(format!("Java {java_major} native-library hook is not verified"));
+    }
+    let state = NATIVE_LOAD_HOOK.get_or_init(|| Mutex::new(None));
+    if state.lock().map_err(|_| "Native-load hook state lock is poisoned")?.is_some() {
+        return Err("A native-library hook is already installed in this process".to_owned());
+    }
+
+    let symbol_name = if java_major == 8 {
+        "Java_java_lang_ClassLoader_00024NativeLibrary_load"
+    } else {
+        "Java_jdk_internal_loader_NativeLibraries_load"
+    };
+    let symbol = CString::new(symbol_name).unwrap();
+    let libjava_name = CString::new("libjava.so").unwrap();
+    let libjava = libc::dlopen(libjava_name.as_ptr(), libc::RTLD_NOW | libc::RTLD_NOLOAD);
+    let original = if libjava.is_null() {
+        libc::dlsym(libc::RTLD_DEFAULT, symbol.as_ptr())
+    } else {
+        libc::dlsym(libjava, symbol.as_ptr())
+    };
+    if original.is_null() {
+        if !libjava.is_null() { libc::dlclose(libjava); }
+        return Err(format!("Cannot resolve original {symbol_name} in libjava.so"));
+    }
+
+    let (class_name, descriptor, function): (&str, &str, *mut c_void) = match java_major {
+        8 => (
+            "java/lang/ClassLoader$NativeLibrary",
+            "(Ljava/lang/String;Z)V",
+            native_load_java8 as *mut c_void,
+        ),
+        17 => {
+            let class = env.find_class("jdk/internal/loader/NativeLibraries")
+                .map_err(|e| format!("Cannot find JDK 17 NativeLibraries class: {e}"))?;
+            let primary = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZZ)Z";
+            let fallback = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z";
+            let primary_found = env.get_static_method_id(&class, "load", primary).is_ok();
+            if !primary_found && env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            let selected = if primary_found { primary } else {
+                if env.get_static_method_id(&class, "load", fallback).is_err() {
+                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                    return Err("Neither verified Java 17 NativeLibraries.load signature exists".to_owned());
+                }
+                fallback
+            };
+            let hook = if selected == primary { native_load_java17 as *mut c_void } else { native_load_java21 as *mut c_void };
+            let method = [NativeMethod { name: "load".into(), sig: selected.into(), fn_ptr: hook }];
+            env.register_native_methods(&class, &method)
+                .map_err(|e| format!("Cannot register Java 17 native-load hook: {e}"))?;
+            *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
+                Some((if selected == primary { 17 } else { 171 }, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+            return Ok(());
+        },
+        21 => (
+            "jdk/internal/loader/NativeLibraries",
+            "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z",
+            native_load_java21 as *mut c_void,
+        ),
+        _ => unreachable!(),
+    };
+
+    let class = env.find_class(class_name)
+        .map_err(|e| format!("Cannot find {class_name}: {e}"))?;
+    let methods = [NativeMethod { name: "load".into(), sig: descriptor.into(), fn_ptr: function }];
+    env.register_native_methods(&class, &methods)
+        .map_err(|e| format!("Cannot register Java {java_major} native-load hook: {e}"))?;
+    *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
+        Some((java_major, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+    Ok(())
+}
+
+/// Pure policy used by the JNI hook: only the exact renderer alias is redirected.
+fn is_redirect_candidate(requested: &[u8], selected_alias: &[u8]) -> bool {
+    !requested.is_empty() && !selected_alias.is_empty() && requested == selected_alias
+}
+
+/// LWJGL's upstream DynamicLinkLoader.ndlopen(long,int) replacement.
+/// The renderer handle is process-owned and must remain open for the whole game session.
+unsafe extern "system" fn lwjgl_ndlopen_hook(
+    _env: *mut RawJNIEnv,
+    _class: jni::sys::jclass,
+    filename_ptr: jlong,
+    mode: jint,
+) -> jlong {
+    if filename_ptr == 0 {
+        return 0;
+    }
+    let filename = CStr::from_ptr(filename_ptr as *const c_char);
+    if let Ok(guard) = hook_config().read() {
+        if let Some(config) = guard.as_ref() {
+            if is_redirect_candidate(filename.to_bytes(), config.selected_alias.as_bytes()) {
+                return config.renderer_handle as jlong;
+            }
+        }
+    }
+    libc::dlopen(filename.as_ptr(), mode) as jlong
+}
+
+/// Installs the upstream LWJGL 3 JNI method replacement on the exact class
+/// resolved by the caller's game class loader. It does not find/load game classes itself.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInstallLwjglHook(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    target_class: jni::sys::jclass,
+    selected_alias: jstring,
+    renderer_handle: jlong,
+) -> jboolean {
+    if raw_env.is_null() || target_class.is_null() || selected_alias.is_null() || renderer_handle == 0 {
+        return 0;
+    }
+
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    let alias_string = JString::from_raw(selected_alias);
+    let alias: String = match env.get_string(&alias_string) {
+        Ok(value) => value.into(),
+        Err(_) => return 0,
+    };
+    if alias.is_empty() || alias.as_bytes().contains(&0) {
+        return 0;
+    }
+    let alias = match CString::new(alias) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+
+    // A process can host only one active renderer provider. Never silently replace it.
+    {
+        let mut guard = match hook_config().write() {
+            Ok(value) => value,
+            Err(_) => return 0,
+        };
+        if let Some(existing) = guard.as_ref() {
+            if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
+                return 0;
+            }
+        } else {
+            *guard = Some(HookConfig {
+                selected_alias: alias,
+                renderer_handle: renderer_handle as usize,
+            });
+        }
+    }
+
+    let class = JClass::from_raw(target_class);
+    let methods = [NativeMethod {
+        name: "ndlopen".into(),
+        sig: "(JI)J".into(),
+        fn_ptr: lwjgl_ndlopen_hook as *mut c_void,
+    }];
+    match env.register_native_methods(&class, &methods) {
+        Ok(()) => 1,
+        Err(_) => 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exact_renderer_alias_is_redirected() {
+        assert!(is_redirect_candidate(b"libGL.so", b"libGL.so"));
+    }
+
+    #[test]
+    fn unrelated_libraries_keep_normal_loader_path() {
+        assert!(!is_redirect_candidate(b"libvulkan.so", b"libGL.so"));
+        assert!(!is_redirect_candidate(b"/system/lib/libGL.so", b"libGL.so"));
+    }
+
+    #[test]
+    fn empty_names_are_never_redirected() {
+        assert!(!is_redirect_candidate(b"", b"libGL.so"));
+        assert!(!is_redirect_candidate(b"libGL.so", b""));
+    }
+
+    #[test]
+    fn abi_version_is_stable() {
+        assert_eq!(oengine_native_abi_version(), ABI_VERSION);
+    }
+}
+))
+        || class_name.len() > 512 {
+        return respond(&mut android_env, "invalid_main_class", "Main class must be a dotted Java class name");
+    }
+
+    let count = match android_env.get_array_length(&JObjectArray::from_raw(arguments)) {
+        Ok(value) => value,
+        Err(error) => return respond(&mut android_env, "invalid_arguments", &error.to_string()),
+    };
+    if count > 16384 {
+        return respond(&mut android_env, "invalid_arguments", "Minecraft argument count exceeds 16384");
+    }
+    let mut game_args = Vec::with_capacity(count as usize);
+    for index in 0..count {
+        let value = match android_env.get_object_array_element(&JObjectArray::from_raw(arguments), index) {
+            Ok(value) => value,
+            Err(error) => return respond(&mut android_env, "invalid_arguments", &error.to_string()),
+        };
+        let value: String = match android_env.get_string(&JString::from(value)) {
+            Ok(value) => value.into(),
+            Err(error) => return respond(&mut android_env, "invalid_arguments", &error.to_string()),
+        };
+        if value.len() > 65536 || value.contains('\0') {
+            return respond(&mut android_env, "invalid_arguments", "A Minecraft argument is too long or contains NUL");
+        }
+        game_args.push(value);
+    }
+
+    let creator = HOTSPOT_CREATOR_THREAD.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.clone());
+    if creator.as_ref() != Some(&std::thread::current().id()) {
+        return respond(&mut android_env, "wrong_thread", "Minecraft main must run on the HotSpot-creating game-process thread");
+    }
+    let hotspot_env = HOTSPOT_ENV.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| *guard);
+    let Some(hotspot_env) = hotspot_env else {
+        return respond(&mut android_env, "vm_not_created", "No retained HotSpot JNIEnv is available");
+    };
+    let mut env = match JNIEnv::from_raw(hotspot_env as *mut RawJNIEnv) {
+        Ok(value) => value,
+        Err(error) => return respond(&mut android_env, "hotspot_env_error", &error.to_string()),
+    };
+
+    let internal_name = class_name.replace('.', "/");
+    let class = match env.find_class(&internal_name) {
+        Ok(value) => value,
+        Err(error) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return respond(&mut android_env, "main_class_not_found", &format!("Cannot load {class_name}: {error}"));
+        }
+    };
+    let string_class = match env.find_class("java/lang/String") {
+        Ok(value) => value,
+        Err(error) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return respond(&mut android_env, "string_class_error", &error.to_string());
+        }
+    };
+    let java_args = match env.new_object_array(count, string_class, JObject::null()) {
+        Ok(value) => value,
+        Err(error) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return respond(&mut android_env, "argument_array_error", &error.to_string());
+        }
+    };
+    for (index, value) in game_args.iter().enumerate() {
+        let java_value = match env.new_string(value) {
+            Ok(value) => value,
+            Err(error) => {
+                if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                return respond(&mut android_env, "argument_encode_error", &error.to_string());
+            }
+        };
+        if let Err(error) = env.set_object_array_element(&java_args, index as i32, java_value) {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return respond(&mut android_env, "argument_array_error", &error.to_string());
+        }
+    }
+
+    match env.call_static_method(&class, "main", "([Ljava/lang/String;)V", &[JValue::Object(&java_args.into())]) {
+        Ok(_) => respond(&mut android_env, "main_returned", &format!("{class_name}.main returned")),
+        Err(error) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            respond(&mut android_env, "main_threw", &format!("{class_name}.main failed: {error}"))
         }
     }
 }
