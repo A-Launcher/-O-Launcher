@@ -66,7 +66,7 @@ object OEngineSessionLog {
                 if (gameExits.isEmpty()) {
                     "No recent Android exit records for the :game process."
                 } else {
-                    gameExits.joinToString("\\n") { info ->
+                    gameExits.joinToString("\n") { info ->
                         val reason = when (info.reason) {
                             ApplicationExitInfo.REASON_CRASH -> "CRASH"
                             ApplicationExitInfo.REASON_CRASH_NATIVE -> "NATIVE_CRASH"
@@ -87,6 +87,6 @@ object OEngineSessionLog {
         } else {
             "Android process-exit history requires Android 11 or newer."
         }
-        return content + "\\n\\nANDROID :GAME PROCESS EXIT HISTORY\\n" + exits
+        return content + "\n\nANDROID :GAME PROCESS EXIT HISTORY\n" + exits
     }
 }
