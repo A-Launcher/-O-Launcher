@@ -103,6 +103,7 @@ object OEngineRendererLaunchPlanner {
         abi: String,
         glesDriver: OEngineGlesDriver,
         lwjgl2NativeLoaderVerified: Boolean,
+        rendererEglLifecycleVerified: Boolean = false,
         namespaceBypassVerified: Boolean = false
     ): OEngineRendererLaunchPlan {
         val blockers = mutableListOf<String>()
@@ -132,6 +133,9 @@ object OEngineRendererLaunchPlanner {
         }
         if (!lwjgl2NativeLoaderVerified) {
             blockers += "The selected Minecraft LWJGL 2 native loader has no verified GL4ES-specific adapter."
+        }
+        if (!rendererEglLifecycleVerified) {
+            blockers += "GL4ES wrapper-owned EGL initialization, surface lifecycle, and GL entry-point resolution are not verified."
         }
 
         val environment = linkedMapOf<String, String>()
