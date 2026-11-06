@@ -1169,16 +1169,17 @@ private fun MarketplaceDestination(availableHeight: Dp) {
         val contentHeight = this.maxHeight
         val scale = (contentHeight / 700.dp).coerceIn(0.72f, 1.12f)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp * scale)) {
-        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF35162F), Color(0xFF7D263B), Color(0xFF24172F))))) {
+        PageHeading("Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
+        Surface(color = Color(0xFF34251F), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF34251F), Color(0xFF8A492C), Color(0xFFE09A48))))) {
                 Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp * scale), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text("BETTER MINECRAFT WITH MODS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
+                    Text("MAKE MINECRAFT YOURS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
                     Text("Explore mods, worlds, resource packs and more to make your world even greater!", color = Color(0xFFE8DDE8), fontSize = (12 * scale).sp, lineHeight = (17 * scale).sp)
                     Surface(onClick = { selectedCategory = "Mods" }, color = Gold, shape = RoundedCornerShape(10.dp)) {
                         Text("Browse Mods", Modifier.padding(horizontal = 17.dp * scale, vertical = 9.dp * scale), color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
-                Text("NETHER  •  COMMUNITY CONTENT", Modifier.align(Alignment.BottomEnd).padding(16.dp), color = Color(0x99FFFFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("O LAUNCHER  •  MARKETPLACE", Modifier.align(Alignment.BottomEnd).padding(16.dp), color = Color(0xCCFFFFFF), fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
         Row(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1192,7 +1193,7 @@ private fun MarketplaceDestination(availableHeight: Dp) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             categories.forEach { category ->
                 val selected = selectedCategory == category
-                Surface(onClick = { selectedCategory = category }, color = if (selected) Color(0xFF342139) else Panel, shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)) {
+                Surface(onClick = { selectedCategory = category }, color = if (selected) Color(0xFF704329) else Panel, shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)) {
                     Text(category, Modifier.padding(horizontal = 15.dp, vertical = 9.dp), color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
                 }
             }
@@ -1505,6 +1506,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     val profiles = remember { mutableStateListOf("Default") }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PageHeading("Installations", "Choose game versions and organize your profiles", "GAME SETUP")
         Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
