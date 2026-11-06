@@ -624,7 +624,11 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         return *handle as jlong;
     }
     libc::dlerror();
-    let handle = libc::dlopen(path.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL);
+    // Renderer wrappers are loaded as local EGL providers, matching MojoExec's
+    // RTLD_LOCAL | RTLD_NOW contract. LWJGL receives the retained handle explicitly
+    // through the verified loader hook, so exporting every renderer symbol globally
+    // is unnecessary and risks collisions with Android's system EGL/GLES libraries.
+    let handle = libc::dlopen(path.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
     if handle.is_null() {
         let error = libc::dlerror();
         let detail = if error.is_null() {
