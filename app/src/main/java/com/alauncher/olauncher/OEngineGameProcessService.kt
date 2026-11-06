@@ -20,6 +20,7 @@ import java.io.File
 class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
     @Volatile private var jvmCreationAttempted = false
+    @Volatile private var jvmCreated = false
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -41,6 +42,10 @@ class OEngineGameProcessService : Service() {
                         val mainClass = message.data.getString(KEY_MAIN_CLASS).orEmpty()
                         val arguments = message.data.getStringArray(KEY_GAME_ARGUMENTS)?.toList().orEmpty()
                         require(mainClass.isNotBlank()) { "Minecraft main class is empty." }
+                        check(jvmCreated) { "HotSpot has not been created successfully in the isolated game process." }
+                        require(arguments.size <= 16_384 && arguments.all { it.length <= 65_536 && '\u0000' !in it }) {
+                            "Minecraft game arguments exceed the IPC safety limits."
+                        }
                         val result = OEngineJvmNativeBridge.invokeMain(mainClass, arguments)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
@@ -86,6 +91,7 @@ class OEngineGameProcessService : Service() {
                         require(probe.successful) { probe.status + ": " + probe.detail }
                         jvmCreationAttempted = true
                         val result = OEngineJvmNativeBridge.createJvm(options, javaMajor)
+                        jvmCreated = result.successful
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
                         reply.data.putString(KEY_PROBE_DETAIL, result.detail)
