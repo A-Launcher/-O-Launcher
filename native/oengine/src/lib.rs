@@ -27,6 +27,7 @@ static NATIVE_LOAD_HOOK: OnceLock<Mutex<Option<(i32, usize, usize)>>> = OnceLock
 static HOTSPOT_ENV: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 static HOTSPOT_CREATOR_THREAD: OnceLock<Mutex<Option<ThreadId>>> = OnceLock::new();
 static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::new();
+static RENDERER_LOAD_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -588,27 +589,35 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     _receiver: jobject,
     renderer_path: jstring,
 ) -> jlong {
-    if raw_env.is_null() || renderer_path.is_null() { return 0; }
+    let set_error = |detail: String| {
+        if let Ok(mut value) = RENDERER_LOAD_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
+            *value = detail;
+        }
+    };
+    if raw_env.is_null() || renderer_path.is_null() {
+        set_error("JNI environment or renderer path is null".to_owned());
+        return 0;
+    }
     let mut env = match JNIEnv::from_raw(raw_env) {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(error) => { set_error(format!("Cannot access JNI environment: {error}")); return 0; },
     };
     let path: String = match env.get_string(&JString::from_raw(renderer_path)) {
         Ok(value) => value.into(),
-        Err(_) => return 0,
+        Err(error) => { set_error(format!("Cannot read renderer path: {error}")); return 0; },
     };
     let canonical = match std::fs::canonicalize(&path) {
         Ok(value) if value.is_absolute() && value.is_file() => value,
-        _ => return 0,
+        _ => { set_error(format!("Renderer file does not exist or cannot be canonicalized: {path}")); return 0; },
     };
     let path = match CString::new(canonical.to_string_lossy().as_bytes()) {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(_) => { set_error("Renderer path contains a NUL byte".to_owned()); return 0; },
     };
     let libraries = RENDERER_LIBRARIES.get_or_init(|| Mutex::new(Vec::new()));
     let mut guard = match libraries.lock() {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(_) => { set_error("Renderer library state lock is poisoned".to_owned()); return 0; },
     };
     if let Some((_, handle)) = guard.iter().find(|(loaded, _)| loaded == &path) {
         return *handle as jlong;
@@ -616,11 +625,35 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     libc::dlerror();
     let handle = libc::dlopen(path.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL);
     if handle.is_null() {
+        let error = libc::dlerror();
+        let detail = if error.is_null() {
+            "dlopen failed without linker detail".to_owned()
+        } else {
+            CStr::from_ptr(error).to_string_lossy().into_owned()
+        };
+        set_error(format!("Android linker rejected {}: {detail}", path.to_string_lossy()));
         return 0;
     }
+    set_error(String::new());
     let raw = handle as usize;
     guard.push((path, raw));
     raw as jlong
+}
+
+/// Returns the most recent renderer dlopen diagnostic for the Kotlin bridge.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeRendererLoadError(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+) -> jstring {
+    if raw_env.is_null() { return ptr::null_mut(); }
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return ptr::null_mut(),
+    };
+    let detail = RENDERER_LOAD_ERROR.get_or_init(|| Mutex::new(String::new()))
+        .lock().map(|value| value.clone()).unwrap_or_else(|_| "Renderer diagnostic lock is poisoned".to_owned());
+    env.new_string(detail).map(|value| value.into_raw()).unwrap_or(ptr::null_mut())
 }
 
 /// Installs the LWJGL 3 JNI method replacement using the embedded HotSpot VM's
