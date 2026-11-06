@@ -219,7 +219,7 @@ private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
     return remember(context) {
         val atlas = createArtworkAtlas()
-        val logo = readBitmap(context, "brand_logo.png", android.graphics.Color.DKGRAY)
+        val logo = readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY)
         LauncherImages(
             hero = cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
             whatsNew = cropBitmapSafe(atlas, 0, 329, 257, 110, android.graphics.Color.LTGRAY),
@@ -496,8 +496,7 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
             contentAlignment = Alignment.CenterStart
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Image(images.logo, contentDescription = "Minecraft", modifier = Modifier.width(165.dp).height(34.dp), contentScale = ContentScale.Fit)
-                Text("JAVA EDITION", color = Color.White, fontSize = 22.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = 0.6.sp)
+                Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.width(260.dp).height(82.dp), contentScale = ContentScale.Fit)
                 Spacer(Modifier.height(2.dp))
                 Text("The End", color = Color.White, fontSize = 33.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Text("awaits...", color = Gold, fontSize = 33.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
@@ -528,7 +527,7 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 
 @Composable
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
-    PanelCard("WHAT’S NEW?", "VIEW ALL  →", modifier) {
+    PanelCard("What’s New?", "View all  →", modifier) {
         Image(images.whatsNew, contentDescription = "What's new artwork", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp)), contentScale = ContentScale.Crop)
         Text("THE NETHER UPDATE", fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = (-0.25).sp)
         Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontWeight = FontWeight.Medium, fontSize = 12.sp, letterSpacing = 0.1.sp)
@@ -544,7 +543,7 @@ private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
 private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit) {
     val context = LocalContext.current
     fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
-    PanelCard("QUICK LINKS", null, modifier) {
+    PanelCard("Quick Links", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
             QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
             QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
@@ -571,7 +570,7 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
 
 @Composable
 private fun FeaturedNews(images: LauncherImages, modifier: Modifier = Modifier) {
-    PanelCard("FEATURED NEWS", "VIEW ALL  →", modifier) {
+    PanelCard("Featured News", "View all  →", modifier) {
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             NewsCard(images.spring, "SPRING TO LIFE", "A FRESH NEW LOOK FOR MINECRAFT!", "Mar 25, 2025", Modifier.weight(1f))
             NewsCard(images.trials, "THE TRICKY TRIALS UPDATE", "TAKE ON NEW CHALLENGES!", "Jun 13, 2024", Modifier.weight(1f))
@@ -630,10 +629,10 @@ private fun PanelCard(
     ) {
         Column(Modifier.fillMaxSize().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 16.sp, letterSpacing = (-0.35).sp)
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 17.sp, letterSpacing = (-0.35).sp)
                 if (action != null) {
                     Spacer(Modifier.weight(1f))
-                    Text(action, fontSize = 11.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Muted)
+                    Text(action.replace("VIEW ALL", "View all"), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Muted)
                 }
             }
             content()
