@@ -14,8 +14,8 @@ import java.io.File
 /**
  * IPC endpoint hosted in the isolated :game process.
  *
- * This first milestone intentionally performs no runtime loading or VM creation. It proves
- * that the launcher can start and communicate with a separately-owned game process.
+ * The service owns runtime linker diagnostics and the experimental HotSpot VM smoke test.
+ * All JNI_CreateJavaVM work runs on its dedicated HandlerThread, away from the launcher UI process.
  */
 class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
