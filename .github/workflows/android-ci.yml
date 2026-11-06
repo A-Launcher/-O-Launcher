@@ -37,6 +37,9 @@ jobs:
           cp artwork/a9ac2f80-d9c3-11f1-b74a-cd36149609df.png app/src/main/assets/hero_banner_reference.png
           echo "Installed the six original user uploads with explicit asset mapping."
 
+      - name: Run engine JVM unit tests
+        run: gradle --no-daemon testDebugUnitTest
+
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
