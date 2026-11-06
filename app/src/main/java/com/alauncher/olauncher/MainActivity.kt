@@ -1183,38 +1183,61 @@ private fun FileManagerReferenceScreen(onBack: () -> Unit, modifier: Modifier = 
     val reference = remember(context) { readAssetImage(context, "IMG_20261106_155827.png") }
     BoxWithConstraints(modifier = modifier.background(Color(0xFF241018))) {
         if (reference != null) {
-            Image(
-                bitmap = reference,
-                contentDescription = "Minecraft Java Edition Manage Content screen",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
-            // Close control on the panel.
-            Box(
-                Modifier.offset(x = maxWidth * 0.735f, y = maxHeight * 0.235f)
-                    .size(width = maxWidth * 0.045f, height = maxHeight * 0.075f)
-                    .clickable(onClick = onBack)
-            )
-            // The four category cards are active hotspots. Their content views will
-            // be connected when the corresponding installed-content sources exist.
-            val categories = listOf("Mods", "Resource Packs", "Saves / Worlds", "Logs")
-            val xPositions = listOf(0.14f, 0.295f, 0.45f, 0.605f)
-            categories.forEachIndexed { index, category ->
+            // Keep the original screenshot ratio; center it instead of stretching it.
+            val imageAspect = reference.width.toFloat() / reference.height.toFloat()
+            val screenAspect = maxWidth / maxHeight
+            val artworkWidth: Dp
+            val artworkHeight: Dp
+            if (screenAspect > imageAspect) {
+                artworkHeight = maxHeight
+                artworkWidth = artworkHeight * imageAspect
+            } else {
+                artworkWidth = maxWidth
+                artworkHeight = artworkWidth / imageAspect
+            }
+
+            Box(Modifier.size(artworkWidth, artworkHeight).align(Alignment.Center)) {
+                Image(
+                    bitmap = reference,
+                    contentDescription = "Minecraft Java Edition Manage Content screen",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                // Close control and category hotspots remain aligned to the artwork.
                 Box(
-                    Modifier.offset(x = maxWidth * xPositions[index], y = maxHeight * 0.36f)
-                        .size(width = maxWidth * 0.15f, height = maxHeight * 0.29f)
-                        .clickable {
-                            Toast.makeText(context, "$category section is being connected", Toast.LENGTH_SHORT).show()
-                        }
+                    Modifier.offset(x = artworkWidth * 0.735f, y = artworkHeight * 0.235f)
+                        .size(width = artworkWidth * 0.045f, height = artworkHeight * 0.075f)
+                        .clickable(onClick = onBack)
+                )
+                val categories = listOf("Mods", "Resource Packs", "Saves / Worlds", "Logs")
+                val xPositions = listOf(0.14f, 0.295f, 0.45f, 0.605f)
+                categories.forEachIndexed { index, category ->
+                    Box(
+                        Modifier.offset(
+                            x = artworkWidth * xPositions[index],
+                            y = artworkHeight * 0.36f
+                        )
+                            .size(
+                                width = artworkWidth * 0.15f,
+                                height = artworkHeight * 0.29f
+                            )
+                            .clickable {
+                                Toast.makeText(
+                                    context,
+                                    "$category section is being connected",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    )
+                }
+                // Brand area returns to Home, positioned relative to the image.
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth(0.12f)
+                        .fillMaxHeight(0.12f)
+                        .clickable(onClick = onBack)
                 )
             }
-            // Brand area returns to the launcher home screen.
-            Box(
-                Modifier.align(Alignment.TopStart)
-                    .fillMaxWidth(0.12f)
-                    .fillMaxHeight(0.12f)
-                    .clickable(onClick = onBack)
-            )
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("File Manager artwork could not be loaded", color = Color.White)
