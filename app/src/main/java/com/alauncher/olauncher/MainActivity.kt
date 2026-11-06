@@ -2293,6 +2293,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (probingGameProcess) "CREATING HOTSPOT JVM…" else "CREATE JVM + CORE CLASS TEST", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text("This attempts JNI_CreateJavaVM in :game and resolves java.lang.String. It runs a tiny Java main method, not Minecraft's main class or the game.", color = Muted, fontSize = 10.sp)
+                        Text("EXPERIMENTAL: Android ART and HotSpot coexistence is device-dependent. A native failure may restart only the separate :game process.", color = Color(0xFFD6A06C), fontSize = 10.sp)
                         Button(
                             enabled = !probingGraphics,
                             onClick = {
