@@ -129,6 +129,7 @@ object MinecraftVersionInstaller {
         if (libraries != null) {
             for (i in 0 until libraries.length()) {
                 val library = libraries.optJSONObject(i) ?: continue
+                if (!isAllowedForAndroid(library.optJSONArray("rules"))) continue
                 val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
                 val relativePath = artifact.optString("path")
                 val url = artifact.optString("url")
@@ -138,6 +139,19 @@ object MinecraftVersionInstaller {
                 tasks.add(Task(url, target, artifact.optString("sha1"), artifact.optLong("size", -1L), "Library: " + library.optString("name")))
                 libraryCount++
             }
+        }
+
+        val loggingFile = metadata.optJSONObject("logging")?.optJSONObject("client")?.optJSONObject("file")
+        if (loggingFile != null) {
+            val loggingPath = loggingFile.optString("id").ifBlank { version.id + "-client.xml" }
+            val safeLoggingName = File(loggingPath).name
+            tasks.add(Task(
+                loggingFile.getString("url"),
+                File(File(gameDirectory, "versions/" + version.id), safeLoggingName),
+                loggingFile.optString("sha1"),
+                loggingFile.optLong("size", -1L),
+                "Client logging configuration"
+            ))
         }
 
         val indexId = assetIndex.optString("id").ifBlank { version.id }
@@ -182,6 +196,34 @@ object MinecraftVersionInstaller {
             onProgress(completedBytes, totalBytes, "Downloaded: " + task.label + " (" + completedTasks + "/" + tasks.size + ")")
         }
         DependencyInstallResult(libraryCount, assetCount, completedBytes)
+    }
+
+    private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
+        if (rules == null || rules.length() == 0) return true
+        var allowed = false
+        for (index in 0 until rules.length()) {
+            val rule = rules.optJSONObject(index) ?: continue
+            val os = rule.optJSONObject("os")
+            var matches = true
+            if (os != null) {
+                val name = os.optString("name")
+                if (name.isNotBlank() && name != "linux") matches = false
+                val arch = os.optString("arch")
+                if (arch.isNotBlank() && !Regex(arch).containsMatchIn(System.getProperty("os.arch", "aarch64"))) matches = false
+                val version = os.optString("version")
+                if (version.isNotBlank() && !Regex(version).containsMatchIn(System.getProperty("os.version", ""))) matches = false
+            }
+            val features = rule.optJSONObject("features")
+            if (features != null) {
+                val keys = features.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    if (features.optBoolean(key, false)) matches = false
+                }
+            }
+            if (matches) allowed = rule.optString("action") == "allow"
+        }
+        return allowed
     }
 
     private fun downloadVerified(
