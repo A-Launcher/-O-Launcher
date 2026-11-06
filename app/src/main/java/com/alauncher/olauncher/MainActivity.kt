@@ -393,8 +393,12 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            if (tab == 1) {
-                InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+            if (tab == 1 || tab == 5) {
+                if (tab == 1) {
+                    InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                } else {
+                    AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                }
             } else {
                 Row(
                     Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
@@ -1095,6 +1099,33 @@ private fun Destination(tab: Int, images: LauncherImages) {
                 Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun AboutReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val reference = remember(context) { readAssetImage(context, "IMG_20261106_153734.png") }
+    Box(modifier = modifier.background(Color(0xFF241A17))) {
+        if (reference != null) {
+            Image(
+                bitmap = reference,
+                contentDescription = "O Launcher About screen",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("About artwork could not be loaded", color = Color.White)
+            }
+        }
+        // The artwork's top-left brand area acts as the Home navigation target.
+        Box(
+            Modifier.align(Alignment.TopStart)
+                .fillMaxWidth(0.16f)
+                .fillMaxHeight(0.13f)
+                .clickable(onClick = onBack)
+        )
     }
 }
 
