@@ -27,15 +27,16 @@ class OEngineLwjglNativeResolverTest {
     }
 
     @Test
-    fun detectsButNeverAcceptsMojoSpecificPatchedMarker() {
+    fun recognizesUpstreamNdlopenSignatureWithoutAssumingMojoPatch() {
         val root = Files.createTempDirectory("oengine-mojo-marker").toFile()
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
-                "org/lwjgl/system/linux/DynamicLinkLoader.class" to "ndlopen".toByteArray())
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to "ndlopen (JI)J".toByteArray())
             val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
 
-            assertEquals(OEngineLwjglLoaderSurface.MOJO_PATCH_MARKER_ONLY, resolution.loaderSurface)
-            assertTrue(resolution.blockers.any { it.contains("will not assume or reuse Mojo") })
+            assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
+            assertTrue(resolution.ndlopenSignaturePresent)
+            assertTrue(resolution.blockers.any { it.contains("adapter is not implemented") })
         } finally { root.deleteRecursively() }
     }
 
