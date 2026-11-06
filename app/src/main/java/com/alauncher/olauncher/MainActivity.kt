@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -1553,6 +1554,49 @@ private fun InstallationReferenceScreen(onBack: () -> Unit, modifier: Modifier =
     }
 }
 @Composable
+private fun LoaderOptionCard(
+    name: String,
+    subtitle: String,
+    logo: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        color = if (selected) Color(0xFFFFE8B3) else Color(0xFFFFF2DF),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) Gold else Border
+        ),
+        modifier = modifier
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(color = Color.White, shape = RoundedCornerShape(11.dp), modifier = Modifier.size(48.dp)) {
+                Image(
+                    painter = painterResource(id = logo),
+                    contentDescription = "$name logo",
+                    modifier = Modifier.fillMaxSize().padding(5.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(name, fontSize = 14.sp, fontWeight = FontWeight.Black, color = Ink)
+                Text(subtitle, fontSize = 10.sp, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            if (selected) {
+                Icon(Icons.Filled.Checkroom, contentDescription = "Selected", tint = Color(0xFF9A6810), modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+@Composable
 private fun InstallationsDestination(images: LauncherImages) {
     val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
     var selectedVersion by remember { mutableStateOf("1.21.4") }
@@ -1605,6 +1649,33 @@ private fun InstallationsDestination(images: LauncherImages) {
                         }
                         Text("Version choices are launcher UI entries only. The game files have not been downloaded.", color = Muted, fontSize = 11.sp)
                     }
+                }
+            }
+        }
+
+        Surface(color = Panel, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                var selectedLoader by remember { mutableStateOf("Vanilla") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("MOD LOADERS", fontSize = 20.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
+                        Text("Choose the mod platform for this game profile.", color = Muted, fontSize = 12.sp)
+                    }
+                    Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(10.dp)) {
+                        Text("4 LOADERS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    LoaderOptionCard("Fabric", "Fast, lightweight", R.drawable.loader_fabric, selectedLoader == "Fabric", { selectedLoader = "Fabric" }, Modifier.weight(1f))
+                    LoaderOptionCard("NeoForge", "Modern mod platform", R.drawable.loader_neoforge, selectedLoader == "NeoForge", { selectedLoader = "NeoForge" }, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    LoaderOptionCard("Forge", "Classic mod platform", R.drawable.loader_forge, selectedLoader == "Forge", { selectedLoader = "Forge" }, Modifier.weight(1f))
+                    LoaderOptionCard("OptiFine", "Graphics and performance", R.drawable.loader_optifine, selectedLoader == "OptiFine", { selectedLoader = "OptiFine" }, Modifier.weight(1f))
+                }
+                Text("Selected: $selectedLoader  •  Selection is visual for now; loader downloads and installation are not connected yet.", color = Muted, fontSize = 11.sp)
+                if (selectedLoader == "OptiFine") {
+                    Text("OptiFine compatibility depends on the Minecraft version; many releases use Forge.", color = Muted, fontSize = 10.sp)
                 }
             }
         }
