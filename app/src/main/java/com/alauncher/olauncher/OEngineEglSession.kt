@@ -23,6 +23,7 @@ class OEngineEglSession private constructor(
     val glVersion: String,
     val glVendor: String,
     val glRenderer: String,
+    val glExtensions: Set<String>,
     val openGlesMajor: Int,
     private val ownerThreadId: Long
 ) : OEngineGraphicsBackend {
@@ -32,7 +33,7 @@ class OEngineEglSession private constructor(
         vendor = glVendor,
         renderer = glRenderer,
         apiMajor = openGlesMajor,
-        extensions = emptySet(),
+        extensions = glExtensions,
         isEmbeddedProfile = true
     )
     private var closed = false
@@ -166,6 +167,8 @@ class OEngineEglSession private constructor(
                     val glVersion = GLES20.glGetString(GLES20.GL_VERSION).orEmpty()
                     val vendor = GLES20.glGetString(GLES20.GL_VENDOR).orEmpty()
                     val renderer = GLES20.glGetString(GLES20.GL_RENDERER).orEmpty()
+                    val extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS).orEmpty()
+                        .split(Regex("\\\\s+")).filter { it.isNotBlank() }.toSet()
                     if (glVersion.isBlank() || renderer.isBlank()) {
                         lastFailure = "ES $major context returned incomplete driver information."
                         EGL14.eglMakeCurrent(
@@ -186,6 +189,7 @@ class OEngineEglSession private constructor(
                         glVersion = glVersion,
                         glVendor = vendor,
                         glRenderer = renderer,
+                        glExtensions = extensions,
                         openGlesMajor = major,
                         ownerThreadId = Thread.currentThread().id
                     )
