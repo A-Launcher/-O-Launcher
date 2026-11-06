@@ -762,7 +762,7 @@ private fun NewsCard(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.ArrowForward, contentDescription = "Open $title", tint = Ink, modifier = Modifier.size(20.dp))
+                            Text("→", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
