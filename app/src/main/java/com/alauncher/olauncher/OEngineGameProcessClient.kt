@@ -113,7 +113,6 @@ class OEngineGameProcessClient(
             OEngineGameProcessService.MSG_PREPARE_RENDERER_RESULT -> {
                 if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
                     timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
-            timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
                     val data = message.data
                     onRendererPreload(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -191,11 +190,25 @@ class OEngineGameProcessClient(
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game process disconnected.")))
+            if (!closed.get()) {
+                report(Result.failure(IllegalStateException("The isolated game process disconnected.")))
+                if (mainResponseDelivered.compareAndSet(false, true)) {
+                    mainStartedDelivered.set(true)
+                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    onJvmMain(Result.failure(IllegalStateException("The isolated game process disconnected during Minecraft main invocation.")))
+                }
+            }
         }
 
         override fun onBindingDied(name: ComponentName) {
-            if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game-process binding died.")))
+            if (!closed.get()) {
+                report(Result.failure(IllegalStateException("The isolated game-process binding died.")))
+                if (mainResponseDelivered.compareAndSet(false, true)) {
+                    mainStartedDelivered.set(true)
+                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    onJvmMain(Result.failure(IllegalStateException("The game-process binding died during Minecraft main invocation.")))
+                }
+            }
             close()
         }
 
@@ -369,6 +382,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
             timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
             timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
+            timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
