@@ -3,12 +3,15 @@ package com.alauncher.olauncher
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.View
 
 /** Converts Android hardware/touch events into O Engine's platform-neutral input model. */
 object OEngineAndroidInputAdapter {
     fun fromKeyEvent(event: KeyEvent): OEngineInputEvent? {
-        val device = if (event.isGamepadKey || event.isJoystickKey) {
+        val sources = event.source or (event.device?.sources ?: 0)
+        val device = if (
+            sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+            sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+        ) {
             OEngineInputDevice.GAMEPAD
         } else {
             OEngineInputDevice.KEYBOARD
