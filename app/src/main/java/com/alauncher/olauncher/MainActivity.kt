@@ -1250,82 +1250,116 @@ private fun FileManagerReferenceScreen(onBack: () -> Unit, modifier: Modifier = 
 private fun CreateAccountReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val reference = remember(context) { readAssetImage(context, "IMG_20261106_154508.png") }
-    Box(modifier = modifier.background(Color(0xFF241A17))) {
+    BoxWithConstraints(modifier = modifier.background(Color(0xFF241A17))) {
         if (reference != null) {
-            Image(
-                bitmap = reference,
-                contentDescription = "O Launcher Create Account screen",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
+            val imageAspect = reference.width.toFloat() / reference.height.toFloat()
+            val screenAspect = maxWidth / maxHeight
+            val artworkWidth: Dp
+            val artworkHeight: Dp
+            if (screenAspect > imageAspect) {
+                artworkHeight = maxHeight
+                artworkWidth = artworkHeight * imageAspect
+            } else {
+                artworkWidth = maxWidth
+                artworkHeight = artworkWidth / imageAspect
+            }
+            Box(Modifier.size(artworkWidth, artworkHeight).align(Alignment.Center)) {
+                Image(
+                    bitmap = reference,
+                    contentDescription = "O Launcher Create Account screen",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth(0.16f)
+                        .fillMaxHeight(0.13f)
+                        .clickable(onClick = onBack)
+                )
+            }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Create Account artwork could not be loaded", color = Color.White)
+                Text("O Launcher Create Account screen artwork could not be loaded", color = Color.White)
             }
         }
-        Box(
-            Modifier.align(Alignment.TopStart)
-                .fillMaxWidth(0.16f)
-                .fillMaxHeight(0.13f)
-                .clickable(onClick = onBack)
-        )
     }
 }
-
 @Composable
 private fun AboutReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val reference = remember(context) { readAssetImage(context, "IMG_20261106_153734.png") }
-    Box(modifier = modifier.background(Color(0xFF241A17))) {
+    BoxWithConstraints(modifier = modifier.background(Color(0xFF241A17))) {
         if (reference != null) {
-            Image(
-                bitmap = reference,
-                contentDescription = "O Launcher About screen",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
+            val imageAspect = reference.width.toFloat() / reference.height.toFloat()
+            val screenAspect = maxWidth / maxHeight
+            val artworkWidth: Dp
+            val artworkHeight: Dp
+            if (screenAspect > imageAspect) {
+                artworkHeight = maxHeight
+                artworkWidth = artworkHeight * imageAspect
+            } else {
+                artworkWidth = maxWidth
+                artworkHeight = artworkWidth / imageAspect
+            }
+            Box(Modifier.size(artworkWidth, artworkHeight).align(Alignment.Center)) {
+                Image(
+                    bitmap = reference,
+                    contentDescription = "O Launcher About screen",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth(0.16f)
+                        .fillMaxHeight(0.13f)
+                        .clickable(onClick = onBack)
+                )
+            }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("About artwork could not be loaded", color = Color.White)
+                Text("O Launcher About screen artwork could not be loaded", color = Color.White)
             }
         }
-        // The artwork's top-left brand area acts as the Home navigation target.
-        Box(
-            Modifier.align(Alignment.TopStart)
-                .fillMaxWidth(0.16f)
-                .fillMaxHeight(0.13f)
-                .clickable(onClick = onBack)
-        )
     }
 }
-
 @Composable
 private fun InstallationReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val reference = remember(context) { readAssetImage(context, "IMG_20261106_152629.png") }
     BoxWithConstraints(modifier = modifier.background(Color(0xFF241A17))) {
         if (reference != null) {
-            Image(
-                bitmap = reference,
-                contentDescription = "Minecraft Java Edition Installations reference screen",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.FillBounds
-            )
+            val imageAspect = reference.width.toFloat() / reference.height.toFloat()
+            val screenAspect = maxWidth / maxHeight
+            val artworkWidth: Dp
+            val artworkHeight: Dp
+            if (screenAspect > imageAspect) {
+                artworkHeight = maxHeight
+                artworkWidth = artworkHeight * imageAspect
+            } else {
+                artworkWidth = maxWidth
+                artworkHeight = artworkWidth / imageAspect
+            }
+            Box(Modifier.size(artworkWidth, artworkHeight).align(Alignment.Center)) {
+                Image(
+                    bitmap = reference,
+                    contentDescription = "Minecraft Java Edition Installations reference screen",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                Box(
+                    Modifier.align(Alignment.TopStart)
+                        .fillMaxWidth(0.16f)
+                        .fillMaxHeight(0.13f)
+                        .clickable(onClick = onBack)
+                )
+            }
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Installations artwork could not be loaded", color = Color.White)
+                Text("Minecraft Java Edition Installations reference screen artwork could not be loaded", color = Color.White)
             }
         }
-        // The reference artwork is a full-screen desktop layout; tapping its logo area returns Home.
-        Box(
-            Modifier.align(Alignment.TopStart)
-                .fillMaxWidth(0.16f)
-                .fillMaxHeight(0.13f)
-                .clickable(onClick = onBack)
-        )
     }
 }
-
 @Composable
 private fun InstallationsDestination(images: LauncherImages) {
     val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
