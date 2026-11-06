@@ -32,7 +32,8 @@ class OEngineGameProcessClient(
     private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
-    private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
+    private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
+    private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -41,6 +42,7 @@ class OEngineGameProcessClient(
     private val probeResponseDelivered = AtomicBoolean(false)
     private val createResponseDelivered = AtomicBoolean(false)
     private val rendererResponseDelivered = AtomicBoolean(false)
+    private val rendererPreloadResponseDelivered = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
@@ -87,6 +89,17 @@ class OEngineGameProcessClient(
                     timeoutHandler.removeCallbacks(createTimeoutRunnable)
                     val data = message.data
                     onJvmCreate(Result.success(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    )))
+                }
+                true
+            }
+            OEngineGameProcessService.MSG_PREPARE_RENDERER_RESULT -> {
+                if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+                    val data = message.data
+                    onRendererPreload(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
                         status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
                         detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
@@ -206,6 +219,35 @@ class OEngineGameProcessClient(
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
             if (createResponseDelivered.compareAndSet(false, true)) onJvmCreate(Result.failure(error))
+            false
+        }
+    }
+
+    /** Prepare renderer driver environment and preload LTW before creating HotSpot. */
+    fun prepareRenderer(
+        rendererFile: File,
+        rendererRoot: File,
+        eglLibraryPath: String? = null,
+        glesLibraryPath: String? = null
+    ): Boolean {
+        val target = serviceMessenger
+        if (closed.get() || target == null) {
+            onRendererPreload(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
+            return false
+        }
+        rendererPreloadResponseDelivered.set(false)
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_PREPARE_RENDERER).apply {
+            data.putString(OEngineGameProcessService.KEY_RENDERER_FILE, rendererFile.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_ROOT, rendererRoot.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_EGL, eglLibraryPath)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_GLES, glesLibraryPath)
+            replyTo = replyMessenger
+        }
+        return try {
+            target.send(request)
+            true
+        } catch (error: RemoteException) {
+            if (rendererPreloadResponseDelivered.compareAndSet(false, true)) onRendererPreload(Result.failure(error))
             false
         }
     }
