@@ -394,9 +394,10 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            if (tab == 1 || tab == 5 || tab == 6 || tab == 7) {
+            if (tab == 1 || tab == 4 || tab == 5 || tab == 6 || tab == 7) {
                 when (tab) {
                     1 -> InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+                    4 -> SettingsReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                     5 -> AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                     6 -> FileManagerReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
                     else -> CreateAccountReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
@@ -1099,6 +1100,55 @@ private fun Destination(tab: Int, images: LauncherImages) {
                     color = Muted, fontSize = 14.sp
                 )
                 Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val reference = remember(context) { readAssetImage(context, "IMG_20261106_160537.png") }
+    BoxWithConstraints(modifier = modifier.background(Color(0xFF241018))) {
+        if (reference != null) {
+            Image(
+                bitmap = reference,
+                contentDescription = "O Launcher Settings reference screen",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+            // Home navigation target in the top-left brand area.
+            Box(
+                Modifier.align(Alignment.TopStart)
+                    .fillMaxWidth(0.12f)
+                    .fillMaxHeight(0.12f)
+                    .clickable(onClick = onBack)
+            )
+            // Settings section cards; each target is positioned over the supplied artwork.
+            val sections = listOf(
+                "Java Tweaks",
+                "Miscellaneous Settings",
+                "Video and Renderer",
+                "Experimental Stuff",
+                "Launcher Appearance",
+                "Control Customization",
+                "Launcher Language"
+            )
+            sections.forEachIndexed { index, section ->
+                Box(
+                    Modifier.offset(
+                        x = maxWidth * 0.25f,
+                        y = maxHeight * (0.20f + index * 0.095f)
+                    )
+                        .size(width = maxWidth * 0.48f, height = maxHeight * 0.085f)
+                        .clickable {
+                            Toast.makeText(context, "$section settings are being connected", Toast.LENGTH_SHORT).show()
+                        }
+                )
+            }
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Settings artwork could not be loaded", color = Color.White)
             }
         }
     }
