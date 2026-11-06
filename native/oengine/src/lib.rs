@@ -789,7 +789,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         });
     }
     1
-}}
+}
 
 #[cfg(test)]
 mod tests {
