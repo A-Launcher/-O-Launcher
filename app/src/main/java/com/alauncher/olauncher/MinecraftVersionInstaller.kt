@@ -264,6 +264,101 @@ object MinecraftVersionInstaller {
         return created
     }
 
+    data class LaunchPlan(
+        val version: String,
+        val mainClass: String,
+        val classpath: List<String>,
+        val gameArguments: List<String>,
+        val jvmArguments: List<String>
+    )
+
+    suspend fun prepareLaunchPlan(
+        version: MinecraftRelease,
+        gameDirectory: File,
+        playerName: String = "Player",
+        playerUuid: String = "00000000000000000000000000000000",
+        accessToken: String = "0"
+    ): LaunchPlan = withContext(Dispatchers.IO) {
+        val versionDirectory = File(File(gameDirectory, "versions"), version.id)
+        val metadataFile = File(versionDirectory, "${version.id}.json")
+        val clientJar = File(versionDirectory, "${version.id}.jar")
+        if (!metadataFile.isFile || !clientJar.isFile || clientJar.length() == 0L) {
+            throw IllegalStateException("Download and verify the Minecraft client before preparing launch settings.")
+        }
+        val metadata = JSONObject(metadataFile.readText())
+        val classpath = mutableListOf<String>()
+        classpath.add(clientJar.absolutePath)
+        val libraries = metadata.optJSONArray("libraries")
+        if (libraries != null) {
+            for (i in 0 until libraries.length()) {
+                val library = libraries.optJSONObject(i) ?: continue
+                if (!isAllowedForAndroid(library.optJSONArray("rules"))) continue
+                val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
+                val relative = artifact.optString("path")
+                if (relative.isBlank()) continue
+                val file = File(File(gameDirectory, "libraries"), relative).canonicalFile
+                if (!file.toPath().startsWith(File(gameDirectory, "libraries").canonicalFile.toPath())) continue
+                if (file.isFile && file.length() > 0L) classpath.add(file.absolutePath)
+            }
+        }
+        val assetIndex = metadata.optJSONObject("assetIndex")?.optString("id").orEmpty()
+        val values = mapOf(
+            "auth_player_name" to playerName,
+            "version_name" to version.id,
+            "game_directory" to gameDirectory.absolutePath,
+            "assets_root" to File(gameDirectory, "assets").absolutePath,
+            "assets_index_name" to assetIndex,
+            "auth_uuid" to playerUuid.replace("-", ""),
+            "auth_access_token" to accessToken,
+            "clientid" to "",
+            "auth_xuid" to "",
+            "user_type" to "legacy",
+            "version_type" to metadata.optString("type", "release"),
+            "user_properties" to "{}",
+            "classpath" to classpath.joinToString(File.pathSeparator)
+        )
+        fun substitute(value: String): String {
+            var result = value
+            values.forEach { (key, replacement) -> result = result.replace("${'$'}{$key}", replacement) }
+            return result
+        }
+        fun addArgument(target: MutableList<String>, value: Any?) {
+            when (value) {
+                is org.json.JSONArray -> for (i in 0 until value.length()) addArgument(target, value.opt(i))
+                is String -> target.add(substitute(value))
+                else -> Unit
+            }
+        }
+        fun collectArguments(array: org.json.JSONArray?, target: MutableList<String>) {
+            if (array == null) return
+            for (i in 0 until array.length()) {
+                when (val item = array.opt(i)) {
+                    is String -> target.add(substitute(item))
+                    is JSONObject -> {
+                        if (!isAllowedForAndroid(item.optJSONArray("rules"))) continue
+                        addArgument(target, item.opt("value"))
+                    }
+                }
+            }
+        }
+        val gameArguments = mutableListOf<String>()
+        val modernArguments = metadata.optJSONObject("arguments")
+        if (modernArguments != null) {
+            collectArguments(modernArguments.optJSONArray("game"), gameArguments)
+        } else {
+            val legacy = metadata.optString("minecraftArguments")
+            if (legacy.isNotBlank()) {
+                val tokens = Regex("\\"([^\\"]*)\\"|'([^']*)'|(\\S+)").findAll(legacy).map {
+                    it.groups[1]?.value ?: it.groups[2]?.value ?: it.groups[3]?.value.orEmpty()
+                }
+                tokens.forEach { gameArguments.add(substitute(it)) }
+            }
+        }
+        val jvmArguments = mutableListOf<String>()
+        collectArguments(modernArguments?.optJSONArray("jvm"), jvmArguments)
+        LaunchPlan(version.id, metadata.optString("mainClass"), classpath.distinct(), gameArguments, jvmArguments)
+    }
+
     private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
         if (rules == null || rules.length() == 0) return true
         var allowed = false
