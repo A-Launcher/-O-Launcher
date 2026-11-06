@@ -2296,6 +2296,23 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text("This attempts JNI_CreateJavaVM in :game and resolves java.lang.String. It runs a tiny Java main method, not Minecraft's main class or the game.", color = Muted, fontSize = 10.sp)
                         Text("EXPERIMENTAL: Android ART and HotSpot coexistence is device-dependent. A native failure may restart only the separate :game process.", color = Color(0xFFD6A06C), fontSize = 10.sp)
                         Button(
+                            enabled = preparedLaunchPlan != null && !probingGameProcess && gameProcessClient != null,
+                            onClick = {
+                                val plan = preparedLaunchPlan ?: return@Button
+                                val sent = gameProcessClient?.invokeMain(plan.mainClass, plan.gameArguments) == true
+                                gameProcessStatus = if (sent) {
+                                    "MINECRAFT MAIN INVOCATION SENT • " + plan.mainClass
+                                } else {
+                                    "MINECRAFT MAIN INVOCATION FAILED • game process is not connected"
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B7650), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("INVOKE MINECRAFT MAIN CLASS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text("This invokes the prepared version main class with its generated game arguments after HotSpot is created. It is an experimental launch step; missing Android natives or renderer support can still stop Minecraft.", color = Muted, fontSize = 10.sp)
+                        Button(
                             enabled = !probingGraphics,
                             onClick = {
                                 probingGraphics = true
