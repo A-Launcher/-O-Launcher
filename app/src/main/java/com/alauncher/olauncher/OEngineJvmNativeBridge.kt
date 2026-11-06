@@ -1,5 +1,7 @@
 package com.alauncher.olauncher
 
+import java.io.File
+
 /** Result of an Android linker probe; it retains libjvm in-process but does not create or start a VM. */
 data class OEngineJvmLibraryProbe(
     val successful: Boolean,
