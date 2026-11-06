@@ -341,7 +341,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(
-            modifier = Modifier.width(245.dp),
+            modifier = Modifier.width(185.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -349,7 +349,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
         }
         Surface(
-            Modifier.weight(1f).height(46.dp),
+            Modifier.weight(1f).height(38.dp),
             color = Color(0xFFFFF8F0),
             shape = RoundedCornerShape(30.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
@@ -374,7 +374,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             }
         }
         Box {
-            Surface(onClick = { showNotifications = true }, color = Panel, shape = CircleShape, modifier = Modifier.size(44.dp)) {
+            Surface(onClick = { showNotifications = true }, color = Panel, shape = CircleShape, modifier = Modifier.size(40.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Ink, modifier = Modifier.size(22.dp))
                 }
@@ -437,7 +437,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
         modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 8.dp).size(62.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
+        Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 8.dp).size(50.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(8.dp))
         entries.forEach { (icon, label, index) ->
             val selected = tab == index
@@ -497,22 +497,17 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
             contentAlignment = Alignment.CenterStart
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("MINECRAFT", color = Color.White, fontSize = 39.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = (-2.1).sp)
+                Image(images.logo, contentDescription = "Minecraft", modifier = Modifier.width(165.dp).height(34.dp), contentScale = ContentScale.Fit)
                 Text("JAVA EDITION", color = Color.White, fontSize = 22.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, letterSpacing = 0.6.sp)
                 Spacer(Modifier.height(2.dp))
-                Text("The End", color = Color.White, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
-                Text("awaits...", color = Gold, fontSize = 37.sp, lineHeight = 39.sp, fontWeight = FontWeight.Black)
+                Text("The End", color = Color.White, fontSize = 33.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
+                Text("awaits...", color = Gold, fontSize = 33.sp, lineHeight = 35.sp, fontWeight = FontWeight.Black)
                 Text("Face the Nether, explore new challenges and discover more!", color = Color.White, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium)
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(onClick = onPlay, color = Gold, contentColor = Ink, shape = RoundedCornerShape(28.dp), shadowElevation = 4.dp) {
-                        Row(Modifier.padding(horizontal = 26.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Icon(Icons.Filled.SportsEsports, contentDescription = null, modifier = Modifier.size(21.dp))
-                            Text("Play Now", fontSize = 18.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
-                    Surface(onClick = onPlay, color = Color(0xFFFFF8EE), shape = CircleShape, modifier = Modifier.size(52.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.ExpandMore, contentDescription = "More play options", tint = Ink, modifier = Modifier.size(28.dp)) }
+                    Surface(onClick = onPlay, color = Gold, contentColor = Ink, shape = RoundedCornerShape(28.dp), modifier = Modifier.width(153.dp).height(22.dp), shadowElevation = 2.dp) { }
+                    Surface(onClick = onPlay, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(20.dp), modifier = Modifier.width(40.dp).height(22.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.ExpandMore, contentDescription = "More play options", tint = Ink, modifier = Modifier.size(20.dp)) }
                     }
                 }
             }
@@ -524,7 +519,7 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
         ) {
             repeat(5) { index ->
                 Box(
-                    Modifier.width(if (index == 0) 25.dp else 9.dp).height(9.dp)
+                    Modifier.width(if (index == 0) 19.dp else 7.dp).height(7.dp)
                         .clip(CircleShape).background(if (index == 0) Color.White else Color.White.copy(alpha = .72f))
                 )
             }
