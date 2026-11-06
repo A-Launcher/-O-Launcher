@@ -44,8 +44,14 @@ class OEngineGraphicsStackTest {
     fun enforcesMobileGluesGlesMinimumOnlyWhenSelected() {
         val classpath = listOf("/game/libraries/org/lwjgl/lwjgl/3.4.3/lwjgl-3.4.3.jar")
 
-        val ltw = OEngineGraphicsStack.assess(
+        val ltwUnsupported = OEngineGraphicsStack.assess(
             classpath, 2, 0,
+            OEngineGraphicsStack.RendererProvider.LTW,
+            ltwAvailable = true,
+            mobileGluesAvailable = false
+        )
+        val ltwSupported = OEngineGraphicsStack.assess(
+            classpath, 3, 0,
             OEngineGraphicsStack.RendererProvider.LTW,
             ltwAvailable = true,
             mobileGluesAvailable = false
@@ -57,7 +63,8 @@ class OEngineGraphicsStackTest {
             mobileGluesAvailable = true
         )
 
-        assertTrue(ltw.blockers.isEmpty())
+        assertTrue(ltwUnsupported.blockers.any { it.contains("OpenGL ES 3") })
+        assertTrue(ltwSupported.blockers.isEmpty())
         assertTrue(mobileGlues.blockers.any { it.contains("OpenGL ES 3.0") })
     }
 
