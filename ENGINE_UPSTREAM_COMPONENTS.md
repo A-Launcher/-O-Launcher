@@ -30,7 +30,7 @@ This document records the pinned upstream reference reviewed for O Engine integr
 - Mojo's JRE launcher is not a drop-in JNI file: it depends on its own argument/string-array utilities, abort/exit handling, class-loader hook code, ELF dependency preloader, and JNI exception types. Porting only `jre_launcher.c` would leave an incomplete and unsafe VM path.
 - Its native-library hook explicitly branches across JDK 8, 17, and 21 internal signatures. O Engine must retain exact JDK-major matching and fail closed when the expected class/method descriptor is not found.
 - Mojo's ELF hinter preloads dependency chains with global visibility to work around Android linker behavior. This is a candidate component to reuse, but its path parsing, recursion limits, ABI handling, and cleanup need a security/correctness review before shipping.
-- Mojo's JavaRunner also supplies Android-specific properties and disables the default POSIX_SPAWN process launch mechanism. These are valuable compatibility requirements; O Engine should add them to its typed launch-plan rules rather than copy the tightly coupled JavaRunner class.
+- Mojo's JavaRunner also supplies Android-specific properties and disables the default POSIX_SPAWN process launch mechanism. These are valuable compatibility requirements. O Engine has now added the core Android JVM properties to its typed bootstrap plan (Linux OS identity, Android OS version, English locale, JNA native path, FORK process launch mechanism, Log4j safety flag, Forge/loader GUI workarounds, and LWJGL system allocator) with unit-test coverage; it does not copy the tightly coupled JavaRunner class.
 
 ## Integration policy
 
