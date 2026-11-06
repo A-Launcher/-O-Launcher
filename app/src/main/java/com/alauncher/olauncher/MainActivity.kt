@@ -579,26 +579,6 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
-        Surface(
-            color = Color(0xFFFFF1D9),
-            shape = RoundedCornerShape(17.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5C2)),
-            shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF35A34A)))
-                    Spacer(Modifier.width(5.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("LATEST RELEASE", fontSize = 8.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
-                        Text("1.21.10", fontSize = 8.sp, color = Muted)
-                    }
-                    Icon(Icons.Filled.ExpandMore, contentDescription = "Release options", modifier = Modifier.size(14.dp))
-                }
-            }
-        }
     }
 }
 
