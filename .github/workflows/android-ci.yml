@@ -45,6 +45,32 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
           cargo install cargo-ndk --locked
 
+      - name: Package pinned Android GL4ES compatibility libraries
+        env:
+          MOJO_SOURCE_COMMIT: 1b8d90424c1cb791321d45f60ac62c54f4b013fa
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/MojoLauncher/MojoLauncher/$MOJO_SOURCE_COMMIT/app_mojo/src/main"
+          mkdir -p app/src/main/assets/licenses
+          declare -A blobs=(
+            [arm64-v8a]=964c4a7714bad3011dd59e6f832c958a7513211a
+            [armeabi-v7a]=caf2962636decc6af10ec8d0e797ac2484cdd0d7
+            [x86]=b21cc6eecc1cef296c65b50724a5bb4315c61e8b
+            [x86_64]=3c23abbd4f9e0304ab084f88d08f53b9624ecda0
+          )
+          for abi in "${!blobs[@]}"; do
+            mkdir -p "app/src/main/jniLibs/$abi"
+            file="app/src/main/jniLibs/$abi/libgl4es_114.so"
+            curl -fsSL "$base/jniLibs/$abi/libgl4es_114.so" -o "$file"
+            actual="$(git hash-object "$file")"
+            test "$actual" = "${blobs[$abi]}" || { echo "GL4ES source blob mismatch for $abi"; exit 1; }
+            echo "$abi: verified pinned GL4ES blob $actual"
+          done
+          license="app/src/main/assets/licenses/LICENSE-gl4es.txt"
+          curl -fsSL "$base/assets/licenses/LICENSE-gl4es" -o "$license"
+          test "$(git hash-object "$license")" = "57dbca92b4cbc989e95d3a6fcb63ea2e70825381"
+          echo "Verified GL4ES MIT license text."
+
       - name: Build O Engine Rust native library for all Android ABIs
         working-directory: native/oengine
         run: |
@@ -122,6 +148,13 @@ jobs:
                   if archive.getinfo(name).file_size < 64:
                       raise SystemExit(f"{abi}: packaged LTW native library is unexpectedly small")
                   print(f"{abi}: verified packaged LTW renderer: {name}")
+              for abi in sorted(expected_abis):
+                  gl4es = f"lib/{abi}/libgl4es_114.so"
+                  if gl4es not in archive.namelist():
+                      raise SystemExit(f"{abi}: packaged Android GL4ES library is missing")
+                  if archive.getinfo(gl4es).file_size < 100000:
+                      raise SystemExit(f"{abi}: packaged GL4ES library is unexpectedly small")
+                  print(f"{abi}: verified packaged Android GL4ES compatibility library")
               for abi in sorted(expected_abis):
                   with tempfile.NamedTemporaryFile(suffix=".so") as native:
                       native.write(archive.read(entries[abi]))
