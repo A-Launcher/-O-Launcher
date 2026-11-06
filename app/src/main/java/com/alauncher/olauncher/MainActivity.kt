@@ -2420,13 +2420,19 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         )
                                     },
                                     onJvmMainStarted = { started ->
+                                        OEngineSessionLog.append(context, "MINECRAFT_MAIN_DISPATCHED", started.status + " • " + started.detail)
                                         launchingMinecraft = false
                                         gameProcessStatus = "MINECRAFT MAIN DISPATCHED • " + started.status + " • " + started.detail
                                     },
                                     onJvmMainRunning = { running ->
+                                        OEngineSessionLog.append(context, "MINECRAFT_MAIN_RUNNING", running.status + " • " + running.detail)
                                         gameProcessStatus = "MINECRAFT RUNNING • " + running.status + " • " + running.detail
                                     },
                                     onJvmMain = { result ->
+                                        OEngineSessionLog.append(context, "MINECRAFT_MAIN_RESULT", result.fold(
+                                            onSuccess = { main -> main.status + " • " + main.detail },
+                                            onFailure = { error -> error.message ?: "Unknown game-process error" }
+                                        ), result.exceptionOrNull())
                                         launchingMinecraft = false
                                         gameProcessStatus = result.fold(
                                             onSuccess = { main ->
