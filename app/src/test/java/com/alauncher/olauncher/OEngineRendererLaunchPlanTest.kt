@@ -64,6 +64,24 @@ class OEngineRendererLaunchPlanTest {
     }
 
     @Test
+    fun blocksExternalDriverWhenNamespaceAccessIsUnverified() {
+        val root = Files.createTempDirectory("oengine-ltw-namespace").toFile()
+        try {
+            val egl = File(root, "libEGL_angle.so").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val plan = OEngineRendererLaunchPlanner.prepareLtw(
+                createArtifact(root), root, "arm64-v8a",
+                OEngineGlesDriver(egl.absolutePath, major = 3, minor = 2, requiresNamespaceBypass = true),
+                lwjglResolverHookVerified = true
+            )
+
+            assertFalse(plan.readyForNativeBootstrap)
+            assertTrue(plan.blockers.any { it.contains("linker-namespace") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun exportsExplicitHostDriverPathsUsingLtwEnvironmentContract() {
         val root = Files.createTempDirectory("oengine-ltw-env").toFile()
         try {
