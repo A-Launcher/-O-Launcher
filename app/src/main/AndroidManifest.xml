@@ -6,6 +6,10 @@
         android:label="O Launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <service
+            android:name=".OEngineGameProcessService"
+            android:exported="false"
+            android:process=":game" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="landscape"
