@@ -70,7 +70,7 @@ jobs:
                       raise SystemExit(f"Unexpected native library path: {name}")
                   abi = parts[1]
                   data = aar.read(name)
-                  if len(data) < 64 or data[:4] != b"\\x7fELF":
+                  if len(data) < 64 or data[:4] != b"\x7fELF":
                       raise SystemExit(f"Invalid ELF payload: {name}")
                   elf_class, endian = data[4], data[5]
                   if endian != 1:
@@ -83,7 +83,7 @@ jobs:
                   print(f"Validated {name}: {len(data)} bytes, ELF class {elf_class}, machine {machine}")
               print("Validated ABIs: " + ", ".join(sorted(seen)))
           PY
-          printf '%s\\n' "$LTW_COMMIT" > ltw-upstream-commit.txt
+          printf '%s\n' "$LTW_COMMIT" > ltw-upstream-commit.txt
           sha256sum "$AAR_PATH" > ltw-release-aar.sha256
 
       - name: Upload validated LTW AAR
