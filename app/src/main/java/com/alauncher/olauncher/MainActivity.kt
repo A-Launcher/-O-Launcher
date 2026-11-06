@@ -89,6 +89,7 @@ private data class LauncherImages(
     val settings: ImageBitmap,
     val about: ImageBitmap,
     val home: ImageBitmap,
+    val folder: ImageBitmap,
     val quickOfficial: ImageBitmap,
     val quickPatch: ImageBitmap,
     val quickDiscord: ImageBitmap,
@@ -356,6 +357,7 @@ private fun rememberLauncherImages(): LauncherImages {
             settings = readAssetImage(context, "39667c1838a0eb444686e797eccf1cd1-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
             about = readAssetImage(context, "203e305e530e01e9668893e7aad11194-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
             home = readAssetImage(context, "04dcbaa24e1e838ef4beb7e104552196-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
+            folder = readAssetImage(context, "614f83ddf7fa4a294bee8fd9f527ba28-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.TRANSPARENT).asImageBitmap(),
             quickOfficial = readAssetImage(context, "c6d2a4480dd5f44520b7e5dfcf892dcd-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
             quickPatch = readAssetImage(context, "1472e22819d836c1f4b3c7f973e932d7-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
             quickDiscord = readAssetImage(context, "626064dcb825a8d549cc95fcb7e88786-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
@@ -574,7 +576,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (index == 6) {
-                        Icon(Icons.Filled.FolderOpen, contentDescription = label, modifier = Modifier.size(44.dp), tint = Color(0xFF4775C8))
+                        Image(images.folder, contentDescription = label, modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
                     } else if (index == 0) {
                         Image(images.home, contentDescription = label, modifier = Modifier.size(44.dp), contentScale = ContentScale.Fit)
                     } else {
