@@ -34,7 +34,7 @@ class OEngineJvmBootstrapPlanTest {
                 applicationArguments = listOf("--username", "Player")
             )
 
-            assertTrue(plan.structurallyReady)
+            assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
             assertEquals(jvm.canonicalFile, plan.jvmLibrary)
             assertTrue(plan.vmOptions.contains("-Xmx2G"))
             assertTrue(plan.vmOptions.any { it == "-Djava.home=" + runtimeHome.canonicalPath })
