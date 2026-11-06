@@ -155,7 +155,7 @@ class OEngineGameProcessClient(
         }
     }
 
-    fun createJvm(runtimeHome: File, workingDirectory: File, jvmLibrary: File, vmOptions: List<String>): Boolean {
+    fun createJvm(runtimeHome: File, workingDirectory: File, jvmLibrary: File, vmOptions: List<String>, javaMajor: Int): Boolean {
         if (closed.get() || serviceMessenger == null) {
             onJvmCreate(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
             return false
@@ -167,6 +167,7 @@ class OEngineGameProcessClient(
             data.putString(OEngineGameProcessService.KEY_WORKING_DIRECTORY, workingDirectory.canonicalPath)
             data.putString(OEngineGameProcessService.KEY_JVM_LIBRARY, jvmLibrary.canonicalPath)
             data.putStringArray(OEngineGameProcessService.KEY_VM_OPTIONS, vmOptions.toTypedArray())
+            data.putInt(OEngineGameProcessService.KEY_JAVA_MAJOR, javaMajor)
             replyTo = replyMessenger
         }
         return try {
