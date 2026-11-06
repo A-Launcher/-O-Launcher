@@ -17,6 +17,7 @@ object OEngineGraphicsStack {
     const val LWJGL_LATEST_REFERENCE = "3.4.3"
     const val LTW_TARGET_COMMIT = "3f1f4df6c80c925ea34067b1d943a84acce0184d"
     const val LTW_LICENSE = "LGPL-3.0"
+    const val LTW_LWJGL_LIBRARY_ALIAS = "libGLMojo.so"
     const val MOBILEGLUES_LICENSE = "LGPL-2.1"
     const val MOBILEGLUES_TARGET_VERSION = "2.0.0"
     const val MOBILEGLUES_MIN_GLES_MAJOR = 3
