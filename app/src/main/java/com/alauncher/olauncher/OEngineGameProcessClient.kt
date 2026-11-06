@@ -9,7 +9,6 @@ import android.os.Looper
 import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
-import android.content.pm.PackageManager
 import android.os.IBinder
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -47,7 +46,6 @@ class OEngineGameProcessClient(
             false
         }
     })
-    private val remote = AtomicReferenceMessenger()
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             if (closed.get()) return
@@ -81,11 +79,10 @@ class OEngineGameProcessClient(
         check(!closed.get()) { "This game-process client has already been closed." }
         val intent = Intent(appContext, OEngineGameProcessService::class.java)
         return try {
-            appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            val bound = appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            if (!bound) onStatus(Result.failure(IllegalStateException("Android refused the isolated game-process binding.")))
+            bound
         } catch (error: SecurityException) {
-            onStatus(Result.failure(error))
-            false
-        } catch (error: PackageManager.NameNotFoundException) {
             onStatus(Result.failure(error))
             false
         }
@@ -96,6 +93,4 @@ class OEngineGameProcessClient(
             runCatching { appContext.unbindService(connection) }
         }
     }
-
-    private class AtomicReferenceMessenger
 }
