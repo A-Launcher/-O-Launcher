@@ -33,7 +33,8 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - Android Java runtime archive download and guarded TAR/XZ extraction exist.
 - OLauncherEngine currently owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview.
 - OEngineGraphics can create a temporary Android EGL pbuffer context, probe OpenGL ES 3 then ES 2, collect driver identity/extensions, and release EGL resources.
-- This graphics probe is not a desktop OpenGL implementation and does not provide GLFW/LWJGL compatibility; the graphics compatibility layer and actual Minecraft process launch are not complete.
+- OEngineEglSession provides a thread-confined Android EGL window-surface/context lifecycle with make-current, swap-interval, buffer-swap, and deterministic teardown operations.
+- The EGL window session is an Android OpenGL ES foundation, not desktop OpenGL; it does not provide GLFW/LWJGL compatibility. The graphics compatibility layer and actual Minecraft process launch are not complete.
 - A successful CI build proves compilation, not that a downloaded runtime starts on a physical phone. Device verification is required.
 
 ## Next engineering gates
@@ -41,10 +42,11 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 1. Pass CI for the engine runtime discovery and Java process probe.
 2. Run the extracted JVM on physical Android devices and capture its diagnostics.
 3. Build a validated JVM command from the launch plan, including classpath, native paths, memory, and game arguments.
-4. Validate EGL/OpenGL ES probe results on physical Android devices and build renderer/device capability tests.
-5. Design the Android graphics compatibility surface required by the targeted LWJGL APIs; do not assume GLES is desktop OpenGL.
-6. Connect process lifecycle, input/window handling, and crash diagnostics.
-6. Launch a clean vanilla version before adding mod-loader installation.
+4. Validate EGL/OpenGL ES probe and window-surface lifecycle on physical Android devices.
+5. Specify the exact desktop-GL/GLFW/LWJGL API compatibility contract needed by the selected Minecraft versions; map each API to Android GLES or a justified native implementation.
+6. Implement and test that compatibility contract incrementally; do not assume GLES is desktop OpenGL.
+7. Connect process lifecycle, input/window handling, and crash diagnostics.
+8. Launch a clean vanilla version before adding mod-loader installation.
 
 ## Quality gates
 
