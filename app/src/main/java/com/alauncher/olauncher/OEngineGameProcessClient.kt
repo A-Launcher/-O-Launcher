@@ -31,6 +31,19 @@ class OEngineGameProcessClient(
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
     private val connectStarted = AtomicBoolean(false)
+    private val responseDelivered = AtomicBoolean(false)
+    private val timeoutHandler = Handler(Looper.getMainLooper())
+    private val timeoutRunnable = Runnable {
+        report(Result.failure(IllegalStateException("The isolated game process did not answer its health check within 5 seconds.")))
+        close()
+    }
+
+    private fun report(result: Result<OEngineGameProcessStatus>) {
+        if (responseDelivered.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(timeoutRunnable)
+            onStatus(result)
+        }
+    }
     private val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
         if (message.what == OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT) {
             val data = message.data
@@ -40,7 +53,7 @@ class OEngineGameProcessClient(
                 processName = data.getString(OEngineGameProcessService.KEY_PROCESS).orEmpty(),
                 phase = data.getString(OEngineGameProcessService.KEY_PHASE).orEmpty()
             )
-            onStatus(Result.success(status))
+            report(Result.success(status))
             true
         } else {
             false
@@ -55,22 +68,22 @@ class OEngineGameProcessClient(
             try {
                 Messenger(binder).send(request)
             } catch (error: RemoteException) {
-                onStatus(Result.failure(error))
+                report(Result.failure(error))
                 close()
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
-            if (!closed.get()) onStatus(Result.failure(IllegalStateException("The isolated game process disconnected.")))
+            if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game process disconnected.")))
         }
 
         override fun onBindingDied(name: ComponentName) {
-            if (!closed.get()) onStatus(Result.failure(IllegalStateException("The isolated game-process binding died.")))
+            if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game-process binding died.")))
             close()
         }
 
         override fun onNullBinding(name: ComponentName) {
-            if (!closed.get()) onStatus(Result.failure(IllegalStateException("The isolated game process returned a null binding.")))
+            if (!closed.get()) report(Result.failure(IllegalStateException("The isolated game process returned a null binding.")))
             close()
         }
     }
@@ -81,16 +94,18 @@ class OEngineGameProcessClient(
         val intent = Intent(appContext, OEngineGameProcessService::class.java)
         return try {
             val bound = appContext.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            if (!bound) onStatus(Result.failure(IllegalStateException("Android refused the isolated game-process binding.")))
+            if (bound) timeoutHandler.postDelayed(timeoutRunnable, 5_000L)
+            else report(Result.failure(IllegalStateException("Android refused the isolated game-process binding.")))
             bound
         } catch (error: SecurityException) {
-            onStatus(Result.failure(error))
+            report(Result.failure(error))
             false
         }
     }
 
     override fun close() {
         if (closed.compareAndSet(false, true)) {
+            timeoutHandler.removeCallbacks(timeoutRunnable)
             runCatching { appContext.unbindService(connection) }
         }
     }
