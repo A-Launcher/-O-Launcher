@@ -32,4 +32,46 @@ class OEngineInputTest {
             fail("Mouse text input should be rejected.")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun boundedQueueEvictsMotionBeforeButtonTransitions() {
+        val queue = OEngineInputQueue(capacity = 8)
+        repeat(8) { index ->
+            queue.offer(OEngineInputEvent(
+                OEngineInputDevice.MOUSE,
+                if (index == 0) OEngineInputAction.MOVE else OEngineInputAction.DOWN,
+                index
+            ))
+        }
+        val accepted = queue.offer(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 32
+        ))
+        assertTrue(accepted)
+        assertEquals(8, queue.size)
+        assertEquals(1L, queue.droppedEventCount)
+        assertTrue(queue.drain().any {
+            it.device == OEngineInputDevice.KEYBOARD && it.action == OEngineInputAction.UP
+        })
+    }
+
+    @Test fun queueRejectsMotionWhenOnlyTransitionsRemain() {
+        val queue = OEngineInputQueue(capacity = 8)
+        repeat(8) { index ->
+            queue.offer(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, index))
+        }
+        assertFalse(queue.offer(OEngineInputEvent(
+            OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0
+        )))
+        assertEquals(8, queue.size)
+        assertEquals(1L, queue.droppedEventCount)
+    }
+
+    @Test fun queueDrainRespectsLimitAndFifoOrder() {
+        val queue = OEngineInputQueue(capacity = 8)
+        repeat(3) { index ->
+            queue.offer(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, index))
+        }
+        assertEquals(listOf(0, 1), queue.drain(2).map { it.code })
+        assertEquals(1, queue.size)
+        assertEquals(2, queue.poll()?.code)
+    }
+
 }
