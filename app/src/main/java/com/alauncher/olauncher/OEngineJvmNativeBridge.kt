@@ -13,11 +13,13 @@ data class OEngineJvmLibraryProbe(
  */
 object OEngineJvmNativeBridge {
     private val nativeLibraryLoaded: Boolean by lazy {
-        System.loadLibrary("oengine_bootstrap")
+        System.loadLibrary("oengine_native")
         true
     }
 
     private external fun nativeProbeJvmLibrary(absolutePath: String): String
+
+    private external fun nativeInstallLwjglHook(targetClass: Class<*>, selectedAlias: String, rendererHandle: Long): Boolean
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
         require(plan.structurallyReady) {
