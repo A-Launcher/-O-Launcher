@@ -41,6 +41,11 @@ class OEngineGameProcessClient(
         report(Result.failure(IllegalStateException("The isolated game process did not answer its health check within 5 seconds.")))
         close()
     }
+    private val probeTimeoutRunnable = Runnable {
+        if (probeResponseDelivered.compareAndSet(false, true)) {
+            onJvmProbe(Result.failure(IllegalStateException("The isolated game process did not finish the JVM linker probe within 15 seconds.")))
+        }
+    }
 
     private fun report(result: Result<OEngineGameProcessStatus>) {
         if (responseDelivered.compareAndSet(false, true)) {
@@ -63,6 +68,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
                 if (probeResponseDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(probeTimeoutRunnable)
                     val data = message.data
                     onJvmProbe(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -111,6 +117,7 @@ class OEngineGameProcessClient(
             return false
         }
         probeResponseDelivered.set(false)
+        timeoutHandler.postDelayed(probeTimeoutRunnable, 15_000L)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY).apply {
             data.putString(OEngineGameProcessService.KEY_RUNTIME_HOME, runtimeHome.canonicalPath)
             data.putString(OEngineGameProcessService.KEY_WORKING_DIRECTORY, workingDirectory.canonicalPath)
@@ -121,6 +128,7 @@ class OEngineGameProcessClient(
             serviceMessenger?.send(request)
             true
         } catch (error: RemoteException) {
+            timeoutHandler.removeCallbacks(probeTimeoutRunnable)
             onJvmProbe(Result.failure(error))
             false
         }
@@ -144,6 +152,7 @@ class OEngineGameProcessClient(
     override fun close() {
         if (closed.compareAndSet(false, true)) {
             timeoutHandler.removeCallbacks(timeoutRunnable)
+            timeoutHandler.removeCallbacks(probeTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
