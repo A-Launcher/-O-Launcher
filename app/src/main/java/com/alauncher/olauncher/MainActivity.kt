@@ -2232,6 +2232,68 @@ private fun InstallationsDestination(images: LauncherImages) {
                             Text(if (probingGameProcess) "PROBING JVM IN GAME PROCESS…" else "PROBE JVM IN ISOLATED GAME PROCESS", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Button(
+                            enabled = preparedLaunchPlan != null && !probingGameProcess && !installingRuntime && !downloadingRuntime,
+                            onClick = {
+                                val launchPlan = preparedLaunchPlan ?: return@Button
+                                val bootstrap = OLauncherEngine.prepareCommandPreview(activeInstance.root, launchPlan).jvmBootstrapPlan
+                                val jvmLibrary = bootstrap?.jvmLibrary
+                                if (bootstrap == null || !bootstrap.structurallyReady || jvmLibrary == null) {
+                                    gameProcessStatus = "JVM CREATION BLOCKED • " +
+                                        (bootstrap?.blockers?.joinToString(" • ") ?: "Prepare a valid Minecraft Java runtime first.")
+                                    return@Button
+                                }
+                                probingGameProcess = true
+                                gameProcessStatus = "Starting HotSpot in the isolated :game process…"
+                                lateinit var client: OEngineGameProcessClient
+                                client = OEngineGameProcessClient(
+                                    context,
+                                    { result ->
+                                        result.fold(
+                                            onSuccess = { status ->
+                                                if (status.ready) {
+                                                    gameProcessStatus = "GAME PROCESS READY • creating Java VM…"
+                                                    client.createJvm(
+                                                        bootstrap.runtime.home,
+                                                        bootstrap.workingDirectory,
+                                                        jvmLibrary,
+                                                        bootstrap.vmOptions
+                                                    )
+                                                } else {
+                                                    probingGameProcess = false
+                                                    gameProcessStatus = "GAME PROCESS NOT READY • " + status.phase
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                probingGameProcess = false
+                                                gameProcessStatus = "GAME PROCESS IPC FAILED • " + (error.message ?: "Unknown process error")
+                                            }
+                                        )
+                                    },
+                                    {},
+                                    { result ->
+                                        probingGameProcess = false
+                                        gameProcessStatus = result.fold(
+                                            onSuccess = { created ->
+                                                (if (created.successful) "HOTSPOT VM CREATED" else "HOTSPOT VM CREATION FAILED") +
+                                                    " • " + created.status + " • " + created.detail
+                                            },
+                                            onFailure = { error ->
+                                                "HOTSPOT VM CREATION ERROR • " + (error.message ?: "Unknown VM error")
+                                            }
+                                        )
+                                    }
+                                )
+                                gameProcessClient?.close()
+                                gameProcessClient = client
+                                client.connect()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A563B), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingGameProcess) "CREATING HOTSPOT JVM…" else "CREATE JVM + CORE CLASS TEST", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text("This attempts JNI_CreateJavaVM in :game and resolves java.lang.String. It is a VM smoke test, not a Minecraft launch or Java main-class test.", color = Muted, fontSize = 10.sp)
+                        Button(
                             enabled = !probingGraphics,
                             onClick = {
                                 probingGraphics = true
