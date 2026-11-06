@@ -1,6 +1,7 @@
 package com.alauncher.olauncher
 
 import java.io.File
+import android.os.Build
 
 /** A prepared in-process JVM invocation; preparation never loads libjvm or starts a VM. */
 data class OEngineJvmBootstrapPlan(
@@ -40,7 +41,17 @@ object OEngineJvmBootstrapPlanner {
         "-Djava.library.path",
         "-Djava.class.path",
         "-Duser.home",
-        "-Djava.io.tmpdir"
+        "-Djava.io.tmpdir",
+        "-Djna.boot.library.path",
+        "-Dos.name",
+        "-Dos.version",
+        "-Duser.language",
+        "-Duser.country",
+        "-Djdk.lang.Process.launchMechanism",
+        "-Dlog4j2.formatMsgNoLookups",
+        "-Dfml.earlyprogresswindow",
+        "-Dloader.disable_forked_guis",
+        "-Dorg.lwjgl.system.allocator"
     )
 
     fun prepare(
@@ -101,7 +112,17 @@ object OEngineJvmBootstrapPlanner {
                 "-Djava.library.path" to nativeDir.absolutePath,
                 "-Djava.class.path" to resolvedClasspath.joinToString(File.pathSeparator) { it.absolutePath },
                 "-Duser.home" to workDir.absolutePath,
-                "-Djava.io.tmpdir" to File(workDir, "tmp").absolutePath
+                "-Djava.io.tmpdir" to File(workDir, "tmp").absolutePath,
+                "-Djna.boot.library.path" to nativeDir.absolutePath,
+                "-Dos.name" to "Linux",
+                "-Dos.version" to "Android-" + Build.VERSION.RELEASE,
+                "-Duser.language" to "en",
+                "-Duser.country" to "US",
+                "-Djdk.lang.Process.launchMechanism" to "FORK",
+                "-Dlog4j2.formatMsgNoLookups" to "true",
+                "-Dfml.earlyprogresswindow" to "false",
+                "-Dloader.disable_forked_guis" to "true",
+                "-Dorg.lwjgl.system.allocator" to "system"
             )
         )
 
