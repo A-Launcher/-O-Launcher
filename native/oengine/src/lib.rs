@@ -1,7 +1,7 @@
 //! O Engine native core. Rust owns the LWJGL native-loader hook.
 //! Android UI and lifecycle remain in Kotlin.
 
-use jni::objects::{JClass, JString};
+use jni::objects::{JClass, JObjectArray, JString};
 use jni::sys::{jboolean, jint, jlong, jobject, jstring, JNIEnv as RawJNIEnv};
 use jni::{JNIEnv, NativeMethod};
 use libc::{c_char, c_void};
@@ -19,6 +19,7 @@ struct HookConfig {
 
 static HOOK_CONFIG: OnceLock<RwLock<Option<HookConfig>>> = OnceLock::new();
 static JVM_LIBRARY: OnceLock<Mutex<Option<(CString, usize)>>> = OnceLock::new();
+static JVM_INSTANCE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -49,7 +50,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value.into(),
         Err(_) => return ptr::null_mut(),
     };
-    let mut response = |status: &str, detail: &str| {
+    let response = |status: &str, detail: &str| {
         env.new_string(format!("{status}:{detail}"))
             .map(|value| value.into_raw())
             .unwrap_or(ptr::null_mut())
@@ -98,6 +99,149 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         *guard = Some((requested, handle as usize));
     }
     response("symbols_ok", "JNI Invocation API exports validated; libjvm remains mapped for this process")
+}
+
+
+/// JNI Invocation API ABI declarations. These mirror jni.h and are intentionally local
+/// so the bootstrap can resolve JNI_CreateJavaVM from the selected Android JRE at runtime.
+#[repr(C)]
+struct OEngineJavaVmOption {
+    option_string: *mut c_char,
+    extra_info: *mut c_void,
+}
+
+#[repr(C)]
+struct OEngineJavaVmInitArgs {
+    version: i32,
+    n_options: i32,
+    options: *mut OEngineJavaVmOption,
+    ignore_unrecognized: u8,
+}
+
+type OEngineCreateJavaVm = unsafe extern "system" fn(
+    *mut *mut c_void,
+    *mut *mut c_void,
+    *mut c_void,
+) -> i32;
+
+fn java_vm_state() -> &'static Mutex<Option<usize>> {
+    JVM_INSTANCE.get_or_init(|| Mutex::new(None))
+}
+
+/// Creates one HotSpot VM in this isolated Android process and verifies core Java classes.
+/// The calling HandlerThread remains attached for the lifetime of the service.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeCreateJvm(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    vm_options: jni::sys::jobjectArray,
+) -> jstring {
+    if raw_env.is_null() || vm_options.is_null() {
+        return ptr::null_mut();
+    }
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return ptr::null_mut(),
+    };
+    macro_rules! response {
+        ($status:expr, $detail:expr) => {
+            env.new_string(format!("{}:{}", $status, $detail))
+                .map(|value| value.into_raw())
+                .unwrap_or(ptr::null_mut())
+        };
+    }
+
+    let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
+    let library_handle = match library_state.lock() {
+        Ok(guard) => match guard.as_ref() {
+            Some((_, handle)) => *handle,
+            None => return response!("library_not_loaded", "Probe and retain libjvm.so before creating the VM"),
+        },
+        Err(_) => return response!("lock_error", "JVM library state lock is poisoned"),
+    };
+
+    let instance_state = java_vm_state();
+    let mut instance_guard = match instance_state.lock() {
+        Ok(guard) => guard,
+        Err(_) => return response!("lock_error", "JVM instance state lock is poisoned"),
+    };
+    if instance_guard.is_some() {
+        return response!("already_created", "A HotSpot VM already exists in this game process");
+    }
+
+    let options_array = JObjectArray::from_raw(vm_options);
+    let option_count = match env.get_array_length(&options_array) {
+        Ok(value) => value,
+        Err(error) => return response!("invalid_options", &format!("Cannot read JVM option array: {error}")),
+    };
+    if option_count > 512 {
+        return response!("invalid_options", "JVM option count exceeds the 512-option safety limit");
+    }
+
+    let mut option_strings: Vec<CString> = Vec::with_capacity(option_count as usize);
+    for index in 0..option_count {
+        let option_object = match env.get_object_array_element(&options_array, index) {
+            Ok(value) => value,
+            Err(error) => return response!("invalid_options", &format!("Cannot read JVM option {index}: {error}")),
+        };
+        let option_string = JString::from(option_object);
+        let option: String = match env.get_string(&option_string) {
+            Ok(value) => value.into(),
+            Err(error) => return response!("invalid_options", &format!("Cannot decode JVM option {index}: {error}")),
+        };
+        if option.is_empty() || option.len() > 16_384 {
+            return response!("invalid_options", &format!("JVM option {index} is empty or too long"));
+        }
+        let encoded = match CString::new(option) {
+            Ok(value) => value,
+            Err(_) => return response!("invalid_options", &format!("JVM option {index} contains a NUL byte")),
+        };
+        option_strings.push(encoded);
+    }
+
+    let mut native_options: Vec<OEngineJavaVmOption> = option_strings
+        .iter_mut()
+        .map(|option| OEngineJavaVmOption {
+            option_string: option.as_ptr() as *mut c_char,
+            extra_info: ptr::null_mut(),
+        })
+        .collect();
+    let mut init_args = OEngineJavaVmInitArgs {
+        version: 0x0001_0008, // JNI_VERSION_1_8; supported by the selected OpenJDK builds.
+        n_options: native_options.len() as i32,
+        options: native_options.as_mut_ptr(),
+        ignore_unrecognized: 0,
+    };
+
+    let create_symbol = libc::dlsym(library_handle as *mut c_void, b"JNI_CreateJavaVM\\0".as_ptr() as *const c_char);
+    if create_symbol.is_null() {
+        return response!("missing_symbol", "JNI_CreateJavaVM disappeared after the library probe");
+    }
+    let create_vm: OEngineCreateJavaVm = std::mem::transmute(create_symbol);
+    let mut vm: *mut c_void = ptr::null_mut();
+    let mut vm_env: *mut c_void = ptr::null_mut();
+    let result = create_vm(&mut vm, &mut vm_env, &mut init_args as *mut _ as *mut c_void);
+    if result != 0 {
+        return response!("create_failed", &format!("JNI_CreateJavaVM returned {result}"));
+    }
+    if vm.is_null() || vm_env.is_null() {
+        return response!("create_failed", "JNI_CreateJavaVM returned success without a VM or JNIEnv");
+    }
+
+    *instance_guard = Some(vm as usize);
+    let mut hot_spot_env = match JNIEnv::from_raw(vm_env as *mut jni::sys::JNIEnv) {
+        Ok(value) => value,
+        Err(error) => return response!("created_env_error", &format!("VM created but JNIEnv could not be wrapped: {error}")),
+    };
+    match hot_spot_env.find_class("java/lang/String") {
+        Ok(_) => response!("vm_created", "HotSpot started and java.lang.String resolved successfully"),
+        Err(error) => {
+            let _ = hot_spot_env.exception_check().and_then(|pending| {
+                if pending { hot_spot_env.exception_clear() } else { Ok(()) }
+            });
+            response!("core_class_error", &format!("VM started but java.lang.String lookup failed: {error}"))
+        }
+    }
 }
 
 /// Pure policy used by the JNI hook: only the exact renderer alias is redirected.
