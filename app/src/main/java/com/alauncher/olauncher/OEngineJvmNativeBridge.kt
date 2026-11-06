@@ -55,7 +55,7 @@ object OEngineJvmNativeBridge {
     }
 
     internal fun invokeMain(mainClass: String, arguments: List<String>): OEngineJvmLibraryProbe {
-        check(nativeLoaded) { "O Engine native bridge is not loaded." }
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
         require(mainClass.isNotBlank() && mainClass.length <= 512) { "Minecraft main class is invalid." }
         require(arguments.size <= 16_384) { "Minecraft argument count exceeds the safety limit." }
         val response = nativeInvokeMain(mainClass, arguments.toTypedArray())
