@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -231,7 +232,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.Center
         ) {
             Text("MINECRAFT", fontSize = 27.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.8).sp)
-            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, , letterSpacing = 0.8.sp)
+            Text("JAVA EDITION", fontSize = 15.sp, lineHeight = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 0.8.sp)
         }
         Surface(
             Modifier.weight(1f).height(46.dp),
