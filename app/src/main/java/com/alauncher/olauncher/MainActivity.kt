@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.util.Base64
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -53,6 +54,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 private val Cream = Color(0xFFF6EBDD)
 private val Panel = Color(0xFFFFF8EE)
@@ -214,10 +219,30 @@ private fun cropBitmapSafe(
     }
 }
 
+private suspend fun fetchArtwork(url: String): ImageBitmap? = withContext(Dispatchers.IO) {
+    var connection: HttpURLConnection? = null
+    try {
+        connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 8000
+            readTimeout = 12000
+            requestMethod = "GET"
+            setRequestProperty("User-Agent", "O-Launcher/1.0")
+        }
+        if (connection.responseCode !in 200..299) return@withContext null
+        connection.inputStream.use { stream ->
+            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+        }
+    } catch (_: Exception) {
+        null
+    } finally {
+        connection?.disconnect()
+    }
+}
+
 @Composable
 private fun rememberLauncherImages(): LauncherImages {
     val context = LocalContext.current
-    return remember(context) {
+    val atlasImages = remember(context) {
         val atlas = createArtworkAtlas()
         val logo = readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY)
         LauncherImages(
@@ -231,6 +256,20 @@ private fun rememberLauncherImages(): LauncherImages {
             logo = logo.asImageBitmap()
         )
     }
+    var images by remember(context) { mutableStateOf(atlasImages) }
+    LaunchedEffect(context) {
+        val nether = fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/nether-header.jpg")
+        val trials = fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/Tricky-Trials_Full-Bleed-A-0_Key-art_786x786_01.jpg")
+        val world = fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/NewKeyArt_Header.jpg")
+        images = atlasImages.copy(
+            hero = nether ?: atlasImages.hero,
+            whatsNew = trials ?: atlasImages.whatsNew,
+            trials = trials ?: atlasImages.trials,
+            spring = world ?: atlasImages.spring,
+            realms = world ?: atlasImages.realms
+        )
+    }
+    return images
 }
 
 class MainActivity : ComponentActivity() {
