@@ -138,6 +138,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     raw_env: *mut RawJNIEnv,
     _receiver: jobject,
     vm_options: jni::sys::jobjectArray,
+    java_major: jint,
 ) -> jstring {
     if raw_env.is_null() || vm_options.is_null() {
         return ptr::null_mut();
@@ -154,7 +155,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         };
     }
 
-    let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
+    if !matches!(java_major, 8 | 17 | 21) {\n        return response!("unsupported_java_major", &format!("Java {java_major} has no verified native-load hook profile"));\n    }\n\n    let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
     let library_handle = match library_state.lock() {
         Ok(guard) => match guard.as_ref() {
             Some((_, handle)) => *handle,
@@ -236,6 +237,10 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value,
         Err(error) => return response!("created_env_error", &format!("VM created but JNIEnv could not be wrapped: {error}")),
     };
+    if let Err(error) = install_native_library_hook(&mut hot_spot_env, java_major) {
+        return response!("vm_created_hooks_missing", &format!("HotSpot VM exists, but Java {java_major} native-library hook installation failed: {error}"));
+    }
+
     if let Err(error) = hot_spot_env.find_class("java/lang/String") {
         if hot_spot_env.exception_check().unwrap_or(false) {
             let _ = hot_spot_env.exception_clear();
@@ -338,7 +343,7 @@ unsafe extern "system" fn native_load_java21(
     let _preloaded = preload_for_native_load(raw_env, name);
     let original = NATIVE_LOAD_HOOK.get()
         .and_then(|state| state.lock().ok())
-        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 21).map(|(_, ptr, _)| *ptr));
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 21 || *major == 171).map(|(_, ptr, _)| *ptr));
     original.map(|ptr| {
         let function: J21NativeLoad = std::mem::transmute(ptr);
         function(raw_env, class, library, name, builtin, throw_on_fail)
@@ -397,7 +402,7 @@ unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Resu
             env.register_native_methods(&class, &method)
                 .map_err(|e| format!("Cannot register Java 17 native-load hook: {e}"))?;
             *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
-                Some((17, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+                Some((if selected == primary { 17 } else { 171 }, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
             return Ok(());
         },
         21 => (
