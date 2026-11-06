@@ -25,7 +25,7 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeInvokeMain(mainClass: String, arguments: Array<String>): String
 
-    private external fun nativeInstallLwjglHook(targetClass: Class<*>, selectedAlias: String, rendererHandle: Long): Boolean
+    private external fun nativeInstallLwjglHook(targetClassName: String, selectedAlias: String, rendererHandle: Long): Boolean
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
         require(plan.structurallyReady) {
@@ -65,6 +65,26 @@ object OEngineJvmNativeBridge {
             status = status,
             detail = response.substringAfter(':', "")
         )
+    }
+
+    /**
+     * Installs the LWJGL 3 loader hook against a class resolved inside embedded HotSpot.
+     * The renderer handle must already be loaded and remain valid for the game session.
+     */
+    internal fun installLwjglHook(
+        targetClassName: String,
+        selectedAlias: String,
+        rendererHandle: Long
+    ): Boolean {
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        require(targetClassName.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) {
+            "LWJGL target class name must be a dotted Java class name."
+        }
+        require(selectedAlias.startsWith("lib") && selectedAlias.endsWith(".so") && '/' !in selectedAlias) {
+            "Renderer alias must be a shared-library filename such as libGL.so."
+        }
+        require(rendererHandle != 0L) { "Renderer handle is not loaded." }
+        return nativeInstallLwjglHook(targetClassName, selectedAlias, rendererHandle)
     }
 
     internal fun probeLibrary(absolutePath: String, runtimeHome: File): OEngineJvmLibraryProbe {
