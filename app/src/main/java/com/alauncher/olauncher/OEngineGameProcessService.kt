@@ -68,6 +68,14 @@ class OEngineGameProcessService : Service() {
                         }
                         applyDriverOverride("LIBGL_EGL", eglPath)
                         applyDriverOverride("LIBGL_GLES", glesPath)
+                        val ltwEnvironment = OEngineGraphicsStack.ltwEnvironment()
+                        ltwEnvironment.forEach { (key, value) -> Os.setenv(key, value, true) }
+                        OEngineSessionLog.append(
+                            this,
+                            "RENDERER_ENVIRONMENT",
+                            "Applied " + ltwEnvironment.size + " Mojo-informed LTW compatibility variables before HotSpot: " +
+                                ltwEnvironment.keys.sorted().joinToString()
+                        )
                         rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
                         OEngineSessionLog.append(
                             this,
