@@ -1209,6 +1209,20 @@ private fun AboutDestination(images: LauncherImages) {
 }
 
 @Composable
+private fun AccountTypeBanner(title: String, subtitle: String, tag: String, mark: String, colors: List<Color>) {
+    Box(Modifier.fillMaxWidth().height(102.dp).clip(RoundedCornerShape(16.dp)).background(Brush.horizontalGradient(colors)).padding(horizontal = 18.dp, vertical = 13.dp)) {
+        Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.78f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(tag, color = Color.White.copy(alpha = .78f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+            Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Color.White.copy(alpha = .88f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Surface(Modifier.align(Alignment.CenterEnd).size(58.dp), color = Color.White.copy(alpha = .17f), shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .32f))) {
+            Box(contentAlignment = Alignment.Center) { Text(mark, color = Color.White, fontSize = if (mark.length > 1) 17.sp else 30.sp, fontWeight = FontWeight.Black) }
+        }
+    }
+}
+
+@Composable
 private fun AccountDestination(images: LauncherImages) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -1243,7 +1257,7 @@ private fun AccountDestination(images: LauncherImages) {
 
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("MICROSOFT SIGN-IN", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                AccountTypeBanner(title = "Microsoft Account", subtitle = "Secure sign-in for Minecraft: Java Edition", tag = "ONLINE", mark = "M", colors = listOf(Color(0xFF174A82), Color(0xFF2679B9)))
                 Text("Your password is entered only on Microsoft's website. O Launcher never asks you to type it here.", color = Muted, fontSize = 12.sp)
                 device?.let { pending ->
                     Text("Open ${pending.verificationUri} and enter this code:", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -1290,7 +1304,7 @@ private fun AccountDestination(images: LauncherImages) {
 
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("OFFLINE ACCOUNT", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                AccountTypeBanner(title = "Offline Account", subtitle = "A local player profile on this device", tag = "LOCAL", mark = "OFF", colors = listOf(Color(0xFF315B37), Color(0xFF6B8C45)))
                 Text("Play with a local player profile without signing in to Microsoft. Some online servers require an authenticated account and won't accept offline profiles.", color = Muted, fontSize = 12.sp)
                 if (isOffline && !showOfflineForm) {
                     Text("Saved offline profile: $playerName", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -1671,36 +1685,21 @@ private fun LoaderOptionCard(
         onClick = onClick,
         color = if (selected) Color(0xFFFFE8B3) else Color(0xFFFFF2DF),
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) Gold else Border
-        ),
-        modifier = modifier
+        border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp, if (selected) Gold else Border),
+        modifier = modifier.height(104.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Surface(color = Color.White, shape = RoundedCornerShape(11.dp), modifier = Modifier.size(48.dp)) {
-                Image(
-                    painter = painterResource(id = logo),
-                    contentDescription = "$name logo",
-                    modifier = Modifier.fillMaxSize().padding(5.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                Text(name, fontSize = 14.sp, fontWeight = FontWeight.Black, color = Ink)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(if (selected) listOf(Color(0xFFFFE5A5), Color(0xFFFFF3D8)) else listOf(Color(0xFFFFF8EC), Color(0xFFFFEBD0)))).padding(horizontal = 13.dp, vertical = 11.dp)) {
+            Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.72f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (selected) "SELECTED" else "MOD LOADER", fontSize = 8.sp, fontWeight = FontWeight.Black, color = Color(0xFF9B6A35), letterSpacing = 1.1.sp)
+                Text(name, fontSize = 16.sp, fontWeight = FontWeight.Black, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(subtitle, fontSize = 10.sp, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            if (selected) {
-                Icon(Icons.Filled.Checkroom, contentDescription = "Selected", tint = Color(0xFF9A6810), modifier = Modifier.size(18.dp))
+            Surface(Modifier.align(Alignment.CenterEnd).size(66.dp), color = Color.White.copy(alpha = .92f), shape = RoundedCornerShape(14.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                Image(painter = painterResource(id = logo), contentDescription = "$name logo", modifier = Modifier.fillMaxSize().padding(7.dp), contentScale = ContentScale.Fit)
             }
         }
     }
 }
-
 @Composable
 private fun InstallationsDestination(images: LauncherImages) {
     val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
