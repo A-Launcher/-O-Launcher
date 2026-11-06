@@ -61,6 +61,31 @@ class OEngineJvmBootstrapPlanTest {
     }
 
     @Test
+    fun doesNotPassPostJava8HotspotFlagsToJava8Runtime() {
+        val root = Files.createTempDirectory("oengine-jvm-java8").toFile()
+        try {
+            val runtimeHome = File(root, "runtime").apply { mkdirs() }
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\\"1.8.0_402\\"\\n")
+            val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            File(runtimeHome, "lib/arm/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val game = File(root, "game").apply { mkdirs() }
+            val nativeDir = File(game, "natives").apply { mkdirs() }
+            val client = File(game, "client.jar").apply { writeBytes(byteArrayOf(1)) }
+
+            val plan = OEngineJvmBootstrapPlanner.prepare(
+                OEngineRuntime("Java-8-arm", 8, "arm", runtimeHome, java),
+                listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
+                emptyList(), emptyList(), availableProcessors = 8
+            )
+
+            assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
+            assertFalse(plan.vmOptions.any { it.startsWith("-XX:ActiveProcessorCount=") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsMissingJvmLibraryAndClasspath() {
         val root = Files.createTempDirectory("oengine-jvm-missing").toFile()
         try {
