@@ -34,7 +34,8 @@ class OEngineGameProcessClient(
     private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
-    private val onJvmMainStarted: (OEngineJvmLibraryProbe) -> Unit = {}
+    private val onJvmMainStarted: (OEngineJvmLibraryProbe) -> Unit = {},
+    private val onJvmMainRunning: (OEngineJvmLibraryProbe) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -46,12 +47,30 @@ class OEngineGameProcessClient(
     private val rendererPreloadResponseDelivered = AtomicBoolean(false)
     private val mainStartedDelivered = AtomicBoolean(false)
     private val mainResponseDelivered = AtomicBoolean(false)
+    private val mainRunningDelivered = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val mainStartTimeoutRunnable = Runnable {
         if (mainStartedDelivered.compareAndSet(false, true)) {
             mainResponseDelivered.set(true)
             onJvmMain(Result.failure(IllegalStateException("The game process did not dispatch Minecraft main within 30 seconds.")))
+        }
+    }
+    private val mainRunningNoticeRunnable = Runnable {
+        if (mainStartedDelivered.get() && !mainResponseDelivered.get() &&
+            mainRunningDelivered.compareAndSet(false, true)) {
+            onJvmMainRunning(OEngineJvmLibraryProbe(
+                successful = true,
+                status = "main_running",
+                detail = "Minecraft main has not returned yet; the isolated HotSpot thread is still executing it."
+            ))
+        }
+    }
+    private val mainExecutionTimeoutRunnable = Runnable {
+        if (mainStartedDelivered.get() && mainResponseDelivered.compareAndSet(false, true)) {
+            onJvmMain(Result.failure(IllegalStateException(
+                "Minecraft main did not return within 10 minutes. The game process may be stalled; it was not force-stopped."
+            )))
         }
     }
     private val timeoutRunnable = Runnable {
@@ -137,6 +156,8 @@ class OEngineGameProcessClient(
             OEngineGameProcessService.MSG_INVOKE_MAIN_STARTED -> {
                 if (mainStartedDelivered.compareAndSet(false, true)) {
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    timeoutHandler.postDelayed(mainRunningNoticeRunnable, 15_000L)
+                    timeoutHandler.postDelayed(mainExecutionTimeoutRunnable, 10 * 60 * 1000L)
                     val data = message.data
                     onJvmMainStarted(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -150,6 +171,8 @@ class OEngineGameProcessClient(
                 if (mainResponseDelivered.compareAndSet(false, true)) {
                     mainStartedDelivered.set(true)
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+                    timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
                     val data = message.data
                     onJvmMain(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -195,6 +218,8 @@ class OEngineGameProcessClient(
                 if (mainResponseDelivered.compareAndSet(false, true)) {
                     mainStartedDelivered.set(true)
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+                    timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
                     onJvmMain(Result.failure(IllegalStateException("The isolated game process disconnected during Minecraft main invocation.")))
                 }
             }
@@ -206,6 +231,8 @@ class OEngineGameProcessClient(
                 if (mainResponseDelivered.compareAndSet(false, true)) {
                     mainStartedDelivered.set(true)
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+                    timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
                     onJvmMain(Result.failure(IllegalStateException("The game-process binding died during Minecraft main invocation.")))
                 }
             }
@@ -338,7 +365,10 @@ class OEngineGameProcessClient(
         if (closed.get() || mainStartedDelivered.get() && !mainResponseDelivered.get()) return false
         mainStartedDelivered.set(false)
         mainResponseDelivered.set(false)
+        mainRunningDelivered.set(false)
         timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+        timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+        timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
         timeoutHandler.postDelayed(mainStartTimeoutRunnable, 30_000L)
         val data = Bundle().apply {
             putString(OEngineGameProcessService.KEY_MAIN_CLASS, mainClass)
@@ -353,6 +383,8 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+            timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+            timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
             if (mainStartedDelivered.compareAndSet(false, true) && mainResponseDelivered.compareAndSet(false, true)) {
                 onJvmMain(Result.failure(error))
             }
@@ -383,6 +415,8 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
             timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+            timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
+            timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
