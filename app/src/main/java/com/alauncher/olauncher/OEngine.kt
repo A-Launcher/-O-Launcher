@@ -57,6 +57,101 @@ object OLauncherEngine {
         return OEngineRuntime(name, version, architecture, home, executable)
     }
 
+    fun prepareCommandPreview(
+        gameRoot: File,
+        plan: MinecraftVersionInstaller.LaunchPlan
+    ): OEngineCommandPreview {
+        val enginePaths = paths(gameRoot)
+        val runtime = findRuntime(gameRoot, plan.javaMajorVersion)
+        val versionDirectory = File(enginePaths.versions, plan.version)
+        val nativeDirectory = File(versionDirectory, "natives")
+        val blockers = mutableListOf<String>()
+        if (runtime == null) blockers.add("Java ${plan.javaMajorVersion} runtime is not installed and validated.")
+        if (!versionDirectory.isDirectory) blockers.add("Minecraft version directory is missing.")
+        if (plan.classpath.isEmpty() || plan.classpath.any { !File(it).isFile || File(it).length() == 0L }) {
+            blockers.add("One or more classpath artifacts are missing or empty.")
+        }
+        if (!nativeDirectory.isDirectory || nativeDirectory.walkTopDown().none { it.isFile }) {
+            blockers.add("Android-compatible native libraries have not been installed.")
+        }
+        if (plan.mainClass.isBlank()) blockers.add("Minecraft main class is missing.")
+        blockers.add("O Engine graphics compatibility backend is not integrated; Minecraft cannot launch yet.")
+
+        val classpath = plan.classpath.joinToString(File.pathSeparator)
+        val substitutions = mapOf(
+            "classpath" to classpath,
+            "natives_directory" to nativeDirectory.absolutePath,
+            "library_directory" to enginePaths.libraries.absolutePath,
+            "launcher_name" to "O-Launcher",
+            "launcher_version" to "0.1.0"
+        )
+        val args = plan.jvmArguments.map { original ->
+            substitutions.entries.fold(original) { value, entry ->
+                value.replace("${'
+        val runtime = findRuntime(gameRoot, javaMajor)
+            ?: throw IllegalStateException("O Engine cannot find a valid installed Java " + javaMajor + " runtime.")
+        val enginePaths = paths(gameRoot)
+        enginePaths.prepare()
+        val log = File(enginePaths.logs, "runtime-" + javaMajor + "-probe.txt")
+        val libraryPaths = listOf(
+            File(runtime.home, "lib"),
+            File(runtime.home, "lib/server"),
+            File(runtime.home, "lib/jli")
+        ).filter { it.isDirectory }.joinToString(File.pathSeparator) { it.absolutePath }
+        val builder = ProcessBuilder(runtime.executable.absolutePath, "-version")
+            .directory(enginePaths.root)
+            .redirectErrorStream(true)
+            .redirectOutput(log)
+        builder.environment().apply {
+            put("JAVA_HOME", runtime.home.absolutePath)
+            put("HOME", enginePaths.root.absolutePath)
+            put("TMPDIR", File(enginePaths.root, "tmp").apply { mkdirs() }.absolutePath)
+            if (libraryPaths.isNotBlank()) {
+                val existing = get("LD_LIBRARY_PATH").orEmpty()
+                put("LD_LIBRARY_PATH", listOf(libraryPaths, existing).filter { it.isNotBlank() }.joinToString(File.pathSeparator))
+            }
+        }
+        val process = builder.start()
+        if (!process.waitFor(30, TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            throw IllegalStateException("Java runtime test timed out after 30 seconds.")
+        }
+        val output = if (log.isFile) log.readText().takeLast(12000) else ""
+        OEngineProbeResult(runtime, process.exitValue(), output)
+    }
+}
+
+
+/** A shell-free command description. It is inspectable but never executed by the preview API. */
+data class OEngineCommandPreview(
+    val runtime: OEngineRuntime?,
+    val workingDirectory: File,
+    val nativeDirectory: File,
+    val arguments: List<String>,
+    val blockers: List<String>
+) {
+    val launchable: Boolean get() = blockers.isEmpty()
+}
+
+}{${entry.key}}", entry.value)
+            }
+        }.toMutableList()
+        val hasClasspathFlag = args.any { it == "-cp" || it == "-classpath" || it == "--class-path" }
+        if (!hasClasspathFlag) {
+            args.add("-cp")
+            args.add(classpath)
+        }
+        args.add(plan.mainClass)
+        args.addAll(plan.gameArguments)
+        return OEngineCommandPreview(
+            runtime = runtime,
+            workingDirectory = enginePaths.root,
+            nativeDirectory = nativeDirectory,
+            arguments = args,
+            blockers = blockers.distinct()
+        )
+    }
+
     suspend fun probeRuntime(gameRoot: File, javaMajor: Int): OEngineProbeResult = withContext(Dispatchers.IO) {
         val runtime = findRuntime(gameRoot, javaMajor)
             ?: throw IllegalStateException("O Engine cannot find a valid installed Java " + javaMajor + " runtime.")
@@ -90,3 +185,16 @@ object OLauncherEngine {
         OEngineProbeResult(runtime, process.exitValue(), output)
     }
 }
+
+
+/** A shell-free command description. It is inspectable but never executed by the preview API. */
+data class OEngineCommandPreview(
+    val runtime: OEngineRuntime?,
+    val workingDirectory: File,
+    val nativeDirectory: File,
+    val arguments: List<String>,
+    val blockers: List<String>
+) {
+    val launchable: Boolean get() = blockers.isEmpty()
+}
+
