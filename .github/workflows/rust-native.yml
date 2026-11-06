@@ -1,0 +1,51 @@
+name: O Engine Rust Native CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "native/**"
+      - ".github/workflows/rust-native.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "native/**"
+      - ".github/workflows/rust-native.yml"
+  workflow_dispatch:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run native policy tests
+        run: cargo test --manifest-path native/oengine/Cargo.toml
+
+  android-abis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - name: Install Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build four Android ABIs
+        run: |
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o target/android-jni build --manifest-path native/oengine/Cargo.toml --release
+      - name: Verify Android ELF outputs
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            test -s "target/android-jni/$abi/liboengine_native.so"
+            file "target/android-jni/$abi/liboengine_native.so"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oengine-rust-android-native
+          path: target/android-jni/*/liboengine_native.so
