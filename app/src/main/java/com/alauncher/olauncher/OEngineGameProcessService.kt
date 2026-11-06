@@ -73,6 +73,7 @@ class OEngineGameProcessService : Service() {
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_preloaded")
                         reply.data.putString(KEY_PROBE_DETAIL, "Renderer retained in :game before HotSpot creation; LWJGL hook will be installed after VM creation.")
                     } catch (error: Throwable) {
+                        OEngineSessionLog.append(this, "RENDERER_PRELOAD_FAILED", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_preload_error")
                         reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
@@ -103,6 +104,7 @@ class OEngineGameProcessService : Service() {
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_installed")
                         reply.data.putString(KEY_PROBE_DETAIL, "Renderer loaded and LWJGL interception registered in :game.")
                     } catch (error: Throwable) {
+                        OEngineSessionLog.append(this, "RENDERER_HOOK_FAILED", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_error")
                         reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
