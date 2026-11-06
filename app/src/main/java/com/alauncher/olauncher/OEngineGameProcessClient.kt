@@ -100,22 +100,27 @@ class OEngineGameProcessClient(
 
     private fun failPendingOperations(error: Throwable) {
         if (probeRequestPending.compareAndSet(true, false) && probeResponseDelivered.compareAndSet(false, true)) {
+            OEngineSessionLog.append(appContext, "IPC_PROBE_ABORTED", "Game process disconnected during JVM linker probe", error)
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
             onJvmProbe(Result.failure(IllegalStateException("Game process disconnected during JVM linker probe.", error)))
         }
         if (createRequestPending.compareAndSet(true, false) && createResponseDelivered.compareAndSet(false, true)) {
+            OEngineSessionLog.append(appContext, "IPC_JVM_CREATE_ABORTED", "Game process disconnected during JVM creation", error)
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
             onJvmCreate(Result.failure(IllegalStateException("Game process disconnected during JVM creation.", error)))
         }
         if (rendererPreloadRequestPending.compareAndSet(true, false) && rendererPreloadResponseDelivered.compareAndSet(false, true)) {
+            OEngineSessionLog.append(appContext, "IPC_RENDERER_PRELOAD_ABORTED", "Game process disconnected during renderer preload", error)
             timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
             onRendererPreload(Result.failure(IllegalStateException("Game process disconnected during renderer preload.", error)))
         }
         if (rendererHookRequestPending.compareAndSet(true, false) && rendererResponseDelivered.compareAndSet(false, true)) {
+            OEngineSessionLog.append(appContext, "IPC_RENDERER_HOOK_ABORTED", "Game process disconnected during renderer hook installation", error)
             timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
             onRendererHook(Result.failure(IllegalStateException("Game process disconnected during renderer hook installation.", error)))
         }
         if (mainRequestPending.compareAndSet(true, false) && mainResponseDelivered.compareAndSet(false, true)) {
+            OEngineSessionLog.append(appContext, "IPC_MINECRAFT_MAIN_ABORTED", "Game process disconnected during Minecraft main invocation", error)
             mainStartedDelivered.set(true)
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
