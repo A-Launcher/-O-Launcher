@@ -229,7 +229,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
 
     *instance_guard = Some(vm as usize);
-    let mut hot_spot_env = match JNIEnv::from_raw(vm_env as *mut jni::sys::JNIEnv) {
+    let mut hot_spot_env = match JNIEnv::from_raw(&mut vm_env as *mut *mut c_void as *mut RawJNIEnv) {
         Ok(value) => value,
         Err(error) => return response!("created_env_error", &format!("VM created but JNIEnv could not be wrapped: {error}")),
     };
