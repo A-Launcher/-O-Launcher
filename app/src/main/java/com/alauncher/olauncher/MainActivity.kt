@@ -1739,7 +1739,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     LaunchedEffect(Unit) {
         try {
             val (loaded, latest) = MinecraftVersionInstaller.fetchReleases()
-            versions = loaded.take(80)
+            versions = loaded
             selectedRelease = loaded.firstOrNull { it.id == latest } ?: loaded.firstOrNull()
             selectedVersion = selectedRelease?.id ?: "Unavailable"
             versionStatus = "Loaded ${loaded.size} official releases + snapshots. Latest release: $latest"
