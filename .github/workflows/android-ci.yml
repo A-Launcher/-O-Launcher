@@ -25,15 +25,63 @@ jobs:
         with:
           gradle-version: "8.13"
 
-      - name: Install supplied original artwork
-        shell: bash
+      - name: Install original artwork uploaded to artwork/
         run: |
-          if [ -f artwork/o_launcher_original_uploads.zip ]; then
-            mkdir -p app/src/main/assets
-            unzip -o artwork/o_launcher_original_uploads.zip -d app/src/main/assets
-          else
-            echo "Artwork ZIP not present; building with existing fallback assets."
-          fi
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageStat
+          import shutil, colorsys
+          root = Path("artwork")
+          dest = Path("app/src/main/assets")
+          dest.mkdir(parents=True, exist_ok=True)
+          files = []
+          for p in sorted(root.glob("*.png")):
+              try:
+                  im = Image.open(p).convert("RGB")
+                  w, h = im.size
+                  if w > 100 and h > 60:
+                      stat = ImageStat.Stat(im.resize((64, 64)))
+                      r, g, b = stat.mean
+                      files.append({"path": p, "w": w, "h": h, "area": w*h, "ratio": w/h, "rgb": (r,g,b)})
+                      print(f"Found {p.name}: {w}x{h}")
+              except Exception as e:
+                  print(f"Skipping {p.name}: {e}")
+          if not files:
+              raise SystemExit("No uploaded PNG artwork found in artwork/")
+          # Keep the supplied transparent logo and copy it without altering its pixels.
+          logo_candidates = [x for x in files if x["ratio"] > 2.5]
+          if logo_candidates:
+              logo = max(logo_candidates, key=lambda x: x["ratio"])
+              shutil.copy2(logo["path"], dest / "minecraft_java_logo.png")
+              files.remove(logo)
+          # The largest wide scene is the hero background. Other images are news artwork.
+          hero_candidates = [x for x in files if x["ratio"] > 1.45]
+          if hero_candidates:
+              hero = max(hero_candidates, key=lambda x: x["area"])
+              shutil.copy2(hero["path"], dest / "hero_nether.png")
+              files.remove(hero)
+          # Categorize remaining supplied news art by its dominant palette.
+          def hue(item):
+              r,g,b = item["rgb"]
+              return colorsys.rgb_to_hsv(r/255, g/255, b/255)[0]
+          remaining = sorted(files, key=lambda x: x["area"], reverse=True)
+          # Pink/cherry blossom: high red and blue; orange desert: red dominates green/blue;
+          # blue/orange chamber: strongest blue component among remaining images.
+          if remaining:
+              spring = max(remaining, key=lambda x: x["rgb"][0] + x["rgb"][2] - x["rgb"][1])
+              shutil.copy2(spring["path"], dest / "news_spring.png"); remaining.remove(spring)
+          if remaining:
+              camel = max(remaining, key=lambda x: x["rgb"][0] - (x["rgb"][1] + x["rgb"][2])/2)
+              shutil.copy2(camel["path"], dest / "news_camel.png"); remaining.remove(camel)
+          if remaining:
+              trials = max(remaining, key=lambda x: x["rgb"][2] - x["rgb"][0]/2)
+              shutil.copy2(trials["path"], dest / "news_trials.png"); remaining.remove(trials)
+          # Preserve every uploaded original as-is in assets too, for future exact use.
+          for item in files:
+              shutil.copy2(item["path"], dest / item["path"].name)
+          print("Installed supplied artwork assets:", sorted(p.name for p in dest.glob("*.png")))
+          PY
 
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
