@@ -105,6 +105,23 @@ fn preload_recursive(
     Ok(())
 }
 
+
+/// Resolve a soname against LD_LIBRARY_PATH and preload its DT_NEEDED closure.
+pub(crate) fn preload_named_library(name: &str) -> Result<PreloadedDependencies, String> {
+    let directories = library_directories();
+    let target = locate_library(name, Path::new("/"), &directories)
+        .ok_or_else(|| format!("Cannot resolve native library {name} through LD_LIBRARY_PATH"))?;
+    let mut visited = HashSet::new();
+    let mut handles = Vec::new();
+    if let Err(error) = preload_recursive(&target, 0, &directories, &mut visited, &mut handles) {
+        for handle in handles.drain(..).rev() {
+            unsafe { libc::dlclose(handle as *mut libc::c_void); }
+        }
+        return Err(error);
+    }
+    Ok(PreloadedDependencies { handles })
+}
+
 /// Preload the target's DT_NEEDED closure with global visibility. The returned guard
 /// must stay alive until the intercepted original native-library load returns.
 pub(crate) fn preload_dependencies(target: &Path) -> Result<PreloadedDependencies, String> {
