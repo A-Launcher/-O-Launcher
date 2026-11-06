@@ -759,16 +759,15 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     };
     let class = JClass::from(class_object);
 
-    // A process can host only one active renderer provider. Never silently replace it.
-    {
-        let guard = match hook_config().read() {
-            Ok(value) => value,
-            Err(_) => return 0,
-        };
-        if let Some(existing) = guard.as_ref() {
-            if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
-                return 0;
-            }
+    // Hold the write lock through registration so the redirect becomes visible
+    // atomically with the native method. The hook itself only takes a read lock.
+    let mut guard = match hook_config().write() {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    if let Some(existing) = guard.as_ref() {
+        if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
+            return 0;
         }
     }
 
@@ -782,12 +781,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         return 0;
     }
 
-    // Publish the renderer redirect only after HotSpot accepted the native method.
     // A failed RegisterNatives must not leave a half-installed process-wide hook.
-    let mut guard = match hook_config().write() {
-        Ok(value) => value,
-        Err(_) => return 0,
-    };
     if guard.is_none() {
         *guard = Some(HookConfig {
             selected_alias: alias,
@@ -795,7 +789,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         });
     }
     1
-}
+}}
 
 #[cfg(test)]
 mod tests {
