@@ -143,3 +143,12 @@ O Engine's Android CI now downloads the ABI-specific `libgl4es_114.so` shared li
 The workflow checks each file with `git hash-object` against the upstream blob identity before Android packaging, and checks that all four ABI libraries are present in the APK. It also verifies the upstream GL4ES MIT license file against its Git blob identity and installs it under `assets/licenses/LICENSE-gl4es.txt`.
 
 This is a real Android-native dependency package, not a runtime renderer integration yet. GL4ES is not currently selected or loaded by O Engine, and LWJGL 2's native loading path is still blocked pending an adapter. LTW remains the active integration target for the LWJGL 3 path. Do not report GL4ES as a working game renderer until the LWJGL 2 loader bridge, EGL setup, GL entry points, and physical-device rendering have been validated.
+
+
+### GL4ES Android artifact staging and game-process route
+
+- Pinned GL4ES Android shared objects are fetched from the inspected MojoLauncher revision and checked against their exact Git blob IDs during CI; the MIT license text is packaged.
+- `OEngineGl4esArtifactInstaller` copies the ABI-matched `libgl4es_114.so` from the APK native-library directory into O Engine's private renderer directory, checks the copy against the packaged bytes, and validates its ELF class/machine and private-path boundary.
+- The isolated game-process renderer IPC now accepts either the pinned LTW filename or the staged GL4ES filename and uses the same verified LWJGL `libGLMojo.so` alias hook to return the retained handle.
+- This is a staging/loading route only. GL4ES EGL initialization, function resolution, context lifecycle, and Minecraft rendering have not been device-verified. The installer does not automatically select GL4ES, and the current compatibility assessment keeps GL4ES blocked until the renderer adapter passes those checks.
+- Upstream reference: `GLESRenderSpec.GL4ESRenderSpec` selects `libgl4es_114.so` with GLES 2; `GLESRenderSpec.setupRenderer()` delegates EGL preparation to MojoExec. O Engine has not imported MojoExec's private linker-namespace bypass and does not assume its absence is harmless on every Android version.
