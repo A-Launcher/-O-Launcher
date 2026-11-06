@@ -34,6 +34,7 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - OLauncherEngine currently owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview.
 - OEngineGraphics can create a temporary Android EGL pbuffer context, probe OpenGL ES 3 then ES 2, collect driver identity/extensions, and release EGL resources.
 - OEngineEglSession provides a thread-confined Android EGL window-surface/context lifecycle with make-current, swap-interval, buffer-swap, and deterministic teardown operations.
+- OEngineGraphicsBackend is the engine-facing graphics contract; OEngineGraphicsCompatibilityGate explicitly rejects treating an OpenGL ES context as desktop OpenGL. GLES extension enumeration uses the API appropriate to ES 2 versus ES 3.
 - The EGL window session is an Android OpenGL ES foundation, not desktop OpenGL; it does not provide GLFW/LWJGL compatibility. The graphics compatibility layer and actual Minecraft process launch are not complete.
 - A successful CI build proves compilation, not that a downloaded runtime starts on a physical phone. Device verification is required.
 
@@ -43,7 +44,7 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 2. Run the extracted JVM on physical Android devices and capture its diagnostics.
 3. Build a validated JVM command from the launch plan, including classpath, native paths, memory, and game arguments.
 4. Validate EGL/OpenGL ES probe and window-surface lifecycle on physical Android devices.
-5. Specify the exact desktop-GL/GLFW/LWJGL API compatibility contract needed by the selected Minecraft versions; map each API to Android GLES or a justified native implementation.
+5. Inventory the exact desktop-GL/GLFW/LWJGL calls used by each supported Minecraft version; map each API to Android GLES or a justified native implementation.
 6. Implement and test that compatibility contract incrementally; do not assume GLES is desktop OpenGL.
 7. Connect process lifecycle, input/window handling, and crash diagnostics.
 8. Launch a clean vanilla version before adding mod-loader installation.
