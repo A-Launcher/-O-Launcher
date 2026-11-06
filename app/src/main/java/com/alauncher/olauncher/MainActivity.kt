@@ -813,3 +813,16 @@ private fun InstallationsDestination(images: LauncherImages) {
         )
     }
 }
+
+/**
+ * Android launcher entry point. The manifest launches this Activity when the app icon is tapped.
+ */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        setContent {
+            OLauncherApp()
+        }
+    }
+}
