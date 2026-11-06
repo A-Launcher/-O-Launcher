@@ -53,6 +53,10 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 9. Connect process lifecycle, input/window handling, and crash diagnostics.
 10. Launch a clean vanilla version before adding mod-loader installation.
 
+## JVM bootstrap design
+
+The next runtime milestone is specified in [`JVM_BOOTSTRAP_DESIGN.md`](JVM_BOOTSTRAP_DESIGN.md). It defines isolated game-process ownership, Android linker preparation, VM creation and teardown phases, cross-VM JNI rules, and device acceptance gates. The current native library probe remains diagnostic only; it must not be treated as a working JVM launcher.
+
 ## Quality gates
 
 Every subsystem should have focused tests for parsing, path safety, metadata edge cases, cancellation, and failure recovery. Device-dependent behavior must be labeled as unverified until tested on actual hardware. Avoid claims of playable Minecraft until a clean vanilla launch has been demonstrated.
