@@ -1,7 +1,7 @@
 //! O Engine native core. Rust owns the LWJGL native-loader hook.
 //! Android UI and lifecycle remain in Kotlin.
 
-use jni::objects::{JClass, JObjectArray, JString};
+use jni::objects::{JClass, JObject, JObjectArray, JString, JValue};
 use jni::sys::{jboolean, jint, jlong, jobject, jstring, JNIEnv as RawJNIEnv};
 use jni::{JNIEnv, NativeMethod};
 use libc::{c_char, c_void};
@@ -233,13 +233,56 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value,
         Err(error) => return response!("created_env_error", &format!("VM created but JNIEnv could not be wrapped: {error}")),
     };
-    match hot_spot_env.find_class("java/lang/String") {
-        Ok(_) => response!("vm_created", "HotSpot started and java.lang.String resolved successfully"),
+    if let Err(error) = hot_spot_env.find_class("java/lang/String") {
+        if hot_spot_env.exception_check().unwrap_or(false) {
+            let _ = hot_spot_env.exception_clear();
+        }
+        return response!("core_class_error", &format!("VM started but java.lang.String lookup failed: {error}"));
+    }
+
+    // A tiny Java 8-compatible class file with public static void main(String[]) { }.
+    // Defining and invoking this class verifies that the VM can load and execute Java code.
+    const SMOKE_CLASS: [u8; 136] = [
+        202,254,186,190,0,0,0,52,0,8,1,0,18,79,69,110,103,105,110,101,86,109,83,109,111,107,101,84,101,115,116,
+        7,0,1,1,0,16,106,97,118,97,47,108,97,110,103,47,79,98,106,101,99,116,7,0,3,1,0,4,109,97,105,110,
+        1,0,22,40,91,76,106,97,118,97,47,108,97,110,103,47,83,116,114,105,110,103,59,41,86,1,0,4,67,111,100,
+        101,0,33,0,2,0,4,0,0,0,0,0,1,0,9,0,5,0,6,0,1,0,7,0,0,0,13,0,0,0,1,0,0,0,1,
+        177,0,0,0,0,0,0
+    ];
+    let loader_value = match hot_spot_env.call_static_method(
+        "java/lang/ClassLoader",
+        "getSystemClassLoader",
+        "()Ljava/lang/ClassLoader;",
+        &[],
+    ) {
+        Ok(value) => value,
         Err(error) => {
-            let _ = hot_spot_env.exception_check().and_then(|pending| {
-                if pending { hot_spot_env.exception_clear() } else { Ok(()) }
-            });
-            response!("core_class_error", &format!("VM started but java.lang.String lookup failed: {error}"))
+            if hot_spot_env.exception_check().unwrap_or(false) { let _ = hot_spot_env.exception_clear(); }
+            return response!("java_main_loader_error", &format!("Cannot get system class loader: {error}"));
+        }
+    };
+    let loader = match loader_value.l() {
+        Ok(value) => value,
+        Err(error) => return response!("java_main_loader_error", &format!("Invalid system class loader result: {error}")),
+    };
+    let smoke_class = match hot_spot_env.define_class("OEngineVmSmokeTest", &loader, &SMOKE_CLASS) {
+        Ok(value) => value,
+        Err(error) => {
+            if hot_spot_env.exception_check().unwrap_or(false) { let _ = hot_spot_env.exception_clear(); }
+            return response!("java_main_define_error", &format!("Cannot define smoke-test class: {error}"));
+        }
+    };
+    let null_args = JObject::null();
+    match hot_spot_env.call_static_method(
+        &smoke_class,
+        "main",
+        "([Ljava/lang/String;)V",
+        &[JValue::Object(&null_args)],
+    ) {
+        Ok(_) => response!("vm_created", "HotSpot created; java.lang.String resolved; OEngineVmSmokeTest.main executed"),
+        Err(error) => {
+            if hot_spot_env.exception_check().unwrap_or(false) { let _ = hot_spot_env.exception_clear(); }
+            response!("java_main_invoke_error", &format!("VM created but smoke-test main failed: {error}"))
         }
     }
 }
