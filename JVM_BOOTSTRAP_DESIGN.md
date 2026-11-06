@@ -66,3 +66,9 @@ The first isolated-process slice is now present in the Android app:
 - `OEngineGameProcessClient` binds from the launcher process, requests the handshake, reports a typed status, and owns the binding lifetime through `close()`.
 
 This is only an IPC/process-isolation foundation. It does not yet load OpenJDK, create a VM, launch a Java main class, or connect Minecraft. A caller must also keep the client alive for as long as it needs the binding.
+
+## Game-process JVM linker probe
+
+The isolated process now exposes a second Messenger request for a JVM linker diagnostic. The launcher sends only the selected runtime home, game working directory, and canonical `libjvm.so` path. The service validates that the library is named `libjvm.so` and remains inside the selected runtime directory, prepares process-local `JAVA_HOME`, `HOME`, `TMPDIR`, and `LD_LIBRARY_PATH`, then calls the existing Rust native symbol probe from the `:game` process.
+
+The diagnostic runs on a dedicated HandlerThread, has bounded IPC timeouts, and retains the validated library handle only in the game process. This still does not call `JNI_CreateJavaVM`, install JDK native-library hooks, or launch Minecraft. The Android linker may not honor all runtime environment changes on every API level; device verification is required.
