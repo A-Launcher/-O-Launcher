@@ -193,6 +193,63 @@ private fun createArtworkAtlas(): Bitmap {
     return bitmap
 }
 
+private fun createRealmsArtwork(): ImageBitmap {
+    val width = 420
+    val height = 320
+    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(bmp)
+    val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    fun rect(x: Float, y: Float, w: Float, h: Float, c: Int) { p.color=c; canvas.drawRect(x,y,x+w,y+h,p) }
+    fun round(x: Float, y: Float, w: Float, h: Float, r: Float, c: Int) { p.color=c; canvas.drawRoundRect(x,y,x+w,y+h,r,r,p) }
+    fun poly(points: List<Pair<Float,Float>>, c: Int) {
+        val path=android.graphics.Path(); path.moveTo(points[0].first,points[0].second)
+        points.drop(1).forEach { path.lineTo(it.first,it.second) }; path.close()
+        p.color=c; canvas.drawPath(path,p)
+    }
+    p.shader=android.graphics.LinearGradient(0f,0f,0f,height.toFloat(),android.graphics.Color.rgb(116,190,255),android.graphics.Color.rgb(255,222,171),android.graphics.Shader.TileMode.CLAMP)
+    canvas.drawRect(0f,0f,width.toFloat(),height.toFloat(),p); p.shader=null
+    // Soft clouds and distant floating land
+    p.color=android.graphics.Color.argb(150,255,255,255)
+    canvas.drawCircle(70f,55f,25f,p); canvas.drawCircle(95f,49f,20f,p); canvas.drawCircle(117f,58f,16f,p)
+    canvas.drawCircle(330f,76f,20f,p); canvas.drawCircle(350f,68f,17f,p); canvas.drawCircle(368f,78f,13f,p)
+    poly(listOf(0f to 207f,58f to 171f,110f to 195f,177f to 158f,235f to 193f,300f to 162f,420f to 198f,420f to 247f,0f to 247f),android.graphics.Color.rgb(133,181,119))
+    // Island top and tapered dirt underside
+    poly(listOf(35f to 190f,94f to 154f,172f to 165f,242f to 143f,345f to 178f,390f to 203f,357f to 229f,319f to 268f,264f to 288f,206f to 310f,151f to 286f,101f to 263f,62f to 228f),android.graphics.Color.rgb(83,119,60))
+    poly(listOf(35f to 190f,94f to 154f,172f to 165f,242f to 143f,345f to 178f,390f to 203f,357f to 229f,319f to 268f,264f to 288f,206f to 310f,151f to 286f,101f to 263f,62f to 228f),android.graphics.Color.rgb(117,77,49))
+    poly(listOf(35f to 190f,94f to 154f,172f to 165f,242f to 143f,345f to 178f,390f to 203f,365f to 217f,285f to 207f,209f to 225f,130f to 210f,64f to 214f),android.graphics.Color.rgb(80,145,66))
+    // Castle central keep
+    rect(166f,89f,105f,89f,android.graphics.Color.rgb(211,177,130))
+    rect(158f,80f,121f,15f,android.graphics.Color.rgb(120,77,55))
+    rect(178f,113f,22f,34f,android.graphics.Color.rgb(91,66,54))
+    rect(235f,113f,22f,34f,android.graphics.Color.rgb(91,66,54))
+    rect(205f,124f,27f,54f,android.graphics.Color.rgb(133,83,48))
+    // Main roof and battlements
+    poly(listOf(151f to 91f,218f to 39f,286f to 91f),android.graphics.Color.rgb(110,67,52))
+    rect(174f,52f,14f,29f,android.graphics.Color.rgb(208,173,124))
+    rect(250f,52f,14f,29f,android.graphics.Color.rgb(208,173,124))
+    poly(listOf(165f to 54f,181f to 27f,197f to 54f),android.graphics.Color.rgb(91,57,48))
+    poly(listOf(242f to 54f,257f to 27f,273f to 54f),android.graphics.Color.rgb(91,57,48))
+    // Left and right towers
+    rect(113f,106f,47f,78f,android.graphics.Color.rgb(224,190,144))
+    rect(108f,94f,57f,15f,android.graphics.Color.rgb(121,76,53))
+    poly(listOf(106f to 96f,136f to 57f,167f to 96f),android.graphics.Color.rgb(105,61,48))
+    rect(277f,105f,47f,79f,android.graphics.Color.rgb(224,190,144))
+    rect(272f,93f,57f,15f,android.graphics.Color.rgb(121,76,53))
+    poly(listOf(270f to 95f,301f to 56f,331f to 95f),android.graphics.Color.rgb(105,61,48))
+    // Windows, door and warm highlights
+    for (x in listOf(126f,145f,190f,245f,290f,308f)) {
+        round(x,119f,8f,18f,4f,android.graphics.Color.rgb(255,213,116))
+    }
+    rect(208f,148f,20f,30f,android.graphics.Color.rgb(91,59,44))
+    // Trees and shrubs on the island
+    for ((x,y) in listOf(55f to 170f,78f to 160f,344f to 165f,369f to 183f)) {
+        rect(x+9,y+12,7f,24f,android.graphics.Color.rgb(105,72,45))
+        p.color=android.graphics.Color.rgb(65,139,63); canvas.drawCircle(x,y,19f,p)
+        p.color=android.graphics.Color.rgb(93,169,74); canvas.drawCircle(x+10,y-8,12f,p)
+    }
+    return bmp.asImageBitmap()
+}
+
 private fun readBitmap(context: android.content.Context, file: String, fallbackColor: Int): Bitmap {
     return try {
         context.assets.open(file).use { input ->
@@ -268,7 +325,7 @@ private fun rememberLauncherImages(): LauncherImages {
                 ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
             camel = readAssetImage(context, "news_camel.png")
                 ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
-            realms = cropBitmapSafe(atlas, 499, 449, 110, 130, android.graphics.Color.GREEN),
+            realms = createRealmsArtwork(),
             avatar = cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             logo = logo
         )
@@ -449,58 +506,66 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
 @Composable
 private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modifier: Modifier = Modifier) {
     val entries = listOf(
-        Triple(Icons.Filled.Home, "Home", 0),
-        Triple(Icons.Filled.Inventory2, "Installations", 1),
-        Triple(Icons.Filled.Checkroom, "Skins", 2),
-        Triple(Icons.Filled.Storefront, "Marketplace", 3),
-        Triple(Icons.Filled.Settings, "Settings", 4),
-        Triple(Icons.Filled.Info, "About", 5)
+        Triple(Icons.Filled.Home, "HOME", 0),
+        Triple(Icons.Filled.Inventory2, "INSTALLATIONS", 1),
+        Triple(Icons.Filled.Checkroom, "SKINS", 2),
+        Triple(Icons.Filled.Storefront, "MARKETPLACE", 3),
+        Triple(Icons.Filled.Settings, "SETTINGS", 4),
+        Triple(Icons.Filled.Info, "ABOUT", 5)
     )
     Column(
-        modifier.clip(RoundedCornerShape(26.dp)).background(Panel).padding(horizontal = 9.dp, vertical = 12.dp),
+        modifier.clip(RoundedCornerShape(25.dp)).background(Panel).padding(horizontal = 7.dp, vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 8.dp).size(50.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
-        Spacer(Modifier.height(8.dp))
+        Image(images.avatar, contentDescription = "Minecraft player avatar", modifier = Modifier.padding(vertical = 7.dp).size(48.dp).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+        Spacer(Modifier.height(7.dp))
         entries.forEach { (icon, label, index) ->
             val selected = tab == index
             Surface(
                 onClick = { onTab(index) },
                 color = if (selected) Color(0xFFFFE5A5) else Color.Transparent,
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(17.dp),
+                shadowElevation = if (selected) 2.dp else 0.dp,
+                border = if (selected) androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD979)) else null,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
             ) {
                 Column(
-                    Modifier.padding(vertical = 10.dp),
+                    Modifier.padding(vertical = 9.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(26.dp))
+                    Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(25.dp))
                     Spacer(Modifier.height(3.dp))
-                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, color = Ink, maxLines = 1, letterSpacing = (-0.2).sp)
+                    Text(label, fontSize = 9.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.35).sp)
                 }
             }
         }
         Spacer(Modifier.weight(1f))
-        Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(17.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Surface(
+            color = Color(0xFFFFF1D9),
+            shape = RoundedCornerShape(17.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5C2)),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(29.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
+                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(27.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(5.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("CreeperFan", fontSize = 10.sp, fontWeight = FontWeight.Black)
-                        Text("● Online", fontSize = 9.sp, color = Color(0xFF398C37), fontWeight = FontWeight.Bold)
+                        Text("CREEPERFAN", fontSize = 9.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, maxLines = 1)
+                        Text("● ONLINE", fontSize = 8.sp, color = Color(0xFF398C37), fontWeight = FontWeight.Bold)
                     }
-                    Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(15.dp))
                 }
                 Divider(color = Border)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF35A34A)))
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF35A34A)))
                     Spacer(Modifier.width(5.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Latest Release", fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        Text("1.21.10", fontSize = 9.sp, color = Muted)
+                        Text("LATEST RELEASE", fontSize = 8.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
+                        Text("1.21.10", fontSize = 8.sp, color = Muted)
                     }
-                    Icon(Icons.Filled.ExpandMore, contentDescription = "Release options", modifier = Modifier.size(15.dp))
+                    Icon(Icons.Filled.ExpandMore, contentDescription = "Release options", modifier = Modifier.size(14.dp))
                 }
             }
         }
@@ -584,11 +649,22 @@ private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit)
 
 @Composable
 private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier, color = Color(0xFFFFF0DA), shape = RoundedCornerShape(15.dp)) {
-        Column(Modifier.fillMaxSize().padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(23.dp))
-            Spacer(Modifier.height(4.dp))
-            Text(label, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        color = Color(0xFFFFF0DA),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .72f)),
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.height(3.dp))
+            Text(label, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.SemiBold, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
@@ -624,16 +700,32 @@ private fun NewsCard(image: ImageBitmap, title: String, description: String, dat
 
 @Composable
 private fun RealmsCard(images: LauncherImages, modifier: Modifier = Modifier) {
-    Surface(color = Color(0xFFFFF0D9), shape = RoundedCornerShape(22.dp), modifier = modifier) {
-        Row(Modifier.fillMaxSize().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("♛  Join Realms", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Play with friends anywhere, anytime!", fontSize = 13.sp, fontWeight = FontWeight.Normal, color = Ink)
-                Surface(color = Ink, shape = RoundedCornerShape(25.dp)) {
-                    Text("Learn More  →", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+    Surface(
+        color = Color(0xFFFFF0D9),
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE2B8)),
+        shadowElevation = 2.dp,
+        modifier = modifier
+    ) {
+        Row(Modifier.fillMaxSize().padding(start = 13.dp, top = 9.dp, bottom = 9.dp, end = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("♛", color = Gold, fontSize = 21.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.width(6.dp))
+                    Text("JOIN REALMS", fontWeight = FontWeight.Black, fontSize = 16.sp, fontStyle = FontStyle.Italic, maxLines = 1)
+                }
+                Text("Play with friends anywhere, anytime!", fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium, color = Ink)
+                Surface(onClick = { }, color = Ink, shape = RoundedCornerShape(25.dp), shadowElevation = 2.dp) {
+                    Text("LEARN MORE  →", color = Color.White, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp))
                 }
             }
-            Image(images.realms, contentDescription = "Realms artwork", modifier = Modifier.width(92.dp).fillMaxHeight(), contentScale = ContentScale.Crop)
+            Image(
+                images.realms,
+                contentDescription = "Minecraft Realms floating island castle",
+                modifier = Modifier.width(112.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)),
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.Center
+            )
         }
     }
 }
