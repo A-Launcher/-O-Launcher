@@ -54,6 +54,7 @@ object OEngineJvmBootstrapPlanner {
         "-Duser.timezone",
         "-Dorg.lwjgl.vulkan.libname",
         "-Dorg.lwjgl.spvc.libname",
+        "-Dorg.lwjgl.opengl.libname",
         "-XX:ActiveProcessorCount"
     )
 
@@ -67,7 +68,8 @@ object OEngineJvmBootstrapPlanner {
         applicationArguments: List<String>,
         androidRelease: String = "unknown",
         timezoneId: String = "UTC",
-        availableProcessors: Int = 1
+        availableProcessors: Int = 1,
+        rendererLibraryAlias: String? = null
     ): OEngineJvmBootstrapPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -132,6 +134,12 @@ object OEngineJvmBootstrapPlanner {
                 "-Dorg.lwjgl.vulkan.libname" to "libvulkan.so",
                 "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared"
         )
+        rendererLibraryAlias?.let { alias ->
+            require(alias.matches(Regex("lib[A-Za-z0-9_-]+\\\\.so"))) {
+                "Renderer library alias must be a shared-library filename such as libGLMojo.so."
+            }
+            ownedVmProperties["-Dorg.lwjgl.opengl.libname"] = alias
+        }
         // ActiveProcessorCount is a HotSpot VM flag introduced after Java 8.
         if (runtime.javaMajor >= 10) {
             ownedVmProperties["-XX:ActiveProcessorCount"] = availableProcessors.coerceAtLeast(1).toString()
