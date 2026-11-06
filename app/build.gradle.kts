@@ -21,6 +21,7 @@ android {
 
     // Load the user's original PNG sidebar icons from the repository artwork folder.
     sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
+    sourceSets.getByName("main").assets.srcDir("../artwork/quick_links")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
