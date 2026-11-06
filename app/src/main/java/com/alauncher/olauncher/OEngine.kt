@@ -87,7 +87,9 @@ object OLauncherEngine {
             blockers.add("Android-compatible native libraries have not been installed.")
         }
         if (plan.mainClass.isBlank()) blockers.add("Minecraft main class is missing.")
-        blockers.add("O Engine in-process JVM bootstrap is not integrated; a child ProcessBuilder JVM cannot receive the renderer hook.")\n        blockers.add("Android LWJGL native-library resolution is not integrated for the selected Minecraft metadata version.")\n        blockers.add("O Engine LTW EGL context interception is not integrated; Minecraft cannot launch yet.")
+        blockers.add("O Engine in-process JVM bootstrap is not integrated; a child ProcessBuilder JVM cannot receive the renderer hook.")
+        blockers.add("Android LWJGL native-library resolution is not integrated for the selected Minecraft metadata version.")
+        blockers.add("O Engine LTW EGL context interception is not integrated; Minecraft cannot launch yet.")
 
         val classpath = plan.classpath.joinToString(File.pathSeparator)
         val substitutions = mapOf(
