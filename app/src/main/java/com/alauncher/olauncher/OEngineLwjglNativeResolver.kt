@@ -38,8 +38,8 @@ data class OEngineLwjglResolution(
 /**
  * Reads the actual Mojang classpath and inspects, but never loads, LWJGL classes.
  *
- * A bytecode marker is diagnostic only. In particular, finding Mojo's ndlopen marker
- * never enables its patched native hook in O Launcher.
+ * A bytecode marker confirms the upstream JNI surface only. O Engine installs its
+ * separately implemented retained-handle hook; it does not load Mojo's patched hook.
  */
 object OEngineLwjglNativeResolver {
     private val artifactPattern = Regex(
