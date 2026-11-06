@@ -11,7 +11,7 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - Treat archives and metadata as untrusted input; validate paths, hashes, sizes, and version compatibility.
 - Keep runtime discovery and JVM process configuration in O Engine, not in Compose screens.
 - Prefer Android public APIs and supported NDK interfaces. Do not depend on private platform symbols.
-- No copying or vendoring another launcher's engine. External projects and platform documentation may be studied as references; implementation and architecture remain ours.
+- O Engine remains an original launcher and owns its architecture, APIs, lifecycle, and UI. Selectively integrate technically necessary upstream components when that is safer or faster than reimplementing them; pin exact revisions, keep separable library boundaries, preserve licenses/notices and corresponding source, and document every adaptation. Do not fork/rebrand an entire launcher or copy its app architecture.
 
 ## Target subsystem boundaries
 
