@@ -72,7 +72,8 @@ object OLauncherEngine {
 
     fun prepareCommandPreview(
         gameRoot: File,
-        plan: MinecraftVersionInstaller.LaunchPlan
+        plan: MinecraftVersionInstaller.LaunchPlan,
+        rendererLibraryAlias: String? = null
     ): OEngineCommandPreview {
         val enginePaths = paths(gameRoot)
         val runtime = findRuntime(gameRoot, plan.javaMajorVersion)
@@ -99,7 +100,8 @@ object OLauncherEngine {
                 applicationArguments = plan.gameArguments,
                 androidRelease = android.os.Build.VERSION.RELEASE,
                 timezoneId = java.util.TimeZone.getDefault().id,
-                availableProcessors = Runtime.getRuntime().availableProcessors()
+                availableProcessors = Runtime.getRuntime().availableProcessors(),
+                rendererLibraryAlias = rendererLibraryAlias
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
