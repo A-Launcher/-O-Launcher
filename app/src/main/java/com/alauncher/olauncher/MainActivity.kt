@@ -2388,6 +2388,21 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             }
                                         )
                                     },
+                                    onJvmMain = { result ->
+                                        launchingMinecraft = false
+                                        gameProcessStatus = result.fold(
+                                            onSuccess = { main ->
+                                                if (main.successful) {
+                                                    "MINECRAFT MAIN RETURNED SUCCESS • " + main.status + " • " + main.detail
+                                                } else {
+                                                    "MINECRAFT MAIN FAILED • " + main.status + " • " + main.detail
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                "MINECRAFT MAIN IPC FAILED • " + (error.message ?: "Unknown game-process error")
+                                            }
+                                        )
+                                    },
                                     onJvmCreate = { result ->
                                         result.fold(
                                             onSuccess = { created ->
@@ -2489,9 +2504,10 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             authenticatedPlan.gameArguments
                                         ) == true
                                         gameProcessStatus = if (sent) {
-                                            "AUTHENTICATED MINECRAFT MAIN INVOCATION SENT • " + account.name + " • " + authenticatedPlan.version
+                                            "AUTHENTICATED LAUNCH REQUEST SENT • awaiting the game-process result for " + account.name + " • " + authenticatedPlan.version
                                         } else {
-                                            "AUTHENTICATION SUCCEEDED, BUT MAIN INVOCATION FAILED • game process is not connected"
+                                            launchingMinecraft = false
+                                            "AUTHENTICATION SUCCEEDED, BUT MAIN INVOCATION COULD NOT BE SENT • game process is not connected"
                                         }
                                     } catch (error: Exception) {
                                         gameProcessStatus = "MINECRAFT LAUNCH PREPARATION FAILED • " + (error.message ?: "Unknown authentication error")
