@@ -1714,6 +1714,10 @@ private fun InstallationsDestination(images: LauncherImages) {
     var downloadBytes by remember { mutableStateOf(0L) }
     var downloadTotal by remember { mutableStateOf(0L) }
     var downloadStatus by remember { mutableStateOf("Choose a version to download its official client file.") }
+    var downloadingDependencies by remember { mutableStateOf(false) }
+    var dependencyBytes by remember { mutableStateOf(0L) }
+    var dependencyTotal by remember { mutableStateOf(0L) }
+    var dependencyStatus by remember { mutableStateOf("Libraries and assets are not installed yet.") }
 
     LaunchedEffect(Unit) {
         try {
@@ -1816,7 +1820,52 @@ private fun InstallationsDestination(images: LauncherImages) {
                             )
                         }
                         Text(downloadStatus, color = Muted, fontSize = 11.sp)
-                        Text("Downloads the official client JAR and verifies its SHA-1 in app storage. Libraries, assets, Java runtime and launching are the next stages.", color = Muted, fontSize = 10.sp)
+                        Divider(color = Border)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                enabled = selectedRelease != null && !downloadingClient && !downloadingDependencies,
+                                onClick = {
+                                    val release = selectedRelease ?: return@Button
+                                    downloadingDependencies = true
+                                    dependencyBytes = 0L
+                                    dependencyTotal = 0L
+                                    dependencyStatus = "Preparing libraries and asset index…"
+                                    scope.launch {
+                                        try {
+                                            val result = MinecraftVersionInstaller.downloadLibrariesAndAssets(
+                                                release, File(context.filesDir, "minecraft")
+                                            ) { done, total, label ->
+                                                dependencyBytes = done
+                                                dependencyTotal = total
+                                                dependencyStatus = label
+                                            }
+                                            val mb = result.bytes / (1024.0 * 1024.0)
+                                            dependencyStatus = "Verified ${result.libraries} libraries and ${result.assets} assets • ${"%.1f".format(mb)} MB"
+                                        } catch (error: Exception) {
+                                            dependencyStatus = error.message ?: "Library and asset download failed."
+                                        } finally {
+                                            downloadingDependencies = false
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6D9D65), contentColor = Color.White),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(if (downloadingDependencies) "INSTALLING…" else "DOWNLOAD LIBRARIES + ASSETS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            }
+                            if (downloadingDependencies && dependencyTotal > 0L) {
+                                Text("${(dependencyBytes * 100 / dependencyTotal).coerceIn(0, 100)}%", color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                        if (downloadingDependencies) {
+                            LinearProgressIndicator(
+                                progress = { if (dependencyTotal > 0L) (dependencyBytes.toFloat() / dependencyTotal).coerceIn(0f, 1f) else 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFF6D9D65)
+                            )
+                        }
+                        Text(dependencyStatus, color = Muted, fontSize = 11.sp)
+                        Text("The client JAR, Maven library artifacts and asset objects are downloaded into app storage and checked against Mojang SHA-1/size metadata. Native classifiers, Java runtime and launching still need integration.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
