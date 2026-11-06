@@ -888,7 +888,7 @@ private fun LauncherFilesDestination() {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("LAUNCHER FILES", fontSize = (23 * scale).sp, fontWeight = FontWeight.Black)
+                        Text("LAUNCHER FILES", fontSize = 23.sp, fontWeight = FontWeight.Black)
                         Text("Manage your launcher folder without opening a separate file manager.", color = Muted, fontSize = 12.sp)
                     }
                     Button(onClick = { newName = ""; showCreate = true }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
@@ -1035,9 +1035,10 @@ private fun MarketplaceDestination(availableHeight: Dp) {
     var search by remember { mutableStateOf("") }
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(availableHeight)) {
-        val scale = (maxHeight / 700.dp).coerceIn(0.72f, 1.12f)
+        val contentHeight = this.maxHeight
+        val scale = (contentHeight / 700.dp).coerceIn(0.72f, 1.12f)
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp * scale)) {
-        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(maxHeight * 0.25f)) {
+        Surface(color = Color(0xFF25142E), shape = RoundedCornerShape(22.dp * scale), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF35162F), Color(0xFF7D263B), Color(0xFF24172F))))) {
                 Column(Modifier.align(Alignment.CenterStart).fillMaxWidth(0.68f).padding(start = 24.dp * scale), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text("BETTER MINECRAFT WITH MODS", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
@@ -1082,7 +1083,6 @@ private fun MarketplaceDestination(availableHeight: Dp) {
         }
     }
         }
-    }
 }
 
 @Composable
