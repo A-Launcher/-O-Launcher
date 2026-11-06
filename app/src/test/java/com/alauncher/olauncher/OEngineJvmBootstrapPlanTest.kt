@@ -40,6 +40,12 @@ class OEngineJvmBootstrapPlanTest {
             assertTrue(plan.vmOptions.any { it == "-Djava.home=" + runtimeHome.canonicalPath })
             assertFalse(plan.vmOptions.any { it == "-Djava.home=/old/path" })
             assertTrue(plan.vmOptions.any { it == "-Duser.home=" + game.canonicalPath })
+            assertTrue(plan.vmOptions.contains("-Djdk.lang.Process.launchMechanism=FORK"))
+            assertTrue(plan.vmOptions.contains("-Dos.name=Linux"))
+            assertTrue(plan.vmOptions.contains("-Duser.language=en"))
+            assertTrue(plan.vmOptions.contains("-Duser.country=US"))
+            assertTrue(plan.vmOptions.contains("-Dlog4j2.formatMsgNoLookups=true"))
+            assertTrue(plan.vmOptions.any { it == "-Djna.boot.library.path=" + nativeDir.canonicalPath })
             assertEquals(listOf("--username", "Player"), plan.applicationArguments)
         } finally {
             root.deleteRecursively()
