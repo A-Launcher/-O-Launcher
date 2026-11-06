@@ -26,6 +26,7 @@ static JVM_INSTANCE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 static NATIVE_LOAD_HOOK: OnceLock<Mutex<Option<(i32, usize, usize)>>> = OnceLock::new();
 static HOTSPOT_ENV: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
 static HOTSPOT_CREATOR_THREAD: OnceLock<Mutex<Option<ThreadId>>> = OnceLock::new();
+static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -576,6 +577,50 @@ unsafe extern "system" fn lwjgl_ndlopen_hook(
         }
     }
     libc::dlopen(filename.as_ptr(), mode) as jlong
+}
+
+/// Loads one validated renderer shared object into the process linker namespace.
+/// Handles are retained for the lifetime of the game process because LWJGL may call
+/// the replacement long after installation.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLoadRenderer(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    renderer_path: jstring,
+) -> jlong {
+    if raw_env.is_null() || renderer_path.is_null() { return 0; }
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    let path: String = match env.get_string(&JString::from_raw(renderer_path)) {
+        Ok(value) => value.into(),
+        Err(_) => return 0,
+    };
+    let canonical = match std::fs::canonicalize(&path) {
+        Ok(value) if value.is_absolute() && value.is_file() => value,
+        _ => return 0,
+    };
+    let path = match CString::new(canonical.to_string_lossy().as_bytes()) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    let libraries = RENDERER_LIBRARIES.get_or_init(|| Mutex::new(Vec::new()));
+    let mut guard = match libraries.lock() {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    if let Some((_, handle)) = guard.iter().find(|(loaded, _)| loaded == &path) {
+        return *handle as jlong;
+    }
+    libc::dlerror();
+    let handle = libc::dlopen(path.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL);
+    if handle.is_null() {
+        return 0;
+    }
+    let raw = handle as usize;
+    guard.push((path, raw));
+    raw as jlong
 }
 
 /// Installs the LWJGL 3 JNI method replacement using the embedded HotSpot VM's
