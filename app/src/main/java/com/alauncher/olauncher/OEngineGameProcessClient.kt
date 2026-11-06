@@ -379,6 +379,12 @@ class OEngineGameProcessClient(
         eglLibraryPath: String? = null,
         glesLibraryPath: String? = null
     ): Boolean {
+        require(targetClassName == OEngineLwjglNativeResolver.DYNAMIC_LINK_LOADER_CLASS_NAME) {
+            "Only the exact LWJGL DynamicLinkLoader class is supported by the LTW hook."
+        }
+        require(selectedAlias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) {
+            "The selected alias does not match the pinned LTW renderer contract."
+        }
         val target = serviceMessenger
         if (closed.get() || target == null) {
             onRendererHook(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
