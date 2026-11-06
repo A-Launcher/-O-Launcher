@@ -6,6 +6,7 @@ import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.opengl.GLES20
+import android.opengl.GLES30
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -89,8 +90,7 @@ object OEngineGraphics {
                     val glVersion = GLES20.glGetString(GLES20.GL_VERSION).orEmpty()
                     val vendor = GLES20.glGetString(GLES20.GL_VENDOR).orEmpty()
                     val renderer = GLES20.glGetString(GLES20.GL_RENDERER).orEmpty()
-                    val extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS)
-                        .orEmpty().split(Regex("\\s+")).filter { it.isNotBlank() }.toSet()
+                    val extensions = readExtensions(version)
                     check(glVersion.isNotBlank() && renderer.isNotBlank()) {
                         "The OpenGL ES context was created but returned incomplete driver information."
                     }
@@ -115,6 +115,18 @@ object OEngineGraphics {
             EGL14.eglTerminate(display)
             EGL14.eglReleaseThread()
         }
+    }
+
+    private fun readExtensions(major: Int): Set<String> {
+        if (major >= 3) {
+            val count = IntArray(1)
+            GLES30.glGetIntegerv(GLES30.GL_NUM_EXTENSIONS, count, 0)
+            return (0 until count[0].coerceAtLeast(0)).mapNotNull { index ->
+                GLES30.glGetStringi(GLES20.GL_EXTENSIONS, index)?.takeIf { it.isNotBlank() }
+            }.toSet()
+        }
+        return GLES20.glGetString(GLES20.GL_EXTENSIONS).orEmpty()
+            .split(Regex("\\s+")).filter { it.isNotBlank() }.toSet()
     }
 
     private fun eglError(): String = "EGL error 0x" + EGL14.eglGetError().toString(16)
