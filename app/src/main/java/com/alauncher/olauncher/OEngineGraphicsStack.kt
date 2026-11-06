@@ -34,7 +34,7 @@ object OEngineGraphicsStack {
         """/org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/"""
     )
 
-    enum class RendererProvider { LTW, MOBILE_GLUES }
+    enum class RendererProvider { LTW, GL4ES, MOBILE_GLUES }
 
     data class Assessment(
         val lwjglModules: Map<String, Set<String>>,
@@ -97,6 +97,10 @@ object OEngineGraphicsStack {
         when (selectedProvider) {
             RendererProvider.LTW -> if (!ltwAvailable) {
                 blockers += "LTW provider is not installed or exposed to O Engine yet."
+            }
+            RendererProvider.GL4ES -> {
+                // The artifact can be installed and ELF-checked, but its EGL/GL adapter is not yet device-verified.
+                blockers += "GL4ES artifact staging is available, but renderer initialization and EGL handoff are not yet device-verified."
             }
             RendererProvider.MOBILE_GLUES -> if (!mobileGluesAvailable) {
                 blockers += "MobileGlues provider is not installed or exposed to O Engine yet."
