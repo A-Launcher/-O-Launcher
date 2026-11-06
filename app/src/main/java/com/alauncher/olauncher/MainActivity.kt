@@ -394,53 +394,44 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            if (tab == 1 || tab == 4 || tab == 5 || tab == 6 || tab == 7) {
-                when (tab) {
-                    1 -> InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                    4 -> SettingsReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                    5 -> AboutReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                    6 -> FileManagerReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                    else -> CreateAccountReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
-                }
-            } else {
-                Row(
-                    Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
-                    horizontalArrangement = Arrangement.spacedBy(gap)
-                ) {
-                    Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
-                    Column(Modifier.weight(1f).fillMaxHeight()) {
-                        TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp), onAccountClick = { tab = 7 })
-                        Spacer(Modifier.height(gap))
-                        Row(
-                            Modifier.weight(1f).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(gap)
+            Row(
+                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(gap)
+            ) {
+                Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp), onAccountClick = { tab = 7 })
+                    Spacer(Modifier.height(gap))
+                    Row(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(gap)
+                    ) {
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
-                            Column(
-                                Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(gap)
-                            ) {
-                                if (tab == 0) {
+                            when (tab) {
+                                0 -> {
                                     HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
                                     FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
-                                } else if (tab == 2) {
-                                    SkinDestination(images)
-                                } else if (tab == 3) {
-                                    MarketplaceDestination(dashboardHeight * 0.88f)
-                                } else if (tab == 6) {
-                                    LauncherFilesDestination()
-                                } else {
-                                    Destination(tab, images)
                                 }
+                                1 -> InstallationsDestination(images)
+                                2 -> SkinDestination(images)
+                                3 -> MarketplaceDestination(dashboardHeight * 0.88f)
+                                4 -> SettingsDestination()
+                                5 -> AboutDestination()
+                                6 -> LauncherFilesDestination()
+                                else -> AccountDestination(images)
                             }
-                            if (tab != 3) {
-                                Column(
-                                    Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(gap)
-                                ) {
-                                    WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
-                                    QuickLinks(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
-                                    RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
-                                }
+                        }
+                        if (tab == 0) {
+                            Column(
+                                Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(gap)
+                            ) {
+                                WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
+                                QuickLinks(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
+                                RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
                             }
                         }
                     }
