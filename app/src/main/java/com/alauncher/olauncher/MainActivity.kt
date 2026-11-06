@@ -1702,9 +1702,32 @@ private fun LoaderOptionCard(
 }
 @Composable
 private fun InstallationsDestination(images: LauncherImages) {
-    val versions = listOf("1.21.4", "1.21.1", "1.20.6", "1.20.4", "1.19.4")
-    var selectedVersion by remember { mutableStateOf("1.21.4") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var versions by remember { mutableStateOf<List<MinecraftRelease>>(emptyList()) }
+    var selectedVersion by remember { mutableStateOf("Loading…") }
+    var selectedRelease by remember { mutableStateOf<MinecraftRelease?>(null) }
     var versionMenu by remember { mutableStateOf(false) }
+    var versionsLoading by remember { mutableStateOf(true) }
+    var versionStatus by remember { mutableStateOf("Loading official Minecraft releases…") }
+    var downloadingClient by remember { mutableStateOf(false) }
+    var downloadBytes by remember { mutableStateOf(0L) }
+    var downloadTotal by remember { mutableStateOf(0L) }
+    var downloadStatus by remember { mutableStateOf("Choose a version to download its official client file.") }
+
+    LaunchedEffect(Unit) {
+        try {
+            val (loaded, latest) = MinecraftVersionInstaller.fetchReleases()
+            versions = loaded.take(80)
+            selectedRelease = loaded.firstOrNull { it.id == latest } ?: loaded.firstOrNull()
+            selectedVersion = selectedRelease?.id ?: "Unavailable"
+            versionStatus = "Loaded ${loaded.size} official release versions. Latest: $latest"
+        } catch (error: Exception) {
+            versionStatus = error.message ?: "Could not load Minecraft versions."
+        } finally {
+            versionsLoading = false
+        }
+    }
     var showCreateProfile by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf("") }
     val profiles = remember { mutableStateListOf("Default") }
@@ -1744,14 +1767,56 @@ private fun InstallationsDestination(images: LauncherImages) {
                             DropdownMenu(expanded = versionMenu, onDismissRequest = { versionMenu = false }) {
                                 versions.forEach { version ->
                                     DropdownMenuItem(
-                                        text = { Text("Minecraft $version") },
-                                        onClick = { selectedVersion = version; versionMenu = false },
-                                        leadingIcon = { if (selectedVersion == version) Icon(Icons.Filled.Checkroom, contentDescription = null) }
+                                        text = { Text("Minecraft ${version.id}") },
+                                        onClick = { selectedVersion = version.id; selectedRelease = version; versionMenu = false },
+                                        leadingIcon = { if (selectedVersion == version.id) Icon(Icons.Filled.Checkroom, contentDescription = null) }
                                     )
                                 }
                             }
                         }
-                        Text("Version choices are launcher UI entries only. The game files have not been downloaded.", color = Muted, fontSize = 11.sp)
+                        Text(if (versionsLoading) "Connecting to Mojang…" else versionStatus, color = Muted, fontSize = 11.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                enabled = selectedRelease != null && !downloadingClient,
+                                onClick = {
+                                    val release = selectedRelease ?: return@Button
+                                    downloadingClient = true
+                                    downloadBytes = 0L
+                                    downloadTotal = 0L
+                                    downloadStatus = "Preparing Minecraft ${release.id}…"
+                                    scope.launch {
+                                        try {
+                                            val result = MinecraftVersionInstaller.downloadClient(release, File(context.filesDir, "minecraft")) { done, total ->
+                                                downloadBytes = done
+                                                downloadTotal = total
+                                            }
+                                            val mb = result.bytes / (1024.0 * 1024.0)
+                                            downloadStatus = "Verified Minecraft ${result.version} client file • ${"%.1f".format(mb)} MB"
+                                        } catch (error: Exception) {
+                                            downloadStatus = error.message ?: "Minecraft client download failed."
+                                        } finally {
+                                            downloadingClient = false
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(if (downloadingClient) "DOWNLOADING…" else "DOWNLOAD CLIENT", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
+                            if (downloadingClient && downloadTotal > 0L) {
+                                Text("${(downloadBytes * 100 / downloadTotal).coerceIn(0, 100)}%", color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                        if (downloadingClient) {
+                            LinearProgressIndicator(
+                                progress = { if (downloadTotal > 0L) (downloadBytes.toFloat() / downloadTotal).coerceIn(0f, 1f) else 0f },
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Gold
+                            )
+                        }
+                        Text(downloadStatus, color = Muted, fontSize = 11.sp)
+                        Text("Downloads the official client JAR and verifies its SHA-1 in app storage. Libraries, assets, Java runtime and launching are the next stages.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
