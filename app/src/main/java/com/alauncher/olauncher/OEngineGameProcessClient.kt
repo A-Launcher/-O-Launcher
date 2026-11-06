@@ -149,6 +149,7 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_INVOKE_MAIN_RESULT -> {
                 if (mainResponseDelivered.compareAndSet(false, true)) {
+                    mainStartedDelivered.set(true)
                     timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
                     val data = message.data
                     onJvmMain(Result.success(OEngineJvmLibraryProbe(
