@@ -122,6 +122,12 @@ class OEngineGameProcessService : Service() {
                         require(minecraftAccessToken.isNotBlank() && minecraftAccessToken != "0") {
                             "A placeholder access token cannot be used for an authenticated Minecraft launch."
                         }
+                        val started = Message.obtain(null, MSG_INVOKE_MAIN_STARTED).apply {
+                            data.putBoolean(KEY_PROBE_SUCCESS, true)
+                            data.putString(KEY_PROBE_STATUS, "main_dispatched")
+                            data.putString(KEY_PROBE_DETAIL, "Validated launch arguments; dispatching $mainClass on the isolated HotSpot runtime.")
+                        }
+                        message.replyTo?.send(started)
                         val result = OEngineJvmNativeBridge.invokeMain(mainClass, arguments)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, result.successful)
                         reply.data.putString(KEY_PROBE_STATUS, result.status)
@@ -253,6 +259,7 @@ class OEngineGameProcessService : Service() {
         const val MSG_CREATE_JVM_RESULT = 6
         const val MSG_INVOKE_MAIN = 7
         const val MSG_INVOKE_MAIN_RESULT = 8
+        const val MSG_INVOKE_MAIN_STARTED = 13
         const val MSG_PREPARE_RENDERER = 11
         const val MSG_PREPARE_RENDERER_RESULT = 12
         const val MSG_INSTALL_RENDERER_HOOK = 9
