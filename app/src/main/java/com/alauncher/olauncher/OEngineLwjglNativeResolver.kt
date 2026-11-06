@@ -131,7 +131,7 @@ object OEngineLwjglNativeResolver {
 
         when (surface) {
             OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
-                blockers += "LWJGL 2 uses a legacy native-loading path; no verified O Engine Android interception adapter exists."
+                blockers += "LWJGL 2 uses System.loadLibrary and the org.lwjgl.librarypath route; O Engine has no verified org.lwjgl.opengl.libname interception adapter for GL4ES yet."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
