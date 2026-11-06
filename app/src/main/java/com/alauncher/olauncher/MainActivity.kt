@@ -514,10 +514,12 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
         Box(
             Modifier.align(Alignment.CenterStart)
                 .fillMaxHeight()
-                .fillMaxWidth(0.43f)
+                .fillMaxWidth(0.46f)
                 .background(Brush.horizontalGradient(listOf(Color(0xCC1A0808), Color(0x001A0808))))
-                .padding(start = 25.dp, top = 18.dp, bottom = 62.dp),
-            contentAlignment = Alignment.CenterStart
+                // The supplied hero artwork already contains the Minecraft Java logo.
+                // Keep the headline and controls below that baked-in logo, as in the reference.
+                .padding(start = 25.dp, top = 108.dp, bottom = 12.dp),
+            contentAlignment = Alignment.TopStart
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Spacer(Modifier.height(2.dp))
@@ -818,11 +820,29 @@ private fun InstallationsDestination(images: LauncherImages) {
  * Android launcher entry point. The manifest launches this Activity when the app icon is tapped.
  */
 class MainActivity : ComponentActivity() {
+    @Suppress("DEPRECATION")
+    private fun enterImmersiveLandscape() {
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            )
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        enterImmersiveLandscape()
         setContent {
             OLauncherApp()
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterImmersiveLandscape()
     }
 }
