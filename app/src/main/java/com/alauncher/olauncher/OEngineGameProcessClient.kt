@@ -33,7 +33,8 @@ class OEngineGameProcessClient(
     private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
-    private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
+    private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
+    private val onJvmMainStarted: (OEngineJvmLibraryProbe) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -43,8 +44,16 @@ class OEngineGameProcessClient(
     private val createResponseDelivered = AtomicBoolean(false)
     private val rendererResponseDelivered = AtomicBoolean(false)
     private val rendererPreloadResponseDelivered = AtomicBoolean(false)
+    private val mainStartedDelivered = AtomicBoolean(false)
+    private val mainResponseDelivered = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
+    private val mainStartTimeoutRunnable = Runnable {
+        if (mainStartedDelivered.compareAndSet(false, true)) {
+            mainResponseDelivered.set(true)
+            onJvmMain(Result.failure(IllegalStateException("The game process did not dispatch Minecraft main within 30 seconds.")))
+        }
+    }
     private val timeoutRunnable = Runnable {
         report(Result.failure(IllegalStateException("The isolated game process did not answer its health check within 5 seconds.")))
         close()
@@ -104,6 +113,7 @@ class OEngineGameProcessClient(
             OEngineGameProcessService.MSG_PREPARE_RENDERER_RESULT -> {
                 if (rendererPreloadResponseDelivered.compareAndSet(false, true)) {
                     timeoutHandler.removeCallbacks(rendererPreloadTimeoutRunnable)
+            timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
                     val data = message.data
                     onRendererPreload(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
@@ -125,13 +135,28 @@ class OEngineGameProcessClient(
                 }
                 true
             }
+            OEngineGameProcessService.MSG_INVOKE_MAIN_STARTED -> {
+                if (mainStartedDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    val data = message.data
+                    onJvmMainStarted(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    ))
+                }
+                true
+            }
             OEngineGameProcessService.MSG_INVOKE_MAIN_RESULT -> {
-                val data = message.data
-                onJvmMain(Result.success(OEngineJvmLibraryProbe(
-                    successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
-                    status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
-                    detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
-                )))
+                if (mainResponseDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+                    val data = message.data
+                    onJvmMain(Result.success(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    )))
+                }
                 true
             }
             OEngineGameProcessService.MSG_PROBE_JVM_LIBRARY_RESULT -> {
@@ -296,6 +321,11 @@ class OEngineGameProcessClient(
 
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
         val target = serviceMessenger ?: return false
+        if (closed.get() || mainStartedDelivered.get() && !mainResponseDelivered.get()) return false
+        mainStartedDelivered.set(false)
+        mainResponseDelivered.set(false)
+        timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+        timeoutHandler.postDelayed(mainStartTimeoutRunnable, 30_000L)
         val data = Bundle().apply {
             putString(OEngineGameProcessService.KEY_MAIN_CLASS, mainClass)
             putStringArray(OEngineGameProcessService.KEY_GAME_ARGUMENTS, arguments.toTypedArray())
@@ -307,7 +337,11 @@ class OEngineGameProcessClient(
         return try {
             target.send(reply)
             true
-        } catch (_: RemoteException) {
+        } catch (error: RemoteException) {
+            timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
+            if (mainStartedDelivered.compareAndSet(false, true) && mainResponseDelivered.compareAndSet(false, true)) {
+                onJvmMain(Result.failure(error))
+            }
             false
         }
     }
