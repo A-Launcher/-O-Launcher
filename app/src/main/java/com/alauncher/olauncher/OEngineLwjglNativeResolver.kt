@@ -44,7 +44,7 @@ data class OEngineLwjglResolution(
  */
 object OEngineLwjglNativeResolver {
     private val artifactPattern = Regex(
-        """(?:^|/)org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/\\1-\\2\\.jar$"""
+        """(?:^|/)org/lwjgl/(lwjgl(?:-[a-z0-9-]+)?)/([0-9][^/]+)/\1-\2\.jar$"""
     )
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
 
@@ -52,7 +52,7 @@ object OEngineLwjglNativeResolver {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
         val modules = classpath.mapNotNull { file ->
-            val normalized = file.absolutePath.replace('\\\\', '/')
+            val normalized = file.absolutePath.replace('\\', '/')
             val match = artifactPattern.find(normalized) ?: return@mapNotNull null
             OEngineLwjglModule(match.groupValues[1], match.groupValues[2], file)
         }
