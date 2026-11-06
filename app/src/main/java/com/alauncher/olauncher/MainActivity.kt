@@ -1805,6 +1805,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     var graphicsProbeStatus by remember { mutableStateOf("Android graphics backend has not been probed.") }
     var probingGameProcess by remember { mutableStateOf(false) }
     var gameProcessStatus by remember { mutableStateOf("The isolated game process has not been checked.") }
+    var launchingMinecraft by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
@@ -2463,20 +2464,46 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text("This stages the pinned LTW renderer before JNI_CreateJavaVM, adds the LWJGL libGLMojo.so alias, creates HotSpot, and installs the native-loader hook. It does not prove Minecraft can render yet.", color = Muted, fontSize = 10.sp)
                         Text("EXPERIMENTAL: Android ART and HotSpot coexistence is device-dependent. A native failure may restart only the separate :game process.", color = Color(0xFFD6A06C), fontSize = 10.sp)
                         Button(
-                            enabled = preparedLaunchPlan != null && !probingGameProcess && gameProcessClient != null,
+                            enabled = preparedLaunchPlan != null && selectedRelease != null && !probingGameProcess && !launchingMinecraft && gameProcessClient != null,
                             onClick = {
-                                val plan = preparedLaunchPlan ?: return@Button
-                                val sent = gameProcessClient?.invokeMain(plan.mainClass, plan.gameArguments) == true
-                                gameProcessStatus = if (sent) {
-                                    "MINECRAFT MAIN INVOCATION SENT • " + plan.mainClass
-                                } else {
-                                    "MINECRAFT MAIN INVOCATION FAILED • game process is not connected"
+                                val release = selectedRelease ?: return@Button
+                                val instance = activeInstance
+                                launchingMinecraft = true
+                                gameProcessStatus = "REFRESHING MICROSOFT SESSION + BUILDING AUTHENTICATED GAME ARGUMENTS…"
+                                scope.launch {
+                                    try {
+                                        val savedRefreshToken = MicrosoftTokenVault.load(context)
+                                            ?: throw IllegalStateException("Sign in with Microsoft on the Account screen before launching Java Edition.")
+                                        val account = MinecraftAuth.refreshAccount(savedRefreshToken)
+                                        MicrosoftTokenVault.save(context, account.refreshToken)
+                                        val authenticatedPlan = MinecraftVersionInstaller.prepareLaunchPlan(
+                                            release,
+                                            instance.root,
+                                            account.name,
+                                            account.uuid,
+                                            account.accessToken
+                                        )
+                                        preparedLaunchPlan = authenticatedPlan
+                                        val sent = gameProcessClient?.invokeMain(
+                                            authenticatedPlan.mainClass,
+                                            authenticatedPlan.gameArguments
+                                        ) == true
+                                        gameProcessStatus = if (sent) {
+                                            "AUTHENTICATED MINECRAFT MAIN INVOCATION SENT • " + account.name + " • " + authenticatedPlan.version
+                                        } else {
+                                            "AUTHENTICATION SUCCEEDED, BUT MAIN INVOCATION FAILED • game process is not connected"
+                                        }
+                                    } catch (error: Exception) {
+                                        gameProcessStatus = "MINECRAFT LAUNCH PREPARATION FAILED • " + (error.message ?: "Unknown authentication error")
+                                    } finally {
+                                        launchingMinecraft = false
+                                    }
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B7650), contentColor = Color.White),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("INVOKE MINECRAFT MAIN CLASS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(if (launchingMinecraft) "AUTHENTICATING + STARTING…" else "AUTHENTICATE + INVOKE MINECRAFT", fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
                         Text("This invokes the prepared version main class with its generated game arguments after HotSpot is created. It is an experimental launch step; missing Android natives or renderer support can still stop Minecraft.", color = Muted, fontSize = 10.sp)
                         Button(
