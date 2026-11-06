@@ -91,6 +91,55 @@ jobs:
           printf '%s\n' "$LTW_COMMIT" > ltw-upstream-commit.txt
           sha256sum "$AAR_PATH" > ltw-release-aar.sha256
 
+      - name: Validate LTW EGL and LWJGL resolver exports
+        env:
+          AAR_PATH: .third_party/LTW/ltw/build/outputs/aar/ltw-release.aar
+        run: |
+          set -euo pipefail
+          LLVM_NM="$(find "$ANDROID_HOME/ndk" -type f -name llvm-nm | sort | tail -n 1)"
+          LLVM_READELF="$(find "$ANDROID_HOME/ndk" -type f -name llvm-readelf | sort | tail -n 1)"
+          test -x "$LLVM_NM"
+          test -x "$LLVM_READELF"
+          python3 - <<'PY'
+          import os, zipfile, subprocess, tempfile
+          aar_path = os.environ["AAR_PATH"]
+          required = {
+              "eglGetProcAddress",
+              "eglCreateContext",
+              "eglDestroyContext",
+              "eglMakeCurrent",
+              "glXGetProcAddress",
+          }
+          allowed_needed = {"liblog.so", "libm.so", "libdl.so", "libc.so"}
+          nm = os.environ["LLVM_NM"]
+          readelf = os.environ["LLVM_READELF"]
+          with zipfile.ZipFile(aar_path) as aar:
+              libs = [n for n in aar.namelist() if n.startswith("jni/") and n.endswith("/libltw.so")]
+              if not libs:
+                  raise SystemExit("No LTW native libraries found")
+              for entry in libs:
+                  abi = entry.split("/")[1]
+                  with tempfile.NamedTemporaryFile(suffix=".so") as f:
+                      f.write(aar.read(entry))
+                      f.flush()
+                      symbols = subprocess.check_output(
+                          [nm, "--dynamic", "--defined-only", f.name], text=True
+                      )
+                      exported = {line.split()[-1].split("@")[0] for line in symbols.splitlines() if line.split()}
+                      missing = required - exported
+                      if missing:
+                          raise SystemExit(f"{abi}: missing required exported symbols: {sorted(missing)}")
+                      dynamic = subprocess.check_output([readelf, "--dynamic", f.name], text=True)
+                      needed = set()
+                      for line in dynamic.splitlines():
+                          if "(NEEDED)" in line:
+                              needed.add(line.split("[", 1)[1].split("]", 1)[0])
+                      unexpected = needed - allowed_needed
+                      if unexpected:
+                          raise SystemExit(f"{abi}: unexpected native dependencies: {sorted(unexpected)}")
+                      print(f"{abi}: required EGL/LWJGL symbols exported; dependencies={sorted(needed)}")
+          PY
+
       - name: Upload validated LTW AAR
         uses: actions/upload-artifact@v4
         with:
