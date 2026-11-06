@@ -709,7 +709,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
     let alias = match CString::new(alias) {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(_) => { set_error("Renderer alias contains an invalid NUL byte."); return 0; },
     };
 
     let creator = HOTSPOT_CREATOR_THREAD.get()
@@ -728,7 +728,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     };
     let mut env = match JNIEnv::from_raw(hotspot_env as *mut RawJNIEnv) {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(error) => { set_error(&format!("Cannot access embedded HotSpot JNIEnv: {error}")); return 0; },
     };
 
     let loader = match env.call_static_method(
@@ -739,16 +739,18 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     ) {
         Ok(value) => match value.l() {
             Ok(value) if !value.is_null() => value,
-            _ => return 0,
+            _ => { set_error("HotSpot returned a null system class loader."); return 0; },
         },
-        Err(_) => {
+        Err(error) => {
+            set_error(&format!("Cannot obtain HotSpot system class loader: {error}"));
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             return 0;
         }
     };
     let java_name = match env.new_string(&class_name) {
         Ok(value) => value,
-        Err(_) => {
+        Err(error) => {
+            set_error(&format!("Cannot create target class name: {error}"));
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             return 0;
         }
@@ -761,9 +763,10 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     ) {
         Ok(value) => match value.l() {
             Ok(value) if !value.is_null() => value,
-            _ => return 0,
+            _ => { set_error("HotSpot returned a null LWJGL target class."); return 0; },
         },
-        Err(_) => {
+        Err(error) => {
+            set_error(&format!("HotSpot could not load {class_name}: {error}"));
             if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
             return 0;
         }
@@ -774,7 +777,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     // atomically with the native method. The hook itself only takes a read lock.
     let mut guard = match hook_config().write() {
         Ok(value) => value,
-        Err(_) => return 0,
+        Err(_) => { set_error("Renderer hook state lock is poisoned."); return 0; },
     };
     if let Some(existing) = guard.as_ref() {
         if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
