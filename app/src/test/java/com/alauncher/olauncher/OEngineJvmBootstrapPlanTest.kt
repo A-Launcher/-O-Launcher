@@ -62,6 +62,51 @@ class OEngineJvmBootstrapPlanTest {
         }
     }
 
+
+    @Test
+    fun omitsRendererAliasWhenNoRendererProviderWasSelected() {
+        val root = Files.createTempDirectory("oengine-jvm-no-renderer").toFile()
+        try {
+            val runtimeHome = File(root, "runtime").apply { mkdirs() }
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\\"17\\"\\n")
+            val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            File(runtimeHome, "lib/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val game = File(root, "game").apply { mkdirs() }
+            val nativeDir = File(game, "natives").apply { mkdirs() }
+            val client = File(game, "client.jar").apply { writeBytes(byteArrayOf(1)) }
+            val plan = OEngineJvmBootstrapPlanner.prepare(
+                OEngineRuntime("Java-17-arm64", 17, "arm64", runtimeHome, java),
+                listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
+                emptyList(), emptyList()
+            )
+            assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
+            assertFalse(plan.vmOptions.any { it.startsWith("-Dorg.lwjgl.opengl.libname=") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsUnsafeRendererLibraryAlias() {
+        val root = Files.createTempDirectory("oengine-jvm-bad-alias").toFile()
+        try {
+            val runtimeHome = File(root, "runtime").apply { mkdirs() }
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\\"17\\"\\n")
+            val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            File(runtimeHome, "lib/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val game = File(root, "game").apply { mkdirs() }
+            val nativeDir = File(game, "natives").apply { mkdirs() }
+            val client = File(game, "client.jar").apply { writeBytes(byteArrayOf(1)) }
+            OEngineJvmBootstrapPlanner.prepare(
+                OEngineRuntime("Java-17-arm64", 17, "arm64", runtimeHome, java),
+                listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
+                emptyList(), emptyList(), rendererLibraryAlias = "../../libevil.so"
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test
     fun doesNotPassPostJava8HotspotFlagsToJava8Runtime() {
         val root = Files.createTempDirectory("oengine-jvm-java8").toFile()
