@@ -55,3 +55,9 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 ## Quality gates
 
 Every subsystem should have focused tests for parsing, path safety, metadata edge cases, cancellation, and failure recovery. Device-dependent behavior must be labeled as unverified until tested on actual hardware. Avoid claims of playable Minecraft until a clean vanilla launch has been demonstrated.
+
+## Reproducible LTW artifact build
+
+The dedicated `.github/workflows/ltw-renderer.yml` workflow checks out the exact upstream LTW revision `3f1f4df6c80c925ea34067b1d943a84acce0184d`, builds its release AAR with the upstream Android Gradle module, and validates every packaged `jni/<abi>/libltw.so` ELF header against its declared ABI before uploading the AAR and checksum as a CI artifact. The workflow deliberately builds LTW outside the O Launcher app source tree: it does not fork or copy LTW source into O Launcher.
+
+This is an artifact-production and integrity gate, not runtime integration. O Engine must still validate the downloaded artifact on-device, establish the required EGL/native-library load order and environment, and test real Minecraft versions before bundling or loading LTW in a game session. LTW's native initialization dynamically opens EGL and resolves GLES entry points during library initialization, so merely copying `libltw.so` into the APK would not constitute a working renderer integration.
