@@ -966,9 +966,8 @@ private fun SkinDestination(images: LauncherImages) {
         (context.getExternalFilesDir(null) ?: context.filesDir).resolve("skins").apply { mkdirs() }
     }
     var selectedSkin by remember { mutableStateOf<File?>(null) }
-    var message by remember { mutableStateOf("Tap the glowing + to import a Minecraft skin (PNG).") }
+    var message by remember { mutableStateOf("Import a 64×64 PNG skin to add it to your collection.") }
     var skinPreview by remember { mutableStateOf<ImageBitmap?>(null) }
-
     val skinPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             try {
@@ -987,33 +986,174 @@ private fun SkinDestination(images: LauncherImages) {
                     }
                     selectedSkin = destination
                     skinPreview = bitmap.asImageBitmap()
-                    message = "Skin imported and selected: \${destination.name}"
+                    message = "Imported successfully. In-game skin applying will be connected with the game runtime."
                 }
             } catch (_: Exception) {
                 message = "Could not import that skin. Please choose a PNG skin file."
             }
         }
     }
-
-    BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(images.skinsScreen.width.toFloat() / images.skinsScreen.height.toFloat()).clip(RoundedCornerShape(22.dp))) {
-        Image(images.skinsScreen, contentDescription = "Minecraft skin selection screen", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-        // The plus symbol is part of the supplied artwork; this transparent hit area sits over it.
-        Surface(
-            onClick = { skinPicker.launch(arrayOf("image/png")) },
-            color = Color.Transparent,
-            shape = RoundedCornerShape(30.dp),
-            modifier = Modifier.offset(x = maxWidth * 0.49f, y = maxHeight * 0.29f)
-                .size(width = maxWidth * 0.15f, height = maxHeight * 0.19f)
-        ) {}
-    }
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(message, color = Muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        selectedSkin?.let { file ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                skinPreview?.let { preview ->
-                    Image(preview, contentDescription = "Selected skin preview", modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PageHeading("Skins", "Personalize your Minecraft character", "PLAYER CUSTOMIZATION")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(
+                modifier = Modifier.weight(1.25f).height(300.dp),
+                color = Color(0xFF342B25),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF60432F), Color(0xFF282522))))) {
+                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.align(Alignment.Center).size(148.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
+                    Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+                        Text("YOUR CHARACTER", color = Color(0xFFFFD17A), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text(selectedSkin?.name ?: "Default player", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                        Text("Minecraft Java Edition", color = Color(0xFFD8C9B9), fontSize = 11.sp)
+                    }
                 }
-                Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Surface(modifier = Modifier.weight(1f).height(300.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("IMPORT A SKIN", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Ink)
+                    Text("Bring your own character design. O Launcher accepts standard Minecraft skin PNG files.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+                    Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (skinPreview != null) {
+                                Image(skinPreview!!, contentDescription = "Selected skin preview", modifier = Modifier.size(104.dp), contentScale = ContentScale.Fit)
+                            } else {
+                                Icon(Icons.Filled.Checkroom, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(56.dp))
+                            }
+                        }
+                    }
+                    Button(onClick = { skinPicker.launch(arrayOf("image/png")) }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(14.dp)) {
+                        Icon(Icons.Filled.FolderOpen, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (selectedSkin == null) "CHOOSE SKIN PNG" else "CHANGE SKIN", fontWeight = FontWeight.Black)
+                    }
+                    Text(message, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageHeading(title: String, subtitle: String, eyebrow: String = "O LAUNCHER") {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(eyebrow.uppercase(), color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp)
+            Text(title, color = Ink, fontSize = 27.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.6).sp)
+            Text(subtitle, color = Muted, fontSize = 12.sp)
+        }
+        Surface(color = Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
+            Text("JAVA EDITION", Modifier.padding(horizontal = 13.dp, vertical = 8.dp), color = Color(0xFF6D4824), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+        }
+    }
+}
+
+@Composable
+private fun SettingsDestination() {
+    var performance by remember { mutableStateOf(true) }
+    var animations by remember { mutableStateOf(true) }
+    var compactUi by remember { mutableStateOf(false) }
+    var notifications by remember { mutableStateOf(true) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PageHeading("Settings", "Tune O Launcher to match the way you play", "PREFERENCES")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsGroup("APPEARANCE", "Customize the launcher interface") {
+                    SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) { animations = it }
+                    SettingToggle("Compact interface", "Reduce spacing in content panels", compactUi) { compactUi = it }
+                }
+                SettingsGroup("PERFORMANCE", "Control launcher resource usage") {
+                    SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) { performance = it }
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsGroup("NOTIFICATIONS", "Choose what O Launcher can tell you") {
+                    SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) { notifications = it }
+                }
+                SettingsGroup("ABOUT THIS DEVICE", "Launcher environment") {
+                    SettingInfo("Platform", "Android · Landscape")
+                    SettingInfo("Edition", "Minecraft Java Edition")
+                    SettingInfo("Build", "O Launcher · Development")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsGroup(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
+    Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Text(title, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
+            Text(subtitle, color = Muted, fontSize = 10.sp)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingToggle(title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = Muted, fontSize = 10.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun SettingInfo(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Muted, fontSize = 11.sp, modifier = Modifier.weight(1f))
+        Text(value, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun AboutDestination() {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PageHeading("About O Launcher", "A home for your Minecraft Java Edition experience", "THE LAUNCHER")
+        Surface(Modifier.fillMaxWidth().height(210.dp), color = Color(0xFF34251F), shape = RoundedCornerShape(24.dp)) {
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF34251F), Color(0xFF8A492C), Color(0xFFE09A48))))) {
+                Column(Modifier.align(Alignment.CenterStart).padding(start = 28.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("O LAUNCHER", color = Color(0xFFFFD27B), fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+                    Text("Your world. Your way.", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                    Text("Built for Minecraft Java Edition on Android.", color = Color(0xFFF6EBDD), fontSize = 12.sp)
+                }
+                Icon(Icons.Filled.SportsEsports, contentDescription = null, tint = Color(0x55FFFFFF), modifier = Modifier.align(Alignment.CenterEnd).padding(end = 44.dp).size(116.dp))
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf("VERSION" to "Development build", "PLATFORM" to "Android", "EDITION" to "Java Edition").forEach { item ->
+                Surface(Modifier.weight(1f), color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(item.first, color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text(item.second, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountDestination(images: LauncherImages) {
+    var playerName by remember { mutableStateOf("CREEPERFAN") }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        PageHeading("Player account", "Manage the profile shown in your launcher", "YOUR PROFILE")
+        Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("OFFLINE PROFILE", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+                    Text(playerName, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("Microsoft account sign-in will be connected with the Minecraft runtime stage.", color = Muted, fontSize = 12.sp)
+                }
+                Surface(color = Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
+                    Text("NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
             }
         }
     }
