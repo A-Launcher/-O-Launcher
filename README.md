@@ -51,6 +51,12 @@ A successful APK build, Rust test, or native-library packaging check is not evid
 
 O Engine is an original implementation. Other launchers and upstream libraries may be used as technical references or integrated components only where their licenses permit it, with provenance and notices preserved.
 
+### Technical references
+
+- [MojoLauncher](https://github.com/MojoLauncher/MojoLauncher), LGPL-3.0: used as a technical reference for Android GLES renderer setup, the LTW OpenGL ES 3 requirement, renderer environment defaults, and the Android game-surface lifecycle. O Engine's Rust JNI, process model, launcher UI, and renderer integration remain independently implemented.
+- [MojoLauncher GLES renderer setup](https://github.com/MojoLauncher/MojoLauncher/blob/v3_openjdk/app_mojo/src/main/java/git/artdeell/mojo/game/renderer/impl/GLESRenderSpec.java)
+- [MojoLauncher Android surface lifecycle](https://github.com/MojoLauncher/MojoLauncher/tree/v3_openjdk/app_mojo/src/main/java/git/artdeell/mojo/game/render)
+
 ## Build
 
 Open the project in Android Studio with JDK 17, Android SDK 36, and the NDK version declared in `app/build.gradle.kts`. GitHub Actions builds the Rust native library for all configured Android ABIs before assembling the APK.
