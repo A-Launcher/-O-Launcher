@@ -2466,7 +2466,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                     client.installRendererHook(
                                                         artifact.libraryFile,
                                                         rendererRoot,
-                                                        "org.lwjgl.system.linux.DynamicLinkLoader",
+                                                        OEngineLwjglNativeResolver.DYNAMIC_LINK_LOADER_CLASS_NAME,
                                                         OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS
                                                     )
                                                 } else {
