@@ -578,36 +578,103 @@ unsafe extern "system" fn lwjgl_ndlopen_hook(
     libc::dlopen(filename.as_ptr(), mode) as jlong
 }
 
-/// Installs the upstream LWJGL 3 JNI method replacement on the exact class
-/// resolved by the caller's game class loader. It does not find/load game classes itself.
+/// Installs the LWJGL 3 JNI method replacement using the embedded HotSpot VM's
+/// own system class loader. Android ART Class objects must never be passed to HotSpot.
 #[no_mangle]
 pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInstallLwjglHook(
     raw_env: *mut RawJNIEnv,
     _receiver: jobject,
-    target_class: jni::sys::jclass,
+    target_class_name: jstring,
     selected_alias: jstring,
     renderer_handle: jlong,
 ) -> jboolean {
-    if raw_env.is_null() || target_class.is_null() || selected_alias.is_null() || renderer_handle == 0 {
+    if raw_env.is_null() || target_class_name.is_null() || selected_alias.is_null() || renderer_handle == 0 {
         return 0;
     }
 
-    let mut env = match JNIEnv::from_raw(raw_env) {
+    let mut android_env = match JNIEnv::from_raw(raw_env) {
         Ok(value) => value,
         Err(_) => return 0,
     };
-    let alias_string = JString::from_raw(selected_alias);
-    let alias: String = match env.get_string(&alias_string) {
+    let class_name: String = match android_env.get_string(&JString::from_raw(target_class_name)) {
         Ok(value) => value.into(),
         Err(_) => return 0,
     };
-    if alias.is_empty() || alias.as_bytes().contains(&0) {
+    let alias: String = match android_env.get_string(&JString::from_raw(selected_alias)) {
+        Ok(value) => value.into(),
+        Err(_) => return 0,
+    };
+    if class_name.len() > 512
+        || !class_name.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+        || alias.is_empty()
+        || alias.len() > 128
+        || !alias.starts_with("lib")
+        || !alias.ends_with(".so")
+        || alias.contains('/')
+        || alias.as_bytes().contains(&0)
+    {
         return 0;
     }
     let alias = match CString::new(alias) {
         Ok(value) => value,
         Err(_) => return 0,
     };
+
+    let creator = HOTSPOT_CREATOR_THREAD.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.clone());
+    if creator.as_ref() != Some(&std::thread::current().id()) {
+        return 0;
+    }
+    let hotspot_env = HOTSPOT_ENV.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| *guard);
+    let Some(hotspot_env) = hotspot_env else {
+        return 0;
+    };
+    let mut env = match JNIEnv::from_raw(hotspot_env as *mut RawJNIEnv) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+
+    let loader = match env.call_static_method(
+        "java/lang/ClassLoader",
+        "getSystemClassLoader",
+        "()Ljava/lang/ClassLoader;",
+        &[],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(value) if !value.is_null() => value,
+            _ => return 0,
+        },
+        Err(_) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let java_name = match env.new_string(&class_name) {
+        Ok(value) => value,
+        Err(_) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let class_object = match env.call_method(
+        &loader,
+        "loadClass",
+        "(Ljava/lang/String;)Ljava/lang/Class;",
+        &[JValue::Object(&JObject::from(java_name))],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(value) if !value.is_null() => value,
+            _ => return 0,
+        },
+        Err(_) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let class = JClass::from(class_object);
 
     // A process can host only one active renderer provider. Never silently replace it.
     {
@@ -627,7 +694,6 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         }
     }
 
-    let class = JClass::from_raw(target_class);
     let methods = [NativeMethod {
         name: "ndlopen".into(),
         sig: "(JI)J".into(),
@@ -635,7 +701,10 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }];
     match env.register_native_methods(&class, &methods) {
         Ok(()) => 1,
-        Err(_) => 0,
+        Err(_) => {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            0
+        }
     }
 }
 
