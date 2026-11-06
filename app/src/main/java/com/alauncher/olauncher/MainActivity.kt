@@ -1243,12 +1243,26 @@ private fun AccountDestination(images: LauncherImages) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
-    var playerName by remember { mutableStateOf(prefs.getString("offline_name", "Not signed in") ?: "Not signed in") }
-    var playerUuid by remember { mutableStateOf(prefs.getString("offline_uuid", "") ?: "") }
+    val recoveredMicrosoftToken = remember { MicrosoftTokenVault.load(context) }
+    val hasRecoveredMicrosoftAccount = recoveredMicrosoftToken != null
+    var playerName by remember { mutableStateOf(
+        if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_name", "Saved Microsoft account") ?: "Saved Microsoft account"
+        else prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
+    ) }
+    var playerUuid by remember { mutableStateOf(
+        if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_uuid", "") ?: ""
+        else prefs.getString("offline_uuid", "") ?: ""
+    ) }
     var offlineName by remember { mutableStateOf("") }
     var isOffline by remember { mutableStateOf(prefs.getBoolean("is_offline", false)) }
     var device by remember { mutableStateOf<MicrosoftDeviceCode?>(null) }
-    var status by remember { mutableStateOf(if (isOffline) "Offline profile saved on this device." else "Connect a Microsoft account that owns Minecraft: Java Edition.") }
+    var status by remember { mutableStateOf(
+        when {
+            hasRecoveredMicrosoftAccount -> "Saved Microsoft account recovered. Re-authentication is required before online play."
+            isOffline -> "Offline profile saved on this device."
+            else -> "Connect a Microsoft account that owns Minecraft: Java Edition."
+        }
+    ) }
     var busy by remember { mutableStateOf(false) }
     var signedIn by remember { mutableStateOf(false) }
     var showOfflineForm by remember { mutableStateOf(false) }
@@ -1260,13 +1274,13 @@ private fun AccountDestination(images: LauncherImages) {
             Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 Image(images.avatar, contentDescription = "Profile avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (signedIn) "MICROSOFT ACCOUNT" else if (isOffline) "OFFLINE ACCOUNT" else "NO ACCOUNT SELECTED", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+                    Text(if (signedIn || hasRecoveredMicrosoftAccount) "MICROSOFT ACCOUNT" else if (isOffline) "OFFLINE ACCOUNT" else "NO ACCOUNT SELECTED", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
                     Text(playerName, color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     if (playerUuid.isNotBlank()) Text("UUID: $playerUuid", color = Muted, fontSize = 10.sp)
                     Text(status, color = Muted, fontSize = 12.sp)
                 }
                 Surface(color = if (signedIn) Color(0xFFDDF1D8) else Color(0xFFFFE7B6), shape = RoundedCornerShape(12.dp)) {
-                    Text(if (signedIn) "CONNECTED" else if (isOffline) "OFFLINE" else "NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = if (signedIn) Color(0xFF356B31) else Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(if (signedIn) "CONNECTED" else if (hasRecoveredMicrosoftAccount) "SAVED" else if (isOffline) "OFFLINE" else "NOT SIGNED IN", Modifier.padding(horizontal = 14.dp, vertical = 9.dp), color = if (signedIn) Color(0xFF356B31) else Color(0xFF79512A), fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -1296,6 +1310,7 @@ private fun AccountDestination(images: LauncherImages) {
                                 MicrosoftTokenVault.save(context, account.refreshToken)
                                 playerName = account.name
                                 playerUuid = account.uuid
+                                prefs.edit().putString("microsoft_name", account.name).putString("microsoft_uuid", account.uuid).apply()
                                 signedIn = true
                                 isOffline = false
                                 prefs.edit().putBoolean("is_offline", false).apply()
@@ -1311,6 +1326,7 @@ private fun AccountDestination(images: LauncherImages) {
                     }
                     if (signedIn) OutlinedButton(onClick = {
                         MicrosoftTokenVault.clear(context); signedIn = false
+                        prefs.edit().remove("microsoft_name").remove("microsoft_uuid").apply()
                         playerName = "Not signed in"; playerUuid = ""; isOffline = false
                         status = "Microsoft account disconnected."
                     }) { Text("SIGN OUT", fontSize = 11.sp) }
