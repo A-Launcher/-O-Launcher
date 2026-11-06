@@ -167,3 +167,12 @@ The repository now has an independent Rust `cdylib` crate under `native/oengine`
 
 The Rust crate now contains an O Engine-owned JNI registration entry point for the upstream LWJGL 3 `DynamicLinkLoader.ndlopen(long,int)` method. It registers against the exact `Class` supplied by the caller's game class loader, redirects only an exact configured renderer alias to a process-owned renderer handle, and delegates all other requests to the normal `dlopen` path. It refuses to replace a different active renderer configuration. This is implementation code, not yet an active launcher feature: the Rust library is not packaged into the APK, no renderer handle is prepared by Kotlin, and no Android device has validated the JNI/class-loader/linker behavior. The current C++ JVM diagnostic remains in the app until Rust has equivalent tested JVM-linker diagnostics and device validation.
 
+
+
+## Version-aware Java runtime policy
+
+O Engine now resolves the Java target for each Minecraft version using Mojang's `javaVersion.majorVersion` when present, with a legacy version-range fallback for older metadata. The policy includes the supplied eras: Pre-Classic through 1.5.2 (Java 5), 1.6.1–1.11.2 (Java 6), 1.12–1.16.5 (Java 8), 1.17–1.17.1 (Java 16), 1.18–1.20.4 (Java 17), 1.20.5–1.21.11 (Java 21), and 26.1+ (Java 25).
+
+Historical bytecode target and installable Android runtime are distinct. Since the current Android runtime source does not publish Java 5/6/16 builds, O Engine maps Java 5/6 targets to Java 8 and Java 16 targets to Java 17, both newer compatible runtimes. Modern targets 8/17/21/25 map directly. Unknown metadata targets are preserved and will fail with an explicit unavailable-runtime message rather than silently selecting a different Java major.
+
+The official version list now includes Mojang release and snapshot entries, so 26.x snapshots are selectable. Metadata remains authoritative for snapshot runtime selection. The UI reports both the game's Java target and the actual Android runtime major selected.
