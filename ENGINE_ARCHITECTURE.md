@@ -32,6 +32,7 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - Minecraft version metadata, client JAR, compatible library artifacts, assets, and launch-plan preparation exist.
 - Android Java runtime archive download and guarded TAR/XZ extraction exist.
 - OLauncherEngine currently owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview.
+- The native JVM diagnostic now retains one successfully validated `libjvm.so` handle for the app process lifetime and refuses to map a different runtime afterward. This is a prerequisite for a future same-handle bootstrap, not VM creation; ART/OpenJDK coexistence and actual `JNI_CreateJavaVM` remain unverified.
 - OEngineGraphics can create a temporary Android EGL pbuffer context, probe OpenGL ES 3 then ES 2, collect driver identity/extensions, and release EGL resources.
 - OEngineEglSession provides a thread-confined Android EGL window-surface/context lifecycle with make-current, swap-interval, buffer-swap, and deterministic teardown operations.
 - OEngineGraphicsBackend is the engine-facing graphics contract; OEngineGraphicsCompatibilityGate explicitly rejects treating an OpenGL ES context as desktop OpenGL. GLES extension enumeration uses the API appropriate to ES 2 versus ES 3.
