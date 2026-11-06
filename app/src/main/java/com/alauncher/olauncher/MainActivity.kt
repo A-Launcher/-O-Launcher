@@ -256,15 +256,15 @@ private fun rememberLauncherImages(): LauncherImages {
         val logo = readAssetImage(context, "minecraft_java_logo.png")
             ?: readBitmap(context, "brand_logo.webp", android.graphics.Color.DKGRAY).asImageBitmap()
         LauncherImages(
-            hero = readAssetImage(context, "hero_nether.jpg")
+            hero = readAssetImage(context, "hero_nether.png")
                 ?: cropBitmapSafe(atlas, 0, 0, 720, 319, android.graphics.Color.DKGRAY),
-            whatsNew = readAssetImage(context, "news_trials.jpg")
+            whatsNew = readAssetImage(context, "news_trials.png")
                 ?: cropBitmapSafe(atlas, 0, 329, 257, 110, android.graphics.Color.LTGRAY),
-            spring = readAssetImage(context, "news_spring.jpg")
+            spring = readAssetImage(context, "news_spring.png")
                 ?: cropBitmapSafe(atlas, 267, 329, 240, 87, android.graphics.Color.MAGENTA),
-            trials = readAssetImage(context, "news_trials.jpg")
+            trials = readAssetImage(context, "news_trials.png")
                 ?: cropBitmapSafe(atlas, 0, 449, 239, 90, android.graphics.Color.BLUE),
-            camel = readAssetImage(context, "news_camel.jpg")
+            camel = readAssetImage(context, "news_camel.png")
                 ?: cropBitmapSafe(atlas, 249, 449, 240, 87, android.graphics.Color.YELLOW),
             realms = cropBitmapSafe(atlas, 499, 449, 110, 130, android.graphics.Color.GREEN),
             avatar = cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
@@ -274,17 +274,17 @@ private fun rememberLauncherImages(): LauncherImages {
     var images by remember(context) { mutableStateOf(localImages) }
     LaunchedEffect(context) {
         // Online artwork is only a fallback. User-provided local reference assets always win.
-        val nether = if (readAssetImage(context, "hero_nether.jpg") == null)
+        val nether = if (readAssetImage(context, "hero_nether.png") == null)
             fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/nether-header.jpg") else null
-        val trials = if (readAssetImage(context, "news_trials.jpg") == null)
+        val trials = if (readAssetImage(context, "news_trials.png") == null)
             fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/Tricky-Trials_Full-Bleed-A-0_Key-art_786x786_01.jpg") else null
-        val world = if (readAssetImage(context, "news_spring.jpg") == null)
+        val world = if (readAssetImage(context, "news_spring.png") == null)
             fetchArtwork("https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/NewKeyArt_Header.jpg") else null
         images = localImages.copy(
-            hero = localImages.hero.takeIf { readAssetImage(context, "hero_nether.jpg") != null } ?: nether ?: localImages.hero,
-            whatsNew = localImages.whatsNew.takeIf { readAssetImage(context, "news_trials.jpg") != null } ?: trials ?: localImages.whatsNew,
-            trials = localImages.trials.takeIf { readAssetImage(context, "news_trials.jpg") != null } ?: trials ?: localImages.trials,
-            spring = localImages.spring.takeIf { readAssetImage(context, "news_spring.jpg") != null } ?: world ?: localImages.spring
+            hero = localImages.hero.takeIf { readAssetImage(context, "hero_nether.png") != null } ?: nether ?: localImages.hero,
+            whatsNew = localImages.whatsNew.takeIf { readAssetImage(context, "news_trials.png") != null } ?: trials ?: localImages.whatsNew,
+            trials = localImages.trials.takeIf { readAssetImage(context, "news_trials.png") != null } ?: trials ?: localImages.trials,
+            spring = localImages.spring.takeIf { readAssetImage(context, "news_spring.png") != null } ?: world ?: localImages.spring
         )
     }
     return images
