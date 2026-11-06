@@ -2417,8 +2417,29 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         result.fold(
                                             onSuccess = { status ->
                                                 if (status.ready) {
-                                                    gameProcessStatus = "GAME PROCESS READY • preloading pinned LTW…"
-                                                    client.prepareRenderer(artifact.libraryFile, rendererRoot, null, null)
+                                                    gameProcessStatus = "GAME PROCESS READY • checking LTW graphics requirements…"
+                                                    scope.launch {
+                                                        try {
+                                                            val graphics = OEngineGraphics.probe()
+                                                            val blocker = OEngineGraphicsStack.ltwCompatibilityBlocker(graphics.openGlesMajor)
+                                                            if (blocker != null) {
+                                                                probingGameProcess = false
+                                                                gameProcessStatus = "LTW DEVICE INCOMPATIBLE • " + blocker
+                                                            } else {
+                                                                gameProcessStatus = "GLES READY • ES " + graphics.openGlesMajor +
+                                                                    " • " + graphics.glRenderer + " • staging LTW…"
+                                                                val sent = client.prepareRenderer(artifact.libraryFile, rendererRoot, null, null)
+                                                                if (!sent) {
+                                                                    probingGameProcess = false
+                                                                    gameProcessStatus = "LTW PRELOAD REQUEST FAILED • game process is not connected"
+                                                                }
+                                                            }
+                                                        } catch (error: Exception) {
+                                                            probingGameProcess = false
+                                                            gameProcessStatus = "LTW GRAPHICS PREFLIGHT FAILED • " +
+                                                                (error.message ?: "Could not create an Android EGL/OpenGL ES context")
+                                                        }
+                                                    }
                                                 } else {
                                                     probingGameProcess = false
                                                     gameProcessStatus = "GAME PROCESS NOT READY • " + status.phase
