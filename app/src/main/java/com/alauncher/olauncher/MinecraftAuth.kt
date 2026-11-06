@@ -25,6 +25,34 @@ object MinecraftAuth {
         MicrosoftDeviceCode(j.getString("device_code"), j.getString("user_code"), j.optString("verification_uri", "https://www.microsoft.com/link"), j.optInt("expires_in", 900), j.optInt("interval", 5))
     }
 
+    suspend fun refreshAccount(refreshToken: String): MinecraftAccount = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        require(refreshToken.isNotBlank()) { "No saved Microsoft refresh token is available." }
+        val msa = form("https://login.live.com/oauth20_token.srf", mapOf(
+            "client_id" to MS_CLIENT_ID,
+            "grant_type" to "refresh_token",
+            "refresh_token" to refreshToken,
+            "scope" to MS_SCOPE
+        ))
+        val accessToken = msa.optString("access_token")
+        if (accessToken.isBlank()) error("Microsoft did not return an access token. Please sign in again.")
+        val rotatedRefreshToken = msa.optString("refresh_token").ifBlank { refreshToken }
+        val xbl = json("https://user.auth.xboxlive.com/user/authenticate", JSONObject()
+            .put("Properties", JSONObject().put("AuthMethod", "RPS").put("SiteName", "user.auth.xboxlive.com").put("RpsTicket", "d=$accessToken"))
+            .put("RelyingParty", "http://auth.xboxlive.com").put("TokenType", "JWT"))
+        val xblToken = xbl.getString("Token")
+        val xsts = json("https://xsts.auth.xboxlive.com/xsts/authorize", JSONObject()
+            .put("Properties", JSONObject().put("SandboxId", "RETAIL").put("UserTokens", org.json.JSONArray().put(xblToken)))
+            .put("RelyingParty", "rp://api.minecraftservices.com/").put("TokenType", "JWT"))
+        val xstsToken = xsts.getString("Token")
+        val uhs = xsts.getJSONObject("DisplayClaims").getJSONArray("xui").getJSONObject(0).getString("uhs")
+        val mc = json("https://api.minecraftservices.com/authentication/login_with_xbox", JSONObject().put("identityToken", "XBL3.0 x=$uhs;$xstsToken"))
+        val profile = get("https://api.minecraftservices.com/minecraft/profile", "Bearer ${mc.getString("access_token")}")
+        val name = profile.optString("name").ifBlank { "Minecraft Player" }
+        val uuid = profile.optString("id")
+        if (uuid.isBlank()) error("Minecraft returned an empty player profile. Check that this Microsoft account owns Java Edition.")
+        MinecraftAccount(name, uuid, rotatedRefreshToken)
+    }
+
     suspend fun completeDeviceLogin(device: MicrosoftDeviceCode): MinecraftAccount = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val started = System.currentTimeMillis()
         var interval = device.interval.coerceAtLeast(1)
