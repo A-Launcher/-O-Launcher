@@ -1722,6 +1722,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var preparingLaunchPlan by remember { mutableStateOf(false) }
     var requiredJavaMajor by remember { mutableStateOf(17) }
     var downloadingRuntime by remember { mutableStateOf(false) }
+    var installingRuntime by remember { mutableStateOf(false) }
+    var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
     var runtimeStatus by remember { mutableStateOf("Android Java runtime has not been downloaded.") }
@@ -1915,7 +1917,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             runtimeTotal = total
                                         }
                                         val mb = result.bytes / (1024.0 * 1024.0)
-                                        runtimeStatus = "Downloaded Java ${result.javaMajor} (${result.architecture}) archive • ${"%.1f".format(mb)} MB. Extraction and runtime registration are the next step."
+                                        runtimeStatus = "Downloaded Java ${result.javaMajor} (${result.architecture}) archive • ${"%.1f".format(mb)} MB. Ready to extract."
                                     } catch (error: Exception) {
                                         runtimeStatus = error.message ?: "Could not download Android Java runtime."
                                     } finally {
@@ -1936,7 +1938,36 @@ private fun InstallationsDestination(images: LauncherImages) {
                             )
                         }
                         Text(runtimeStatus, color = Muted, fontSize = 11.sp)
-                        Text("The runtime package is downloaded and XZ-validated, but not yet extracted or registered. The graphics bridge and actual game launch still need integration.", color = Muted, fontSize = 10.sp)
+                        Button(
+                            enabled = !downloadingRuntime && !installingRuntime,
+                            onClick = {
+                                installingRuntime = true
+                                installedRuntimeStatus = "Preparing runtime extraction…"
+                                scope.launch {
+                                    try {
+                                        val arch = AndroidRuntimeInstaller.deviceArchitecture()
+                                        val filename = "jre" + requiredJavaMajor + "-android-" + arch + ".tar.xz"
+                                        val archive = File(context.filesDir, "minecraft/runtimes/archives/" + filename)
+                                        val result = AndroidRuntimeInstaller.installRuntime(
+                                            archive,
+                                            requiredJavaMajor,
+                                            File(context.filesDir, "minecraft")
+                                        ) { status -> installedRuntimeStatus = status }
+                                        installedRuntimeStatus = "Java " + result.javaMajor + " extracted to " + result.runtimeHome.name + " • " + result.filesExtracted + " files. Executable: " + result.javaExecutable.canExecute()
+                                    } catch (error: Exception) {
+                                        installedRuntimeStatus = error.message ?: "Could not extract the Java runtime."
+                                    } finally {
+                                        installingRuntime = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF477A62), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (installingRuntime) "EXTRACTING JAVA " + requiredJavaMajor + "…" else "EXTRACT / INSTALL JAVA " + requiredJavaMajor, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text(installedRuntimeStatus, color = Muted, fontSize = 11.sp)
+                        Text("The runtime is extracted and version-checked, but JVM startup, graphics integration, and Minecraft launching are not yet connected.", color = Muted, fontSize = 10.sp)
                     }
                 }
             }
