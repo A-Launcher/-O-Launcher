@@ -88,3 +88,12 @@ The official MobileGlues 2.0.0 plugin source shows that the downloadable APK is 
 The plugin's AIDL service is for renderer information and benchmarking; it is not a generic game-renderer loading API. The plugin's own code discovers ANGLE from a known list of launcher packages and explicitly checks native-library directory accessibility and linker namespace constraints. O Launcher is not in that published list. Therefore MobileGlues integration requires a verified O Launcher package/renderer-discovery contract and an on-device test proving that O Launcher's process can load the selected plugin library and its dependencies. We must not assume that another app's `nativeLibraryDir` can be loaded across Android linker namespaces.
 
 Do not bundle the plugin APK as if it were `libmobileglues.so`, and do not mark MobileGlues available merely because the plugin package is installed. Keep the provider unavailable until the actual native library path, ABI, dependencies, user-selected driver/ANGLE configuration, and game-process EGL lifecycle all pass validation.
+
+
+## First reproducible LTW artifact result
+
+LTW upstream commit `3f1f4df6c80c925ea34067b1d943a84acce0184d` built successfully as a release AAR in Actions run #7. The resulting AAR SHA-256 is `76ea49bdd54664955e67aafd7dca78919909e4411493a2c9f5865c23d8a54790`. It contains `libltw.so` for `arm64-v8a`, `armeabi-v7a`, `x86`, and `x86_64`; all four ELF class/machine pairs match their ABI directories.
+
+Independent inspection of all four libraries confirmed exports for `eglGetProcAddress`, `eglCreateContext`, `eglDestroyContext`, `eglMakeCurrent`, and `glXGetProcAddress`. Their direct ELF dependencies are limited to Android system libraries `liblog.so`, `libm.so`, `libdl.so`, and `libc.so`. The dedicated LTW workflow now repeats these checks using the Android NDK's `llvm-nm` and `llvm-readelf` before publishing its artifact.
+
+This validates artifact identity, ABI, required exported symbols, and direct dependencies. It does not prove that Android's linker namespace, the game's exact LWJGL build, or Minecraft's render thread will resolve and use the wrappers correctly. Runtime integration and device tests remain mandatory.
