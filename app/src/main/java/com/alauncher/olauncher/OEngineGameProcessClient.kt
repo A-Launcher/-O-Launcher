@@ -180,6 +180,24 @@ class OEngineGameProcessClient(
         }
     }
 
+    fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
+        val target = messenger ?: return false
+        val data = Bundle().apply {
+            putString(OEngineGameProcessService.KEY_MAIN_CLASS, mainClass)
+            putStringArray(OEngineGameProcessService.KEY_GAME_ARGUMENTS, arguments.toTypedArray())
+        }
+        val reply = Message.obtain(null, OEngineGameProcessService.MSG_INVOKE_MAIN).apply {
+            this.data = data
+            replyTo = responseMessenger
+        }
+        return try {
+            target.send(reply)
+            true
+        } catch (_: RemoteException) {
+            false
+        }
+    }
+
     fun connect(): Boolean {
         check(!closed.get()) { "This game-process client has already been closed." }
         check(connectStarted.compareAndSet(false, true)) { "This game-process client has already started binding." }
