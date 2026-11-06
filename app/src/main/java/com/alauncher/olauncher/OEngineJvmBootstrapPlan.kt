@@ -111,9 +111,8 @@ object OEngineJvmBootstrapPlanner {
             blockers += "Resolved libjvm.so escapes the selected runtime directory."
         }
 
-        val vmOptions = normalizeVmOptions(
-            requestedVmOptions,
-            mapOf(
+        val ownedVmProperties = linkedMapOf(
+
                 "-Djava.home" to home.absolutePath,
                 "-Djava.library.path" to nativeDir.absolutePath,
                 "-Djava.class.path" to resolvedClasspath.joinToString(File.pathSeparator) { it.absolutePath },
@@ -131,10 +130,13 @@ object OEngineJvmBootstrapPlanner {
                 "-Dorg.lwjgl.system.allocator" to "system",
                 "-Duser.timezone" to timezoneId,
                 "-Dorg.lwjgl.vulkan.libname" to "libvulkan.so",
-                "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared",
-                "-XX:ActiveProcessorCount" to availableProcessors.coerceAtLeast(1).toString()
-            )
+                "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared"
         )
+        // ActiveProcessorCount is a HotSpot VM flag introduced after Java 8.
+        if (runtime.javaMajor >= 10) {
+            ownedVmProperties["-XX:ActiveProcessorCount"] = availableProcessors.coerceAtLeast(1).toString()
+        }
+        val vmOptions = normalizeVmOptions(requestedVmOptions, ownedVmProperties)
 
         warnings += "JNI_CreateJavaVM export, native dependencies and Android linker visibility must be checked by the native bootstrap before VM creation."
         warnings += "A successful plan is not proof that the selected OpenJDK runtime can coexist with Android Runtime in this process."
