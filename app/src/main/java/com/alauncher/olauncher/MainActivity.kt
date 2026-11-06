@@ -587,17 +587,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
             shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.padding(7.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(images.avatar, contentDescription = "Player avatar", modifier = Modifier.size(27.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
-                    Spacer(Modifier.width(5.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("CREEPERFAN", fontSize = 9.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, maxLines = 1)
-                        Text("● ONLINE", fontSize = 8.sp, color = Color(0xFF398C37), fontWeight = FontWeight.Bold)
-                    }
-                    Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(15.dp))
-                }
-                Divider(color = Border)
+            Column(Modifier.padding(9.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF35A34A)))
                     Spacer(Modifier.width(5.dp))
