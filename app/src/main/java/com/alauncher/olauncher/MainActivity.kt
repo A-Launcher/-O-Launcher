@@ -1742,7 +1742,7 @@ private fun InstallationsDestination(images: LauncherImages) {
             versions = loaded.take(80)
             selectedRelease = loaded.firstOrNull { it.id == latest } ?: loaded.firstOrNull()
             selectedVersion = selectedRelease?.id ?: "Unavailable"
-            versionStatus = "Loaded ${loaded.size} official release versions. Latest: $latest"
+            versionStatus = "Loaded ${loaded.size} official releases + snapshots. Latest release: $latest"
         } catch (error: Exception) {
             versionStatus = error.message ?: "Could not load Minecraft versions."
         } finally {
@@ -1895,7 +1895,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         )
                                         preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
-                                        launchPlanStatus = "Prepared ${plan.version}: Java ${plan.javaMajorVersion} required • ${plan.mainClass} • ${plan.classpath.size} classpath entries • ${plan.gameArguments.size} game args • ${plan.jvmArguments.size} JVM args. Compatible Android runtime and graphics bridge are still required."
+                                        launchPlanStatus = "Prepared ${plan.version}: Java target ${plan.targetJavaMajor} • Android runtime Java ${plan.javaMajorVersion} • ${plan.javaCompatibilityNote} • ${plan.mainClass} • ${plan.classpath.size} classpath entries. Graphics bridge is still required."
                                     } catch (error: Exception) {
                                         launchPlanStatus = error.message ?: "Could not prepare launch configuration."
                                     } finally {
