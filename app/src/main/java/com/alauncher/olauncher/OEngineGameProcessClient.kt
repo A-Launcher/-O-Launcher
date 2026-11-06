@@ -31,7 +31,8 @@ class OEngineGameProcessClient(
     private val onStatus: (Result<OEngineGameProcessStatus>) -> Unit,
     private val onJvmProbe: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmCreate: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
-    private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
+    private val onJvmMain: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
+    private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -39,6 +40,7 @@ class OEngineGameProcessClient(
     private val responseDelivered = AtomicBoolean(false)
     private val probeResponseDelivered = AtomicBoolean(false)
     private val createResponseDelivered = AtomicBoolean(false)
+    private val rendererResponseDelivered = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val timeoutRunnable = Runnable {
@@ -62,6 +64,11 @@ class OEngineGameProcessClient(
             onStatus(result)
         }
     }
+    private val rendererTimeoutRunnable = Runnable {
+        if (rendererResponseDelivered.compareAndSet(false, true)) {
+            onRendererHook(Result.failure(IllegalStateException("The isolated game process did not finish renderer hook installation within 30 seconds.")))
+        }
+    }
     private val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
         when (message.what) {
             OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
@@ -80,6 +87,18 @@ class OEngineGameProcessClient(
                     timeoutHandler.removeCallbacks(createTimeoutRunnable)
                     val data = message.data
                     onJvmCreate(Result.success(OEngineJvmLibraryProbe(
+                        successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                        status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                        detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                    )))
+                }
+                true
+            }
+            OEngineGameProcessService.MSG_INSTALL_RENDERER_HOOK_RESULT -> {
+                if (rendererResponseDelivered.compareAndSet(false, true)) {
+                    timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
+                    val data = message.data
+                    onRendererHook(Result.success(OEngineJvmLibraryProbe(
                         successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
                         status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
                         detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
@@ -191,6 +210,36 @@ class OEngineGameProcessClient(
         }
     }
 
+    fun installRendererHook(
+        rendererFile: File,
+        rendererRoot: File,
+        targetClassName: String,
+        selectedAlias: String
+    ): Boolean {
+        val target = serviceMessenger
+        if (closed.get() || target == null) {
+            onRendererHook(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
+            return false
+        }
+        rendererResponseDelivered.set(false)
+        timeoutHandler.postDelayed(rendererTimeoutRunnable, 30_000L)
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_INSTALL_RENDERER_HOOK).apply {
+            data.putString(OEngineGameProcessService.KEY_RENDERER_FILE, rendererFile.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_ROOT, rendererRoot.canonicalPath)
+            data.putString(OEngineGameProcessService.KEY_LWJGL_TARGET_CLASS, targetClassName)
+            data.putString(OEngineGameProcessService.KEY_RENDERER_ALIAS, selectedAlias)
+            replyTo = replyMessenger
+        }
+        return try {
+            target.send(request)
+            true
+        } catch (error: RemoteException) {
+            timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
+            if (rendererResponseDelivered.compareAndSet(false, true)) onRendererHook(Result.failure(error))
+            false
+        }
+    }
+
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
         val target = serviceMessenger ?: return false
         val data = Bundle().apply {
@@ -229,6 +278,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(timeoutRunnable)
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
+            timeoutHandler.removeCallbacks(rendererTimeoutRunnable)
             serviceMessenger = null
             runCatching { appContext.unbindService(connection) }
         }
