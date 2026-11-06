@@ -22,6 +22,7 @@ struct HookConfig {
 static HOOK_CONFIG: OnceLock<RwLock<Option<HookConfig>>> = OnceLock::new();
 static JVM_LIBRARY: OnceLock<Mutex<Option<(CString, usize)>>> = OnceLock::new();
 static JVM_INSTANCE: OnceLock<Mutex<Option<usize>>> = OnceLock::new();
+static NATIVE_LOAD_HOOK: OnceLock<Mutex<Option<(i32, usize, usize)>>> = OnceLock::new();
 
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
@@ -287,6 +288,134 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             response!("java_main_invoke_error", &format!("VM created but smoke-test main failed: {error}"))
         }
     }
+}
+
+
+type J8NativeLoad = unsafe extern "system" fn(*mut RawJNIEnv, jobject, jstring, jboolean);
+type J17NativeLoad = unsafe extern "system" fn(*mut RawJNIEnv, jni::sys::jclass, jobject, jstring, jboolean, jboolean, jboolean) -> jboolean;
+type J21NativeLoad = unsafe extern "system" fn(*mut RawJNIEnv, jni::sys::jclass, jobject, jstring, jboolean, jboolean) -> jboolean;
+
+fn preload_for_native_load(raw_env: *mut RawJNIEnv, name: jstring) -> Option<elf_hinter::PreloadedDependencies> {
+    if raw_env.is_null() || name.is_null() { return None; }
+    let mut env = unsafe { JNIEnv::from_raw(raw_env).ok()? };
+    let java_name = unsafe { JString::from_raw(name) };
+    let name: String = env.get_string(&java_name).ok()?.into();
+    if name.is_empty() || name.len() > 4096 { return None; }
+    elf_hinter::preload_named_library(&name).ok()
+}
+
+unsafe extern "system" fn native_load_java8(
+    raw_env: *mut RawJNIEnv, receiver: jobject, name: jstring, builtin: jboolean
+) {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 8).map(|(_, ptr, _)| *ptr));
+    if let Some(original) = original {
+        let function: J8NativeLoad = std::mem::transmute(original);
+        function(raw_env, receiver, name, builtin);
+    }
+}
+
+unsafe extern "system" fn native_load_java17(
+    raw_env: *mut RawJNIEnv, class: jni::sys::jclass, library: jobject, name: jstring,
+    builtin: jboolean, is_jni: jboolean, throw_on_fail: jboolean
+) -> jboolean {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 17).map(|(_, ptr, _)| *ptr));
+    original.map(|ptr| {
+        let function: J17NativeLoad = std::mem::transmute(ptr);
+        function(raw_env, class, library, name, builtin, is_jni, throw_on_fail)
+    }).unwrap_or(0)
+}
+
+unsafe extern "system" fn native_load_java21(
+    raw_env: *mut RawJNIEnv, class: jni::sys::jclass, library: jobject, name: jstring,
+    builtin: jboolean, throw_on_fail: jboolean
+) -> jboolean {
+    let _preloaded = preload_for_native_load(raw_env, name);
+    let original = NATIVE_LOAD_HOOK.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|guard| guard.as_ref().filter(|(major, _, _)| *major == 21).map(|(_, ptr, _)| *ptr));
+    original.map(|ptr| {
+        let function: J21NativeLoad = std::mem::transmute(ptr);
+        function(raw_env, class, library, name, builtin, throw_on_fail)
+    }).unwrap_or(0)
+}
+
+unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Result<(), String> {
+    if !matches!(java_major, 8 | 17 | 21) {
+        return Err(format!("Java {java_major} native-library hook is not verified"));
+    }
+    let state = NATIVE_LOAD_HOOK.get_or_init(|| Mutex::new(None));
+    if state.lock().map_err(|_| "Native-load hook state lock is poisoned")?.is_some() {
+        return Err("A native-library hook is already installed in this process".to_owned());
+    }
+
+    let symbol_name = if java_major == 8 {
+        "Java_java_lang_ClassLoader_00024NativeLibrary_load"
+    } else {
+        "Java_jdk_internal_loader_NativeLibraries_load"
+    };
+    let symbol = CString::new(symbol_name).unwrap();
+    let libjava_name = CString::new("libjava.so").unwrap();
+    let libjava = libc::dlopen(libjava_name.as_ptr(), libc::RTLD_NOW | libc::RTLD_NOLOAD);
+    let original = if libjava.is_null() {
+        libc::dlsym(libc::RTLD_DEFAULT, symbol.as_ptr())
+    } else {
+        libc::dlsym(libjava, symbol.as_ptr())
+    };
+    if original.is_null() {
+        if !libjava.is_null() { libc::dlclose(libjava); }
+        return Err(format!("Cannot resolve original {symbol_name} in libjava.so"));
+    }
+
+    let (class_name, descriptor, function): (&str, &str, *mut c_void) = match java_major {
+        8 => (
+            "java/lang/ClassLoader$NativeLibrary",
+            "(Ljava/lang/String;Z)V",
+            native_load_java8 as *mut c_void,
+        ),
+        17 => {
+            let class = env.find_class("jdk/internal/loader/NativeLibraries")
+                .map_err(|e| format!("Cannot find JDK 17 NativeLibraries class: {e}"))?;
+            let primary = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZZ)Z";
+            let fallback = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z";
+            let primary_found = env.get_static_method_id(&class, "load", primary).is_ok();
+            if !primary_found && env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            let selected = if primary_found { primary } else {
+                if env.get_static_method_id(&class, "load", fallback).is_err() {
+                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                    return Err("Neither verified Java 17 NativeLibraries.load signature exists".to_owned());
+                }
+                fallback
+            };
+            let hook = if selected == primary { native_load_java17 as *mut c_void } else { native_load_java21 as *mut c_void };
+            let method = [NativeMethod { name: "load".into(), sig: selected.into(), fn_ptr: hook }];
+            env.register_native_methods(&class, &method)
+                .map_err(|e| format!("Cannot register Java 17 native-load hook: {e}"))?;
+            *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
+                Some((17, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+            return Ok(());
+        },
+        21 => (
+            "jdk/internal/loader/NativeLibraries",
+            "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z",
+            native_load_java21 as *mut c_void,
+        ),
+        _ => unreachable!(),
+    };
+
+    let class = env.find_class(class_name)
+        .map_err(|e| format!("Cannot find {class_name}: {e}"))?;
+    let methods = [NativeMethod { name: "load".into(), sig: descriptor.into(), fn_ptr: function }];
+    env.register_native_methods(&class, &methods)
+        .map_err(|e| format!("Cannot register Java {java_major} native-load hook: {e}"))?;
+    *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
+        Some((java_major, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+    Ok(())
 }
 
 /// Pure policy used by the JNI hook: only the exact renderer alias is redirected.
