@@ -23,7 +23,7 @@ object MinecraftVersionInstaller {
         val releases = buildList {
             for (index in 0 until entries.length()) {
                 val item = entries.getJSONObject(index)
-                if (item.optString("type") == "release") {
+                if (item.optString("type") == "release" || item.optString("type") == "snapshot") {
                     add(MinecraftRelease(item.getString("id"), item.optString("type"), item.getString("url")))
                 }
             }
@@ -268,6 +268,8 @@ object MinecraftVersionInstaller {
         val version: String,
         val mainClass: String,
         val javaMajorVersion: Int,
+        val targetJavaMajor: Int = javaMajorVersion,
+        val javaCompatibilityNote: String = "Java $javaMajorVersion runtime selected.",
         val classpath: List<String>,
         val gameArguments: List<String>,
         val jvmArguments: List<String>
@@ -287,7 +289,9 @@ object MinecraftVersionInstaller {
             throw IllegalStateException("Download and verify the Minecraft client before preparing launch settings.")
         }
         val metadata = JSONObject(metadataFile.readText())
-        val javaMajorVersion = metadata.optJSONObject("javaVersion")?.optInt("majorVersion", 8) ?: 8
+        val metadataJavaMajor = metadata.optJSONObject("javaVersion")?.optInt("majorVersion")?.takeIf { it > 0 }
+        val javaCompatibility = OEngineJavaCompatibility.resolve(version.id, metadataJavaMajor)
+        val javaMajorVersion = javaCompatibility.runtimeJavaMajor
         val mainClass = metadata.optString("mainClass")
         if (mainClass.isBlank()) throw IllegalStateException("Minecraft version metadata does not contain a main class.")
         val classpath = mutableListOf<String>()
@@ -362,7 +366,16 @@ object MinecraftVersionInstaller {
         }
         val jvmArguments = mutableListOf<String>()
         collectArguments(modernArguments?.optJSONArray("jvm"), jvmArguments)
-        LaunchPlan(version.id, mainClass, javaMajorVersion, classpath.distinct(), gameArguments, jvmArguments)
+        LaunchPlan(
+            version = version.id,
+            mainClass = mainClass,
+            javaMajorVersion = javaMajorVersion,
+            targetJavaMajor = javaCompatibility.targetJavaMajor,
+            javaCompatibilityNote = javaCompatibility.explanation,
+            classpath = classpath.distinct(),
+            gameArguments = gameArguments,
+            jvmArguments = jvmArguments
+        )
     }
 
     private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
