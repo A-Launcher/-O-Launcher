@@ -3,6 +3,8 @@ package com.alauncher.olauncher
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.json.JSONArray
+import org.json.JSONObject
 
 enum class OEngineElfCompatibility {
     INVALID_ELF,
@@ -32,6 +34,36 @@ internal object OEngineElfCompatibilityInspector {
         "GLIBC_", "GLIBCXX_", "CXXABI_", "libc.so.6", "libpthread.so.0",
         "libdl.so.2", "librt.so.1", "ld-linux"
     )
+
+    fun writeReport(root: File, expectedAndroidAbi: String, reportFile: File): Int {
+        val files = root.walkTopDown().filter { it.isFile }.toList()
+        val entries = JSONArray()
+        files.forEach { file ->
+            val result = inspect(file, expectedAndroidAbi)
+            entries.put(JSONObject().apply {
+                put("path", file.relativeTo(root).invariantSeparatorsPath)
+                put("elfClassBits", result.elfClassBits ?: JSONObject.NULL)
+                put("machine", result.machine ?: JSONObject.NULL)
+                put("detectedAndroidAbi", result.detectedAndroidAbi ?: JSONObject.NULL)
+                put("expectedAndroidAbi", result.expectedAndroidAbi)
+                put("compatibility", result.compatibility.name)
+                put("glibcMarkers", JSONArray(result.glibcMarkers))
+                put("explanation", result.explanation)
+            })
+        }
+        val report = JSONObject().apply {
+            put("schemaVersion", 1)
+            put("notice", "Diagnostic only. No entry is certified safe to load on Android.")
+            put("expectedAndroidAbi", expectedAndroidAbi)
+            put("files", entries)
+        }
+        val parent = reportFile.parentFile
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw IllegalStateException("Could not create native compatibility report directory.")
+        }
+        reportFile.writeText(report.toString(2))
+        return files.size
+    }
 
     fun inspect(file: File, expectedAndroidAbi: String): OEngineElfInspection {
         fun invalid(reason: String) = OEngineElfInspection(
