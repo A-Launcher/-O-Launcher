@@ -80,7 +80,13 @@ private data class LauncherImages(
     val marketplace: ImageBitmap,
     val settings: ImageBitmap,
     val about: ImageBitmap,
-    val home: ImageBitmap
+    val home: ImageBitmap,
+    val quickOfficial: ImageBitmap,
+    val quickPatch: ImageBitmap,
+    val quickDiscord: ImageBitmap,
+    val quickMarketplace: ImageBitmap,
+    val quickSkins: ImageBitmap,
+    val quickGiftCodes: ImageBitmap
 )
 
 private fun fallbackBitmap(color: Int): Bitmap =
@@ -342,6 +348,12 @@ private fun rememberLauncherImages(): LauncherImages {
             settings = readAssetImage(context, "39667c1838a0eb444686e797eccf1cd1-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GRAY),
             about = readAssetImage(context, "203e305e530e01e9668893e7aad11194-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.LTGRAY),
             home = readAssetImage(context, "04dcbaa24e1e838ef4beb7e104552196-removebg-preview.png") ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
+            quickOfficial = readAssetImage(context, "c6d2a4480dd5f44520b7e5dfcf892dcd-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
+            quickPatch = readAssetImage(context, "1472e22819d836c1f4b3c7f973e932d7-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
+            quickDiscord = readAssetImage(context, "626064dcb825a8d549cc95fcb7e88786-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
+            quickMarketplace = readAssetImage(context, "27803d3ba6cc566240a2fe9f6d8aaf95-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
+            quickSkins = readAssetImage(context, "df3cdf5396a34ae2109c4981c1a4b939-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
+            quickGiftCodes = readAssetImage(context, "4ff903d3d3b2771e9888991258adc96a-removebg-preview.png") ?: fallbackBitmap(android.graphics.Color.LTGRAY).asImageBitmap(),
             avatar = readAssetImage(context, "reference_ui/IMG_20261106_130824.png")
                 ?: cropBitmapSafe(atlas, 620, 449, 62, 64, android.graphics.Color.GREEN),
             logo = logo
@@ -397,7 +409,7 @@ private fun OLauncherApp() {
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
                             WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
-                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
+                            QuickLinks(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
                             RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
                         }
                     }
@@ -658,25 +670,27 @@ private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit) {
+private fun QuickLinks(images: LauncherImages, modifier: Modifier = Modifier, onNavigate: (Int) -> Unit) {
     val context = LocalContext.current
     fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
     PanelCard("Quick Links", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.height(68.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
-            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
-            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
+            QuickLink(images.quickOfficial, "Official
+Website", Modifier.height(68.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
+            QuickLink(images.quickPatch, "Patch
+Notes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
+            QuickLink(images.quickDiscord, "Discord", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.height(59.dp).weight(1f)) { onNavigate(3) }
-            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.height(59.dp).weight(1f)) { onNavigate(2) }
-            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/redeem") }
+            QuickLink(images.quickMarketplace, "Marketplace", Modifier.height(59.dp).weight(1f)) { onNavigate(3) }
+            QuickLink(images.quickSkins, "Skins", Modifier.height(59.dp).weight(1f)) { onNavigate(2) }
+            QuickLink(images.quickGiftCodes, "Gift Codes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/redeem") }
         }
     }
 }
 
 @Composable
-private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun QuickLink(icon: ImageBitmap, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = modifier,
@@ -690,7 +704,7 @@ private fun QuickLink(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(28.dp))
+            Image(icon, contentDescription = label, modifier = Modifier.size(34.dp), contentScale = ContentScale.Fit)
             Spacer(Modifier.height(4.dp))
             Text(label, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
