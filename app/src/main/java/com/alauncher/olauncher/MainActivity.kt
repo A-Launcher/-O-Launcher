@@ -225,6 +225,8 @@ private fun MediaPlaceholder(modifier: Modifier = Modifier, shape: RoundedCorner
 
 @Composable
 private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
+    var showNotifications by remember { mutableStateOf(false) }
+    var showProfile by remember { mutableStateOf(false) }
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -257,7 +259,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             }
         }
         Box {
-            Surface(color = Panel, shape = CircleShape, modifier = Modifier.size(44.dp)) {
+            Surface(onClick = { showNotifications = true }, color = Panel, shape = CircleShape, modifier = Modifier.size(44.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Ink, modifier = Modifier.size(22.dp))
                 }
@@ -274,6 +276,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             }
         }
         Surface(
+            onClick = { showProfile = true },
             color = Panel,
             shape = RoundedCornerShape(28.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Border)
@@ -286,6 +289,22 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
                 Icon(Icons.Filled.ExpandMore, contentDescription = "Profile menu", tint = Ink, modifier = Modifier.size(18.dp))
             }
         }
+    }
+    if (showNotifications) {
+        AlertDialog(
+            onDismissRequest = { showNotifications = false },
+            title = { Text("NOTIFICATIONS") },
+            text = { Text("You’re all caught up! Launcher update notices and game news will appear here.") },
+            confirmButton = { TextButton(onClick = { showNotifications = false }) { Text("CLOSE") } }
+        )
+    }
+    if (showProfile) {
+        AlertDialog(
+            onDismissRequest = { showProfile = false },
+            title = { Text("PLAYER PROFILE") },
+            text = { Text("CREEPERFAN - Microsoft account sign-in will be added with the game authentication system.") },
+            confirmButton = { TextButton(onClick = { showProfile = false }) { Text("GOT IT") } }
+        )
     }
 }
 
