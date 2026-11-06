@@ -32,7 +32,9 @@ class OEngineJvmBootstrapPlanTest {
                 mainClass = "net.minecraft.client.main.Main",
                 requestedVmOptions = listOf("-Xmx2G", "-Djava.home=/old/path", "-Duser.home=/old/home"),
                 applicationArguments = listOf("--username", "Player"),
-                androidRelease = "15"
+                androidRelease = "15",
+                timezoneId = "Africa/Cairo",
+                availableProcessors = 8
             )
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
@@ -47,6 +49,10 @@ class OEngineJvmBootstrapPlanTest {
             assertTrue(plan.vmOptions.contains("-Duser.language=en"))
             assertTrue(plan.vmOptions.contains("-Duser.country=US"))
             assertTrue(plan.vmOptions.contains("-Dlog4j2.formatMsgNoLookups=true"))
+            assertTrue(plan.vmOptions.contains("-Duser.timezone=Africa/Cairo"))
+            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.vulkan.libname=libvulkan.so"))
+            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared"))
+            assertTrue(plan.vmOptions.contains("-XX:ActiveProcessorCount=8"))
             assertTrue(plan.vmOptions.any { it == "-Djna.boot.library.path=" + nativeDir.canonicalPath })
             assertEquals(listOf("--username", "Player"), plan.applicationArguments)
         } finally {
