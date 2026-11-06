@@ -2180,6 +2180,58 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text(gameProcessStatus, color = Muted, fontSize = 11.sp)
                         Text("This starts the private :game Android process and checks Messenger IPC only. It does not load Java or launch Minecraft.", color = Muted, fontSize = 10.sp)
                         Button(
+                            enabled = preparedLaunchPlan != null && !probingGameProcess && !installingRuntime && !downloadingRuntime,
+                            onClick = {
+                                val launchPlan = preparedLaunchPlan ?: return@Button
+                                val bootstrap = OLauncherEngine.prepareCommandPreview(activeInstance.root, launchPlan).jvmBootstrapPlan
+                                if (bootstrap == null || !bootstrap.structurallyReady || bootstrap.jvmLibrary == null) {
+                                    gameProcessStatus = "GAME PROCESS JVM PROBE BLOCKED • " +
+                                        (bootstrap?.blockers?.joinToString(" • ") ?: "Prepare a valid Minecraft Java runtime first.")
+                                    return@Button
+                                }
+                                probingGameProcess = true
+                                gameProcessStatus = "Starting :game process; JVM linker probe will run there…"
+                                lateinit var client: OEngineGameProcessClient
+                                client = OEngineGameProcessClient(
+                                    context,
+                                    { result ->
+                                        result.fold(
+                                            onSuccess = { status ->
+                                                gameProcessStatus = "GAME PROCESS READY • PID " + status.pid + " • " + status.processName + " • probing libjvm…"
+                                                client.probeJvmLibrary(
+                                                    bootstrap.runtime.home,
+                                                    bootstrap.workingDirectory,
+                                                    bootstrap.jvmLibrary
+                                                )
+                                            },
+                                            onFailure = { error ->
+                                                probingGameProcess = false
+                                                gameProcessStatus = "GAME PROCESS IPC FAILED • " + (error.message ?: "Unknown process error")
+                                            }
+                                        )
+                                    },
+                                    { result ->
+                                        probingGameProcess = false
+                                        gameProcessStatus = result.fold(
+                                            onSuccess = { probe ->
+                                                (if (probe.successful) "ISOLATED JVM LINKER PROBE PASSED" else "ISOLATED JVM LINKER PROBE FAILED") +
+                                                    " • " + probe.status + " • " + probe.detail
+                                            },
+                                            onFailure = { error ->
+                                                "ISOLATED JVM LINKER PROBE ERROR • " + (error.message ?: "Unknown native linker error")
+                                            }
+                                        )
+                                    }
+                                )
+                                gameProcessClient = client
+                                client.connect()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6A4F79), contentColor = Color.White),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (probingGameProcess) "PROBING JVM IN GAME PROCESS…" else "PROBE JVM IN ISOLATED GAME PROCESS", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                        Button(
                             enabled = !probingGraphics,
                             onClick = {
                                 probingGraphics = true
