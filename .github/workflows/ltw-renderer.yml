@@ -7,6 +7,13 @@ on:
     paths:
       - ".github/workflows/ltw-renderer.yml"
       - "ENGINE_ARCHITECTURE.md"
+      - ".github/workflows/android-ci.yml"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineRendererArtifact.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineRendererProviderContract.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineRendererLaunchPlan.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineJvmNativeBridge.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineGameProcessService.kt"
+      - "app/src/main/java/com/alauncher/olauncher/OEngineGameProcessClient.kt"
 
 jobs:
   build-ltw:
@@ -111,7 +118,7 @@ jobs:
               "eglMakeCurrent",
               "glXGetProcAddress",
           }
-          allowed_needed = {"liblog.so", "libm.so", "libdl.so", "libc.so"}
+          allowed_needed = {"liblog.so", "libm.so", "libdl.so", "libc.so", "libandroid.so", "libEGL.so", "libGLESv2.so", "libGLESv3.so"}
           nm = os.environ["NM"]
           readelf = os.environ["READELF"]
           with zipfile.ZipFile(aar_path) as aar:
