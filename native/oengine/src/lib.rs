@@ -71,7 +71,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             return response("runtime_already_loaded", "A different libjvm.so is already retained in this process");
         }
     } else {
-        let handle = libc::dlopen(requested.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
+        let handle = libc::dlopen(requested.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL);
         if handle.is_null() {
             let error = libc::dlerror();
             let detail = if error.is_null() {
