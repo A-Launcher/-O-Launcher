@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -278,7 +279,7 @@ private fun TopBar(images: LauncherImages, modifier: Modifier = Modifier) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(MediaGray))
                 Spacer(Modifier.width(8.dp))
-                Text("CreeperFan", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("CREEPERFAN", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 13.sp, letterSpacing = (-0.25).sp)
                 Spacer(Modifier.width(7.dp))
                 Icon(Icons.Filled.ExpandMore, contentDescription = "Profile menu", tint = Ink, modifier = Modifier.size(18.dp))
             }
@@ -316,7 +317,7 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                 ) {
                     Icon(icon, contentDescription = label, tint = Ink, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.height(3.dp))
-                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Ink, maxLines = 1)
+                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Ink, maxLines = 1, letterSpacing = (-0.2).sp)
                 }
             }
         }
@@ -327,15 +328,11 @@ private fun Sidebar(tab: Int, onTab: (Int) -> Unit, images: LauncherImages, modi
                     Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(MediaGray))
                     Spacer(Modifier.width(5.dp))
                     Column {
-                        Text("CreeperFan", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        Text("● Online", fontSize = 9.sp, color = Color(0xFF4C8B43))
+                        Text("CREEPERFAN", fontSize = 10.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic)
                     }
                     Spacer(Modifier.weight(1f))
                     Icon(Icons.Filled.ExpandMore, contentDescription = "Account", modifier = Modifier.size(16.dp))
                 }
-                Divider(color = Border)
-                Text("● Latest Release", fontSize = 9.sp, color = Color(0xFF4C8B43))
-                Text("1.21.10  ⌄", fontSize = 10.sp, color = Ink)
             }
         }
     }
@@ -361,8 +358,8 @@ private fun HeroBanner(images: LauncherImages, modifier: Modifier = Modifier, on
 private fun WhatsNew(images: LauncherImages, modifier: Modifier = Modifier) {
     PanelCard("WHAT’S NEW?", "VIEW ALL  →", modifier) {
         MediaPlaceholder(Modifier.fillMaxWidth().weight(1f), RoundedCornerShape(15.dp))
-        Text("THE NETHER UPDATE", fontWeight = FontWeight.Black, fontSize = 15.sp, letterSpacing = (-0.25).sp)
-        Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontSize = 12.sp, letterSpacing = 0.1.sp)
+        Text("THE NETHER UPDATE", fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 15.sp, letterSpacing = (-0.25).sp)
+        Text("NEW BIOMES, NEW FEATURES!", color = Muted, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 12.sp, letterSpacing = 0.1.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(7.dp))
@@ -415,8 +412,8 @@ private fun NewsCard(image: ImageBitmap, title: String, description: String, dat
         Column(Modifier.fillMaxSize()) {
             MediaPlaceholder(Modifier.fillMaxWidth().height(82.dp), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
             Column(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title.uppercase(), fontWeight = FontWeight.Black, fontSize = 13.sp, letterSpacing = (-0.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(description, color = Muted, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title.uppercase(), fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 13.sp, letterSpacing = (-0.2).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(description, color = Muted, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.CalendarToday, contentDescription = null, tint = Muted, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(5.dp))
@@ -459,10 +456,10 @@ private fun PanelCard(
     ) {
         Column(Modifier.fillMaxSize().padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(title, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = (-0.35).sp)
+                Text(title, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, fontSize = 16.sp, letterSpacing = (-0.35).sp)
                 if (action != null) {
                     Spacer(Modifier.weight(1f))
-                    Text(action, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Muted)
+                    Text(action, fontSize = 11.sp, fontWeight = FontWeight.Black, fontStyle = FontStyle.Italic, color = Muted)
                 }
             }
             content()
