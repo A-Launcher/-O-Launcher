@@ -1,6 +1,8 @@
 package com.alauncher.olauncher
 
 import java.io.File
+import java.io.ByteArrayInputStream
+import java.io.DataInputStream
 import java.util.jar.JarFile
 
 /** Identifies the LWJGL generation actually supplied by Mojang's version classpath. */
@@ -47,6 +49,79 @@ object OEngineLwjglNativeResolver {
     )
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
     private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
+
+
+    /**
+     * Verify the declaration, not merely strings in the constant pool. A random
+     * occurrence of "ndlopen" and "(JI)J" is not enough to safely replace a JNI
+     * method: the class must declare that exact method as static and native.
+     */
+    private fun hasStaticNativeNdlopen(classBytes: ByteArray): Boolean = runCatching {
+        DataInputStream(ByteArrayInputStream(classBytes)).use { input ->
+            require(input.readInt() == 0xCAFEBABE.toInt()) { "Invalid class-file magic" }
+            input.readUnsignedShort() // minor
+            input.readUnsignedShort() // major
+            val constantPoolCount = input.readUnsignedShort()
+            val utf8 = arrayOfNulls<String>(constantPoolCount)
+            var index = 1
+            while (index < constantPoolCount) {
+                when (input.readUnsignedByte()) {
+                    1 -> utf8[index] = input.readUTF()
+                    3, 4 -> input.skipFully(4)
+                    5, 6 -> {
+                        input.skipFully(8)
+                        index++
+                    }
+                    7, 8, 16, 19, 20 -> input.skipFully(2)
+                    9, 10, 11, 12, 17, 18 -> input.skipFully(4)
+                    15 -> input.skipFully(3)
+                    else -> return@use false
+                }
+                index++
+            }
+
+            input.readUnsignedShort() // class access
+            input.readUnsignedShort() // this class
+            input.readUnsignedShort() // super class
+            repeat(input.readUnsignedShort()) { input.readUnsignedShort() } // interfaces
+            repeat(input.readUnsignedShort()) { input.skipMember() } // fields
+
+            var found = false
+            repeat(input.readUnsignedShort()) {
+                val access = input.readUnsignedShort()
+                val name = utf8.getOrNull(input.readUnsignedShort())
+                val descriptor = utf8.getOrNull(input.readUnsignedShort())
+                repeat(input.readUnsignedShort()) { input.skipAttribute() }
+                if (name == "ndlopen" && descriptor == "(JI)J" &&
+                    access and 0x0100 != 0 && access and 0x0008 != 0
+                ) found = true
+            }
+            found
+        }
+    }.getOrDefault(false)
+
+    private fun DataInputStream.skipMember() {
+        readUnsignedShort()
+        readUnsignedShort()
+        readUnsignedShort()
+        repeat(readUnsignedShort()) { skipAttribute() }
+    }
+
+    private fun DataInputStream.skipAttribute() {
+        readUnsignedShort()
+        val length = readInt()
+        require(length >= 0) { "Invalid class-file attribute length" }
+        skipFully(length)
+    }
+
+    private fun DataInputStream.skipFully(length: Int) {
+        var remaining = length
+        while (remaining > 0) {
+            val skipped = skipBytes(remaining)
+            if (skipped <= 0) throw java.io.EOFException("Truncated class file")
+            remaining -= skipped
+        }
+    }
 
     fun resolve(classpath: List<File>): OEngineLwjglResolution {
         val blockers = mutableListOf<String>()
@@ -98,8 +173,7 @@ object OEngineLwjglNativeResolver {
                     dynamicLoaderPresent = entry != null
                     if (entry != null) {
                         val bytes = jar.getInputStream(entry).use { it.readBytes() }
-                        val constants = bytes.toString(Charsets.ISO_8859_1)
-                        ndlopenSignaturePresent = constants.contains("ndlopen") && constants.contains("(JI)J")
+                        ndlopenSignaturePresent = hasStaticNativeNdlopen(bytes)
                     }
                     val sysEntry = jar.getJarEntry(LWJGL2_SYS_CLASS)
                     lwjgl2SysClassPresent = sysEntry != null
