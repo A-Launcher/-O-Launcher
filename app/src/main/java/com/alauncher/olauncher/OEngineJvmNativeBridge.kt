@@ -2,7 +2,7 @@ package com.alauncher.olauncher
 
 import java.io.File
 
-/** Result of an Android linker probe; it retains libjvm in-process but does not create or start a VM. */
+/** Result of a JVM linker or creation smoke test executed in the isolated game process. */
 data class OEngineJvmLibraryProbe(
     val successful: Boolean,
     val status: String,
@@ -10,8 +10,8 @@ data class OEngineJvmLibraryProbe(
 )
 
 /**
- * Small native bridge for the selected Android JRE's Invocation API.
- * The diagnostic maps and retains one validated libjvm for process lifetime. It never creates a VM.
+ * Native bridge for the selected Android JRE's Invocation API.
+ * It validates and retains one libjvm, then can create one experimental HotSpot VM per game process.
  */
 object OEngineJvmNativeBridge {
     private val nativeLibraryLoaded: Boolean by lazy {
