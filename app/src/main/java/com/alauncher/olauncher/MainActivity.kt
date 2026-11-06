@@ -1073,7 +1073,7 @@ private fun MarketplaceDestination(availableHeight: Dp) {
             }
             Text("VIEW ALL  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
-        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(maxHeight * 0.25f)) {
+        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
             Column(Modifier.fillMaxSize().padding(18.dp * scale), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
                 Spacer(Modifier.height(8.dp))
