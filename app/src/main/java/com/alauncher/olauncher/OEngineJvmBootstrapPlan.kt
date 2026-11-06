@@ -50,7 +50,11 @@ object OEngineJvmBootstrapPlanner {
         "-Dlog4j2.formatMsgNoLookups",
         "-Dfml.earlyprogresswindow",
         "-Dloader.disable_forked_guis",
-        "-Dorg.lwjgl.system.allocator"
+        "-Dorg.lwjgl.system.allocator",
+        "-Duser.timezone",
+        "-Dorg.lwjgl.vulkan.libname",
+        "-Dorg.lwjgl.spvc.libname",
+        "-XX:ActiveProcessorCount"
     )
 
     fun prepare(
@@ -61,7 +65,9 @@ object OEngineJvmBootstrapPlanner {
         mainClass: String,
         requestedVmOptions: List<String>,
         applicationArguments: List<String>,
-        androidRelease: String = "unknown"
+        androidRelease: String = "unknown",
+        timezoneId: String = "UTC",
+        availableProcessors: Int = 1
     ): OEngineJvmBootstrapPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -122,7 +128,11 @@ object OEngineJvmBootstrapPlanner {
                 "-Dlog4j2.formatMsgNoLookups" to "true",
                 "-Dfml.earlyprogresswindow" to "false",
                 "-Dloader.disable_forked_guis" to "true",
-                "-Dorg.lwjgl.system.allocator" to "system"
+                "-Dorg.lwjgl.system.allocator" to "system",
+                "-Duser.timezone" to timezoneId,
+                "-Dorg.lwjgl.vulkan.libname" to "libvulkan.so",
+                "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared",
+                "-XX:ActiveProcessorCount" to availableProcessors.coerceAtLeast(1).toString()
             )
         )
 
