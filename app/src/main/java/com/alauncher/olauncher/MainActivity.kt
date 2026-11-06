@@ -2392,6 +2392,9 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         launchingMinecraft = false
                                         gameProcessStatus = "MINECRAFT MAIN DISPATCHED • " + started.status + " • " + started.detail
                                     },
+                                    onJvmMainRunning = { running ->
+                                        gameProcessStatus = "MINECRAFT RUNNING • " + running.status + " • " + running.detail
+                                    },
                                     onJvmMain = { result ->
                                         launchingMinecraft = false
                                         gameProcessStatus = result.fold(
