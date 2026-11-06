@@ -25,10 +25,19 @@ class OEngineEglSession private constructor(
     val glRenderer: String,
     val openGlesMajor: Int,
     private val ownerThreadId: Long
-) : AutoCloseable {
+) : OEngineGraphicsBackend {
+    override val capabilities = OEngineGraphicsCapabilities(
+        eglVersion = eglVersion,
+        apiVersion = glVersion,
+        vendor = glVendor,
+        renderer = glRenderer,
+        apiMajor = openGlesMajor,
+        extensions = emptySet(),
+        isEmbeddedProfile = true
+    )
     private var closed = false
 
-    fun makeCurrent() {
+    override fun makeCurrent() {
         checkOwner()
         check(!closed) { "O Engine EGL session is closed." }
         check(EGL14.eglMakeCurrent(display, eglSurface, eglSurface, context)) {
@@ -36,7 +45,7 @@ class OEngineEglSession private constructor(
         }
     }
 
-    fun setSwapInterval(interval: Int) {
+    override fun setSwapInterval(interval: Int) {
         checkOwner()
         check(!closed) { "O Engine EGL session is closed." }
         require(interval >= 0) { "Swap interval cannot be negative." }
@@ -45,7 +54,7 @@ class OEngineEglSession private constructor(
         }
     }
 
-    fun swapBuffers(): Boolean {
+    override fun swapBuffers(): Boolean {
         checkOwner()
         check(!closed) { "O Engine EGL session is closed." }
         return EGL14.eglSwapBuffers(display, eglSurface)
