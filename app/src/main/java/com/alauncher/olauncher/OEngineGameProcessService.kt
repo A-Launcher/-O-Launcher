@@ -22,6 +22,7 @@ class OEngineGameProcessService : Service() {
     @Volatile private var jvmCreationAttempted = false
     @Volatile private var jvmCreated = false
     @Volatile private var rendererHandle: Long = 0L
+    @Volatile private var rendererHookInstalled = false
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -79,6 +80,7 @@ class OEngineGameProcessService : Service() {
                             targetClass, alias, rendererHandle
                         )
                         check(installed) { "HotSpot rejected the LWJGL native-loader hook." }
+                        rendererHookInstalled = true
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_installed")
                         reply.data.putString(KEY_PROBE_DETAIL, "Renderer loaded and LWJGL interception registered in :game.")
@@ -97,6 +99,7 @@ class OEngineGameProcessService : Service() {
                         val arguments = message.data.getStringArray(KEY_GAME_ARGUMENTS)?.toList().orEmpty()
                         require(mainClass.isNotBlank()) { "Minecraft main class is empty." }
                         check(jvmCreated) { "HotSpot has not been created successfully in the isolated game process." }
+                        check(rendererHookInstalled) { "LTW must be preloaded and its LWJGL hook installed before Minecraft main can run." }
                         require(arguments.size <= 16_384 && arguments.all { it.length <= 65_536 && '\u0000' !in it }) {
                             "Minecraft game arguments exceed the IPC safety limits."
                         }
@@ -126,6 +129,10 @@ class OEngineGameProcessService : Service() {
                             "The JVM library must be inside the selected runtime directory."
                         }
                         require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
+                        check(rendererHandle != 0L) { "LTW must be preloaded before HotSpot creation." }
+                        require(options.contains("-Dorg.lwjgl.opengl.libname=libGLMojo.so")) {
+                            "The JVM must use the libGLMojo.so LWJGL alias for the staged LTW renderer."
+                        }
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
                         val searchPaths = listOf(
