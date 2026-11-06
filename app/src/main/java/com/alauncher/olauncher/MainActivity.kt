@@ -185,8 +185,8 @@ private fun OLauncherApp() {
                             verticalArrangement = Arrangement.spacedBy(gap)
                         ) {
                             WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
-                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.245f)) { destination -> tab = destination }
-                            RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.225f))
+                            QuickLinks(Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
+                            RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
                         }
                     }
                 }
@@ -438,14 +438,14 @@ private fun QuickLinks(modifier: Modifier = Modifier, onNavigate: (Int) -> Unit)
     fun openPage(url: String) { try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } catch (_: Exception) { } }
     PanelCard("QUICK LINKS", null, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us") }
-            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
-            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
+            QuickLink(Icons.Filled.Language, "Official\nWebsite", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us") }
+            QuickLink(Icons.Filled.Description, "Patch\nNotes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/articles") }
+            QuickLink(Icons.Filled.SportsEsports, "Discord", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/en-us/community") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.weight(1f)) {
-            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.weight(1f)) { onNavigate(3) }
-            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.weight(1f)) { onNavigate(2) }
-            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.weight(1f)) { openPage("https://www.minecraft.net/redeem") }
+            QuickLink(Icons.Filled.ShoppingCart, "Marketplace", Modifier.height(59.dp).weight(1f)) { onNavigate(3) }
+            QuickLink(Icons.Filled.Checkroom, "Skins", Modifier.height(59.dp).weight(1f)) { onNavigate(2) }
+            QuickLink(Icons.Filled.CardGiftcard, "Gift Codes", Modifier.height(59.dp).weight(1f)) { openPage("https://www.minecraft.net/redeem") }
         }
     }
 }
