@@ -793,19 +793,20 @@ mod tests {
 
     #[test]
     fn exact_renderer_alias_is_redirected() {
-        assert!(is_redirect_candidate(b"libGL.so", b"libGL.so"));
+        assert!(is_redirect_candidate(b"libGLMojo.so", b"libGLMojo.so"));
+        assert!(!is_redirect_candidate(b"libGL.so", b"libGLMojo.so"));
     }
 
     #[test]
     fn unrelated_libraries_keep_normal_loader_path() {
-        assert!(!is_redirect_candidate(b"libvulkan.so", b"libGL.so"));
-        assert!(!is_redirect_candidate(b"/system/lib/libGL.so", b"libGL.so"));
+        assert!(!is_redirect_candidate(b"libvulkan.so", b"libGLMojo.so"));
+        assert!(!is_redirect_candidate(b"/system/lib/libGLMojo.so", b"libGLMojo.so"));
     }
 
     #[test]
     fn empty_names_are_never_redirected() {
-        assert!(!is_redirect_candidate(b"", b"libGL.so"));
-        assert!(!is_redirect_candidate(b"libGL.so", b""));
+        assert!(!is_redirect_candidate(b"", b"libGLMojo.so"));
+        assert!(!is_redirect_candidate(b"libGLMojo.so", b""));
     }
 
     #[test]
