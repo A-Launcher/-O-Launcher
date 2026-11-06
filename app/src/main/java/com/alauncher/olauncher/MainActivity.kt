@@ -393,42 +393,48 @@ private fun OLauncherApp() {
             val heroHeight = dashboardHeight * 0.505f
             val newsHeight = dashboardHeight * 0.325f
 
-            Row(
-                Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
-                horizontalArrangement = Arrangement.spacedBy(gap)
-            ) {
-                Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp))
-                    Spacer(Modifier.height(gap))
-                    Row(
-                        Modifier.weight(1f).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(gap)
-                    ) {
-                        Column(
-                            Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(gap)
+            if (tab == 1) {
+                InstallationReferenceScreen(onBack = { tab = 0 }, modifier = Modifier.fillMaxSize())
+            } else {
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.spacedBy(gap)
+                ) {
+                    Sidebar(tab, { tab = it }, images, Modifier.width(sidebarWidth).fillMaxHeight())
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        TopBar(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.095f).padding(top = 12.dp))
+                        Spacer(Modifier.height(gap))
+                        Row(
+                            Modifier.weight(1f).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(gap)
                         ) {
-                            if (tab == 0) {
-                                HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
-                                FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
-                            } else if (tab == 2) {
-                                SkinDestination(images)
-                            } else if (tab == 3) {
-                                MarketplaceDestination()
-                            } else if (tab == 6) {
-                                LauncherFilesDestination()
-                            } else {
-                                Destination(tab, images)
+                            Column(
+                                Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(gap)
+                            ) {
+                                if (tab == 0) {
+                                    HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
+                                    FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
+                                } else if (tab == 2) {
+                                    SkinDestination(images)
+                                } else if (tab == 3) {
+                                    MarketplaceDestination()
+                                } else if (tab == 6) {
+                                    LauncherFilesDestination()
+                                } else {
+                                    Destination(tab, images)
+                                }
                             }
-                        }
-                        Column(
-                            Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(gap)
-                        ) {
-                            WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
-                            QuickLinks(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
-                            RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
+                            if (tab != 3) {
+                                Column(
+                                    Modifier.width(rightRailWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(gap)
+                                ) {
+                                    WhatsNew(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.35f))
+                                    QuickLinks(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.265f)) { destination -> tab = destination }
+                                    RealmsCard(images, Modifier.fillMaxWidth().height(dashboardHeight * 0.205f))
+                                }
+                            }
                         }
                     }
                 }
@@ -1089,6 +1095,33 @@ private fun Destination(tab: Int, images: LauncherImages) {
                 Text("This section is under development.", color = Color(0xFF9B6A25), fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun InstallationReferenceScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val reference = remember(context) { readAssetImage(context, "IMG_20261106_152629.png") }
+    BoxWithConstraints(modifier = modifier.background(Color(0xFF241A17))) {
+        if (reference != null) {
+            Image(
+                bitmap = reference,
+                contentDescription = "Minecraft Java Edition Installations reference screen",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.FillBounds
+            )
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Installations artwork could not be loaded", color = Color.White)
+            }
+        }
+        // The reference artwork is a full-screen desktop layout; tapping its logo area returns Home.
+        Box(
+            Modifier.align(Alignment.TopStart)
+                .fillMaxWidth(0.16f)
+                .fillMaxHeight(0.13f)
+                .clickable(onClick = onBack)
+        )
     }
 }
 
