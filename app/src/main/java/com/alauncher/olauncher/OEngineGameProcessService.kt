@@ -93,6 +93,9 @@ class OEngineGameProcessService : Service() {
                         check(jvmCreated) { "HotSpot must be created before installing a renderer hook." }
                         check(rendererHandle != 0L) { "Renderer must be preloaded before JVM creation." }
                         val targetClass = message.data.getString(KEY_LWJGL_TARGET_CLASS).orEmpty()
+                        require(targetClass == OEngineLwjglNativeResolver.DYNAMIC_LINK_LOADER_CLASS_NAME) {
+                            "LTW hook target must be the exact LWJGL DynamicLinkLoader class."
+                        }
                         val alias = message.data.getString(KEY_RENDERER_ALIAS).orEmpty()
                         require(alias == OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS) {
                             "The selected renderer must use the verified libGLMojo.so LWJGL alias."
