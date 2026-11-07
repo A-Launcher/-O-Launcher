@@ -104,12 +104,16 @@ object OEngineInstallerJarStager {
         StagedInstaller(loader, game, selected, target, expectedSha1, target.length())
     }
 
+    internal fun validateHttpsUrl(address: String): URL {
+        val parsed = URL(address)
+        require(parsed.protocol.equals("https", true) && parsed.host.isNotBlank() && parsed.userInfo == null) {
+            "Official installer URL and redirects must use HTTPS without embedded credentials."
+        }
+        return parsed
+    }
     /** Follow only HTTPS redirects, rejecting credential-bearing or downgraded URLs. */
     private fun openHttps(address: String, accept: String): HttpURLConnection {
-        var current = URL(address)
-        require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
-            "Official installer URL must be a valid HTTPS URL."
-        }
+        var current = validateHttpsUrl(address)
         repeat(6) { hop ->
             val connection = (current.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15_000
@@ -127,10 +131,7 @@ object OEngineInstallerJarStager {
             val location = connection.getHeaderField("Location")
             connection.disconnect()
             require(hop < 5 && !location.isNullOrBlank()) { "Official installer redirected too many times." }
-            current = URL(current, location)
-            require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
-                "Official installer redirect must remain HTTPS."
-            }
+            current = validateHttpsUrl(URL(current, location).toExternalForm())
         }
         error("Official installer redirected too many times.")
     }
