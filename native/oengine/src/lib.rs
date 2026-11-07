@@ -294,6 +294,23 @@ pub extern "C" fn oengine_input_clear_session() {
     }
 }
 
+/// Notify the Android GLFW backend so glfwWaitEvents cannot sleep through newly queued input.
+fn wake_android_glfw_event_loop() {
+    unsafe {
+        let handle = libc::dlopen(
+            b"libglfw.so\0".as_ptr() as *const c_char,
+            libc::RTLD_NOW | libc::RTLD_LOCAL,
+        );
+        if handle.is_null() { return; }
+        let symbol = libc::dlsym(handle, b"oengine_wake_input\0".as_ptr() as *const c_char);
+        if !symbol.is_null() {
+            let wake: unsafe extern "C" fn() = std::mem::transmute(symbol);
+            wake();
+        }
+        libc::dlclose(handle);
+    }
+}
+
 /// Copies a bounded Android input batch into the native queue shared with the GLFW backend.
 /// The native queue is independent of HotSpot's JNI environment; GLFW drains it through C ABI.
 #[no_mangle]
@@ -374,7 +391,10 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
     let Ok(mut queue) = native_input_queue().lock() else { return -1; };
     if !queue.enqueue_batch(&parsed) { return -1; }
-    parsed.len() as jint
+    let accepted = parsed.len() as jint;
+    drop(queue);
+    wake_android_glfw_event_loop();
+    accepted
 }
 
 #[no_mangle]
