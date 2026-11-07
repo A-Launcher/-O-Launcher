@@ -125,7 +125,7 @@ fun OEngineTouchControlsOverlay(
         androidx.compose.ui.Modifier.fillMaxSize()
     ) {
         androidx.compose.foundation.layout.Box(
-            androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopEnd)
+            androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopStart)
                 .padding(12.dp)
         ) {
             androidx.compose.material3.TextButton(
