@@ -208,4 +208,31 @@ class OEngineInputTest {
         assertTrue(forwarder.releaseAll())
         assertEquals(listOf(128, 128, 44), batches)
     }
+
+    @Test fun gameInputForwarderRetainsFailedBatchesAndPreservesReleaseOrder() {
+        val sent = mutableListOf<List<OEngineInputEvent>>()
+        var allowSend = false
+        val forwarder = OEngineGameInputForwarder { batch ->
+            if (allowSend) { sent += batch; true } else false
+        }
+        val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f)
+        val up = down.copy(action = OEngineInputAction.UP, value = 0f)
+        assertFalse(forwarder.forward(listOf(down)))
+        assertEquals(1, forwarder.pendingBatchCount())
+        // A later event must not overtake the unsent DOWN.
+        assertFalse(forwarder.forward(listOf(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 65, value = 1f
+        ))))
+        assertEquals(1, forwarder.pendingBatchCount())
+        assertFalse(forwarder.releaseAll(100L))
+        assertEquals(2, forwarder.pendingBatchCount())
+        allowSend = true
+        assertTrue(forwarder.forward(listOf(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 65, value = 1f
+        ))))
+        assertEquals(listOf(OEngineInputAction.DOWN, OEngineInputAction.UP, OEngineInputAction.DOWN),
+            sent.flatten().map { it.action })
+        assertEquals(listOf(87, 87, 65), sent.flatten().map { it.code })
+        assertEquals(0, forwarder.pendingBatchCount())
+    }
 }
