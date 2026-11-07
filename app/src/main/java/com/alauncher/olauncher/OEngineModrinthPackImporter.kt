@@ -40,8 +40,8 @@ object OEngineModrinthPackImporter {
         ZipFile(archive).use { zip ->
             require(zip.size() <= MAX_ENTRIES) { "The pack contains too many archive entries." }
             val indexEntry = zip.getEntry("modrinth.index.json") ?: error("This is not a valid Modrinth .mrpack: index is missing.")
-            val indexText = zip.getInputStream(indexEntry).bufferedReader(Charsets.UTF_8).use { it.readText() }
-            require(indexText.length <= 8 * 1024 * 1024) { "Modpack index is too large." }
+            require(!indexEntry.isDirectory) { "Modpack index must be a file." }
+            val indexText = zip.getInputStream(indexEntry).use { readBoundedUtf8(it, 8 * 1024 * 1024) }
             val index = JSONObject(indexText)
             require(index.optInt("formatVersion", -1) == 1) { "Unsupported Modrinth modpack format version." }
             val name = index.optString("name").trim().ifBlank { archive.nameWithoutExtension }.take(64)
@@ -102,6 +102,21 @@ object OEngineModrinthPackImporter {
             copied += clientOverrides.first
             return Result(name, versionId, minecraft, loaders, downloaded, copied, skipped)
         }
+    }
+
+    /** Enforce the byte limit while reading, before allocating an unbounded index string. */
+    private fun readBoundedUtf8(input: java.io.InputStream, maxBytes: Int): String {
+        val output = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(8192)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= maxBytes) { "Modpack index is too large." }
+            output.write(buffer, 0, count)
+        }
+        return output.toString(Charsets.UTF_8.name())
     }
 
     private fun safeDestination(root: File, relative: String): File {
