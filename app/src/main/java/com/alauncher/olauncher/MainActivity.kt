@@ -1572,6 +1572,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     created = instance
                     val result = OEngineModrinthPackImporter.importPack(staged, instance.root)
                     OEngineInstanceManager.select(context, instance.id)
+                    activeGameRoot = instance.root
                     modpackStatus = "Imported " + result.name + ": " + result.downloadedFiles + " verified downloads, " + result.copiedOverrideFiles + " override files. Minecraft " + result.minecraftVersion + "; loader: " + result.loaders.entries.joinToString { it.key + " " + it.value }.ifBlank { "Vanilla" } + ". Install the base game and loader from Installations next."
                     refreshInstalledContent()
                 } catch (failure: Exception) {
@@ -1581,7 +1582,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             }
         }
     }
-    val activeGameRoot = remember { OEngineInstanceManager.active(context).root }
+    var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
     var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
     var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
     fun refreshInstalledContent() {
