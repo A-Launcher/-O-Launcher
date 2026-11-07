@@ -47,6 +47,9 @@ internal object OEngineAndroidGlfwBootstrap {
         if (loadedPath != null && surfaceIsAttached) {
             GLFW.nativeSurfaceDestroyed()
             surfaceIsAttached = false
+            // nativeSurfaceDestroyed waits for the GLFW thread to switch to pbuffer;
+            // this second wake delivers the queued LTW detach after that hand-off.
+            GLFW.nativeSurfaceUpdated()
         }
     }
 }
