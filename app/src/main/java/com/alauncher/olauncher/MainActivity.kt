@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -62,6 +64,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -1808,6 +1812,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     var gameSessionLog by remember { mutableStateOf("No O Engine session log has been loaded.") }
     var showGameSessionLog by remember { mutableStateOf(false) }
     var launchingMinecraft by remember { mutableStateOf(false) }
+    var showGameSurface by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
@@ -2725,6 +2730,62 @@ private fun InstallationsDestination(images: LauncherImages) {
                     }
                 }
                 Text("Selected profile: $selectedProfile. Each profile remembers its Minecraft version and preferred loader; loader installation is still in progress.", color = Muted, fontSize = 11.sp)
+            }
+        }
+    }
+
+    if (showGameSurface) {
+        Dialog(
+            onDismissRequest = {
+                gameProcessClient?.detachGameSurface()
+                showGameSurface = false
+            },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            Box(Modifier.fillMaxSize().background(Color.Black)) {
+                AndroidView(
+                    factory = { viewContext ->
+                        SurfaceView(viewContext).apply {
+                            holder.addCallback(object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    OEngineSessionLog.append(viewContext, "ANDROID_GAME_SURFACE_CREATED", "SurfaceView created")
+                                }
+
+                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                                    val attached = gameProcessClient?.attachGameSurface(holder.surface, width, height) == true
+                                    OEngineSessionLog.append(
+                                        viewContext,
+                                        if (attached) "ANDROID_GAME_SURFACE_SENT" else "ANDROID_GAME_SURFACE_SEND_FAILED",
+                                        "SurfaceView size=" + width + "x" + height
+                                    )
+                                }
+
+                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    gameProcessClient?.detachGameSurface()
+                                    OEngineSessionLog.append(viewContext, "ANDROID_GAME_SURFACE_DESTROYED", "SurfaceView destroyed")
+                                }
+                            })
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                Text(
+                    "O ENGINE • GAME SURFACE",
+                    modifier = Modifier.align(Alignment.BottomStart).padding(18.dp),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Button(
+                    onClick = {
+                        gameProcessClient?.detachGameSurface()
+                        showGameSurface = false
+                    },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF342D2B), contentColor = Color.White)
+                ) {
+                    Text("CLOSE GAME VIEW", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                }
             }
         }
     }
