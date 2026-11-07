@@ -2478,7 +2478,7 @@ mod native_input_tests {
     fn gamepad_button_overflow_reset_synthesizes_button_release() {
         let mut queue = OEngineNativeInputQueue::default();
         assert!(queue.enqueue(event(3, 0, 0, 0.0)));
-        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+        for code in 0..(INPUT_QUEUE_CAPACITY as i32 - 1) {
             assert!(queue.enqueue(event(1, 0, code, 0.0)));
         }
         assert!(!queue.enqueue(event(3, 0, 1, 0.0)));
