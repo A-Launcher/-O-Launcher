@@ -192,6 +192,7 @@ fun OEngineTouchControlsOverlay(
     val controls = androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateListOf<OEngineTouchControl>().apply { addAll(initialControls) }
     }
+    val context = androidx.compose.ui.platform.LocalContext.current
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     var presetIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -242,6 +243,32 @@ fun OEngineTouchControlsOverlay(
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 val selected = controls.firstOrNull { it.id == selectedId }
+                androidx.compose.material3.TextButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(
+                            "O Launcher touch layout",
+                            OEngineTouchControls.encode(controls.toList())
+                        )
+                    )
+                }) { androidx.compose.material3.Text("COPY") }
+                androidx.compose.material3.TextButton(onClick = {
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    val raw = clipboard.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
+                    if (!raw.isNullOrBlank()) {
+                        runCatching { OEngineTouchControls.decode(raw) }.onSuccess { imported ->
+                            toggled.forEach { (id, pressed) ->
+                                if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                            }
+                            controls.clear(); controls.addAll(imported)
+                            selectedId = imported.firstOrNull { it.id == "jump" }?.id ?: imported.first().id
+                            toggled.clear()
+                            onLayoutChanged(imported)
+                        }
+                    }
+                }) { androidx.compose.material3.Text("PASTE") }
                 androidx.compose.material3.TextButton(onClick = {
                     val presets = listOf("classic", "left-handed", "compact")
                     presetIndex = (presetIndex + 1) % presets.size
