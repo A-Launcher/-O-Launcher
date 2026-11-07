@@ -382,9 +382,17 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
         return EGL_NO_SURFACE;
     }
 
-    int wantedMode = (window != surfaceOwner || surfaceDestroyed)
-        ? GLFW_ANDROID_WINDOW_MODE_PBUFFER
-        : GLFW_ANDROID_WINDOW_MODE_SURFACE;
+    /* Pair the availability check and surfaceInUse transition with the destroy
+       waiter. This prevents nativeSurfaceDestroyed from releasing nativeWindow
+       between our check and the EGL thread beginning to use the window surface. */
+    pthread_mutex_lock(&nw_egl_mutex);
+    int wantedMode = (window == surfaceOwner && !surfaceDestroyed && nativeWindow)
+        ? GLFW_ANDROID_WINDOW_MODE_SURFACE
+        : GLFW_ANDROID_WINDOW_MODE_PBUFFER;
+    if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE)
+        surfaceInUse = true;
+    pthread_mutex_unlock(&nw_egl_mutex);
+
     int currentMode = window->android.mode;
     EGLSurface target = wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE
         ? (EGLSurface) share.window_surface
@@ -398,6 +406,12 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
     }
     if (!target || !share.make_current)
     {
+        if (surfaceInUse && wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
+            pthread_mutex_lock(&nw_egl_mutex);
+            surfaceInUse = false;
+            pthread_cond_broadcast(&nw_egl_cond);
+            pthread_mutex_unlock(&nw_egl_mutex);
+        }
         _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL has no usable window/pbuffer surface");
         return EGL_NO_SURFACE;
     }
@@ -407,6 +421,12 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
         (OEngineAndroidMakeCurrentFn) share.make_current;
     if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
     {
+        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
+            pthread_mutex_lock(&nw_egl_mutex);
+            surfaceInUse = false;
+            pthread_cond_broadcast(&nw_egl_cond);
+            pthread_mutex_unlock(&nw_egl_mutex);
+        }
         _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW eglMakeCurrent failed for Android surface mode");
         return EGL_NO_SURFACE;
     }
@@ -422,9 +442,9 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
 
     if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE)
     {
-        if (nativeWindow && surfaceUpdated)
+        GLFWbool did_update = __atomic_exchange_n(&surfaceUpdated, GLFW_FALSE, __ATOMIC_SEQ_CST);
+        if (nativeWindow && did_update)
             updateNativeWindowDimensions(window);
-        surfaceInUse = true;
     }
 
     window->android.mode = wantedMode;
@@ -443,6 +463,10 @@ if "oengine_android_get_ltw_share_info(&share)" not in android_text:
     raise SystemExit("Android GLFW surface manager is not using LTW share-info")
 if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in android_text:
     raise SystemExit("Android GLFW must clear surfaceInUse before waking nativeSurfaceDestroyed")
+if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
+    raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
+if "__atomic_exchange_n(&surfaceUpdated" not in manage_replacement:
+    raise SystemExit("Android GLFW must consume Surface resize notifications without losing concurrent updates")
 android_source.write_text(android_text, encoding="utf-8")
 
 required = [
