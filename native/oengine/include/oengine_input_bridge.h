@@ -5,7 +5,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Keep field order and integer values aligned with OEngineInputDevice/Action. */
+/* Keep field order and integer values aligned with OEngineInputDevice/Action.
+ * DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 are O Engine values;
+ * oengine_input_dispatch converts digital actions to GLFW PRESS=1, RELEASE=0, REPEAT=2.
+ */
 typedef struct OEngineNativeInputEvent {
     int32_t device;          /* TOUCH=0, KEYBOARD=1, MOUSE=2, GAMEPAD=3 */
     int32_t action;          /* DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 */
