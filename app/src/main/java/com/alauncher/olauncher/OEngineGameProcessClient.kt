@@ -565,7 +565,6 @@ class OEngineGameProcessClient(
         } catch (error: RemoteException) {
             OEngineSessionLog.append(appContext, "IPC_INPUT_SEND_FAILED", error.message ?: "Input ingress Binder send failed", error)
             inputMessenger = null
-            surfaceMessenger = null
             false
         }
     }
