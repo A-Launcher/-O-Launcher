@@ -28,10 +28,15 @@ object OEngineInstalledContentManager {
             } else {
                 directory.listFiles()
                     .orEmpty()
-                    .filter { it.isFile && !it.name.endsWith(".oengine-part") }
-                    .filter { it.extension.lowercase() in kind.extensions }
+                    .filter { file ->
+                        file.isFile &&
+                            !java.nio.file.Files.isSymbolicLink(file.toPath()) &&
+                            file.canonicalFile.parentFile == directory &&
+                            !file.name.endsWith(".oengine-part") &&
+                            file.extension.lowercase() in kind.extensions
+                    }
                     .map { file ->
-                        Entry(file.name, kind, file.canonicalFile, file.length(), file.lastModified())
+                        Entry(file.name, kind, file, file.length(), file.lastModified())
                     }
             }
         }.sortedWith(compareBy<Entry> { it.kind.ordinal }.thenBy { it.name.lowercase() })
