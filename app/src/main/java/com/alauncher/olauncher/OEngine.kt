@@ -73,7 +73,8 @@ object OLauncherEngine {
     fun prepareCommandPreview(
         gameRoot: File,
         plan: MinecraftVersionInstaller.LaunchPlan,
-        rendererLibraryAlias: String? = null
+        rendererLibraryAlias: String? = null,
+        androidGlfwLibrary: File? = null
     ): OEngineCommandPreview {
         val enginePaths = paths(gameRoot)
         val runtime = findRuntime(gameRoot, plan.javaMajorVersion)
@@ -101,11 +102,12 @@ object OLauncherEngine {
                 androidRelease = android.os.Build.VERSION.RELEASE,
                 timezoneId = java.util.TimeZone.getDefault().id,
                 availableProcessors = Runtime.getRuntime().availableProcessors(),
-                rendererLibraryAlias = rendererLibraryAlias
+                rendererLibraryAlias = rendererLibraryAlias,
+                androidGlfwLibrary = androidGlfwLibrary
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
-        val lwjglResolution = OEngineLwjglNativeResolver.resolve(plan.classpath.map(::File))
+        val lwjglResolution = OEngineLwjglNativeResolver.resolve(plan.classpath.map(::File), androidGlfwLibrary)
         blockers.addAll(lwjglResolution.blockers)
 
         val classpath = plan.classpath.joinToString(File.pathSeparator)
