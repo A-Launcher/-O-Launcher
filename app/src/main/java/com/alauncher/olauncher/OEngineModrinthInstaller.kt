@@ -18,11 +18,26 @@ object OEngineModrinthInstaller {
  data class InstallResult(val projectId:String,val versionId:String,val filename:String,val destination:File,val bytes:Long,val requiredDependencies:List<Dependency>)
  data class DependencyInstallResult(val primary:InstallResult,val installedDependencies:List<InstallResult>,val unresolvedDependencies:List<String>)
 
- fun targetDirectory(root:File,type:OEngineModrinthCatalog.ProjectType):File = when(type) {
+ fun targetDirectory(root:File,type:OEngineModrinthCatalog.ProjectType,worldName:String?=null):File = when(type) {
   OEngineModrinthCatalog.ProjectType.MOD -> File(root,"mods")
   OEngineModrinthCatalog.ProjectType.RESOURCE_PACK -> File(root,"resourcepacks")
   OEngineModrinthCatalog.ProjectType.SHADER -> File(root,"shaderpacks")
-  OEngineModrinthCatalog.ProjectType.DATA_PACK -> File(root,"datapacks")
+  OEngineModrinthCatalog.ProjectType.DATA_PACK -> {
+   val name=requireNotNull(worldName) { "Choose a world before installing a data pack." }
+   require(name.isNotBlank() && name!="." && name!=".." && !name.contains("/") && !name.contains("\\"))
+   val canonicalRoot=root.canonicalFile
+   val saves=File(canonicalRoot,"saves")
+   val world=File(saves,name)
+   require(!java.nio.file.Files.isSymbolicLink(saves.toPath()) && saves.isDirectory &&
+    saves.canonicalFile.parentFile==canonicalRoot &&
+    !java.nio.file.Files.isSymbolicLink(world.toPath()) && world.isDirectory &&
+    world.canonicalFile.parentFile==saves.canonicalFile && File(world,"level.dat").isFile) {
+     "The selected Minecraft world is unavailable or unsafe."
+    }
+   val folder=File(world,"datapacks")
+   require(!java.nio.file.Files.isSymbolicLink(folder.toPath()))
+   folder
+  }
   else -> throw IllegalArgumentException("Only individual mods, resource packs, shaders and data packs can be installed here.")
  }
  fun safeFilename(value:String):String {
@@ -80,7 +95,7 @@ object OEngineModrinthInstaller {
   val query=buildVersionQuery(gameVersion,loader)
   parseVersions(request("https://api.modrinth.com/v2/project/"+projectId+"/version"+if(query.isBlank()) "" else "?"+query))
  }
- suspend fun install(projectId:String,versionId:String,type:OEngineModrinthCatalog.ProjectType,gameRoot:File,onProgress:(Long,Long)->Unit={_,_->}):InstallResult = withContext(Dispatchers.IO) {
+ suspend fun install(projectId:String,versionId:String,type:OEngineModrinthCatalog.ProjectType,gameRoot:File,worldName:String?=null,onProgress:(Long,Long)->Unit={_,_->}):InstallResult = withContext(Dispatchers.IO) {
   require(projectId.matches(Regex("[A-Za-z0-9_-]{1,64}")) && versionId.matches(Regex("[A-Za-z0-9_-]{1,80}")))
   val metadata = request("https://api.modrinth.com/v2/version/"+versionId)
   require(JSONObject(metadata).optString("project_id") == projectId) { "This version does not belong to the selected Modrinth project." }
@@ -89,7 +104,7 @@ object OEngineModrinthInstaller {
   require(file.size in 1..(512L*1024L*1024L)) { "File exceeds 512 MiB or has invalid size." }
   val root=gameRoot.canonicalFile
   require(root.exists() || root.mkdirs())
-  val folder=targetDirectory(root,type).canonicalFile
+  val folder=targetDirectory(root,type,worldName).canonicalFile
   require(folder.toPath().startsWith(root.toPath()) && (folder.exists() || folder.mkdirs()))
   val destination=File(folder,safeFilename(file.filename)).canonicalFile
   require(destination.parentFile==folder)
