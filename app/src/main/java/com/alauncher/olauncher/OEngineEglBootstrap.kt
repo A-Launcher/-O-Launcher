@@ -6,6 +6,7 @@ import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.opengl.GLES20
+import android.view.Surface
 
 /**
  * Keeps an Android EGL/OpenGL ES context alive on the isolated game-process worker thread.
@@ -16,6 +17,7 @@ import android.opengl.GLES20
 internal class OEngineEglBootstrap private constructor(
     private val display: EGLDisplay,
     private val context: EGLContext,
+    private val config: EGLConfig,
     private val pbuffer: EGLSurface,
     val eglVersion: String,
     val glVersion: String,
@@ -24,12 +26,53 @@ internal class OEngineEglBootstrap private constructor(
     private val ownerThreadId: Long
 ) {
     private var closed = false
+    private var windowSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+    private var window: Surface? = null
+
+    fun attachWindow(surface: Surface, width: Int, height: Int) {
+        check(Thread.currentThread().id == ownerThreadId) {
+            "EGL window surface must be attached on its creating game-process thread."
+        }
+        check(!closed) { "EGL bootstrap has already been closed." }
+        require(surface.isValid) { "Android game Surface is not valid." }
+        detachWindow()
+        val created = EGL14.eglCreateWindowSurface(
+            display, config, surface,
+            intArrayOf(EGL14.EGL_NONE), 0
+        )
+        check(created != EGL14.EGL_NO_SURFACE) {
+            "eglCreateWindowSurface failed: " + error()
+        }
+        if (!EGL14.eglMakeCurrent(display, created, created, context)) {
+            EGL14.eglDestroySurface(display, created)
+            throw IllegalStateException("eglMakeCurrent(window) failed: " + error())
+        }
+        windowSurface = created
+        window = surface
+    }
+
+    fun detachWindow() {
+        check(Thread.currentThread().id == ownerThreadId) {
+            "EGL window surface must be detached on its creating game-process thread."
+        }
+        if (windowSurface == EGL14.EGL_NO_SURFACE) {
+            window?.release()
+            window = null
+            return
+        }
+        EGL14.eglMakeCurrent(display, pbuffer, pbuffer, context)
+        EGL14.eglDestroySurface(display, windowSurface)
+        windowSurface = EGL14.EGL_NO_SURFACE
+        window?.release()
+        window = null
+    }
 
     fun close() {
         check(Thread.currentThread().id == ownerThreadId) {
             "EGL bootstrap must be released on its creating game-process thread."
         }
         if (closed) return
+        detachWindow()
         closed = true
         EGL14.eglMakeCurrent(
             display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT
@@ -67,7 +110,7 @@ internal class OEngineEglBootstrap private constructor(
                     EGL14.EGL_OPENGL_ES2_BIT
                 }
                 val attributes = intArrayOf(
-                    EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT,
+                    EGL14.EGL_SURFACE_TYPE, EGL14.EGL_PBUFFER_BIT or EGL14.EGL_WINDOW_BIT,
                     EGL14.EGL_RENDERABLE_TYPE, renderableBit,
                     EGL14.EGL_RED_SIZE, 8,
                     EGL14.EGL_GREEN_SIZE, 8,
@@ -112,6 +155,7 @@ internal class OEngineEglBootstrap private constructor(
                 return OEngineEglBootstrap(
                     display = display,
                     context = context,
+                    config = config,
                     pbuffer = surface,
                     eglVersion = EGL14.eglQueryString(display, EGL14.EGL_VERSION).orEmpty(),
                     glVersion = glVersion,
