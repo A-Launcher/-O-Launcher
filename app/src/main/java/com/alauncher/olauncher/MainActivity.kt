@@ -1485,7 +1485,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 categories.forEach { category ->
                     val selected = selectedCategory == category
                     Surface(
-                        onClick = { selectedCategory = category; loadProjects() },
+                        onClick = { if (!loading) { selectedCategory = category; loadProjects() } },
                         color = if (selected) Color(0xFF704329) else Panel,
                         shape = RoundedCornerShape(30.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)
