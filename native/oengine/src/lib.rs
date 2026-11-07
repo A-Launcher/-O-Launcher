@@ -1319,6 +1319,22 @@ mod native_input_dispatch_tests {
     }
 
     #[test]
+    fn native_input_event_matches_the_published_c_abi_layout() {
+        use std::mem::{align_of, offset_of, size_of};
+        assert_eq!(align_of::<OEngineNativeInputEvent>(), 8);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, device), 0);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, action), 4);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, code), 8);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, x), 12);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, y), 16);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, value), 20);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, timestamp_nanos), 24);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, modifiers), 32);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, codepoint), 36);
+        assert_eq!(size_of::<OEngineNativeInputEvent>(), 40);
+    }
+
+    #[test]
     fn callback_table_is_a_c_compatible_pointer_table() {
         assert_eq!(
             std::mem::size_of::<OEngineNativeInputCallbacks>(),
