@@ -49,6 +49,7 @@ pub struct OEngineNativeInputEvent {
     pub modifiers: i32,
     pub codepoint: u32,
     pub scan_code: i32,
+    pub reserved: i32,
 }
 
 #[derive(Default)]
@@ -138,6 +139,7 @@ impl OEngineNativeInputQueue {
                     modifiers: pressed.modifiers,
                     codepoint: 0,
                     scan_code: pressed.scan_code,
+                    reserved: 0,
                 };
             }
             self.pressed.clear();
@@ -354,7 +356,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             device: d[index], action: a[index], code: c[index],
             x: x[index], y: y[index], value: v[index],
             timestamp_nanos: t[index], modifiers: m[index], codepoint: cp[index] as u32,
-            scan_code: sc[index],
+            scan_code: sc[index], reserved: 0,
         });
     }
     let Ok(mut queue) = native_input_queue().lock() else { return -1; };
@@ -1351,6 +1353,7 @@ mod native_input_dispatch_tests {
         assert_eq!(offset_of!(OEngineNativeInputEvent, modifiers), 32);
         assert_eq!(offset_of!(OEngineNativeInputEvent, codepoint), 36);
         assert_eq!(offset_of!(OEngineNativeInputEvent, scan_code), 40);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, reserved), 44);
         assert_eq!(size_of::<OEngineNativeInputEvent>(), 48);
     }
 
@@ -1766,7 +1769,7 @@ mod native_input_tests {
     fn event(device: i32, action: i32, code: i32, x: f32) -> OEngineNativeInputEvent {
         OEngineNativeInputEvent {
             device, action, code, x, y: 0.0, value: 1.0,
-            timestamp_nanos: 1, modifiers: 0, codepoint: 0, scan_code: 0,
+            timestamp_nanos: 1, modifiers: 0, codepoint: 0, scan_code: 0, reserved: 0,
         }
     }
 
