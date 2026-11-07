@@ -16,3 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "O Launcher"
 include(":app")
+
+include(":mojo-forge-installer")
+project(":mojo-forge-installer").projectDir = file("third_party/MojoLauncher/forge_installer")
