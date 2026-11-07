@@ -16,8 +16,8 @@ data class OEngineAndroidGlfwInstallResult(
 /**
  * Stages the separately-built Android GLFW platform backend in private game storage.
  *
- * This deliberately does not claim that LWJGL's org.lwjgl.glfw JNI provider is replaced:
- * the Mojo Android GLFW JNI binding is a separate Java API and still needs a runtime adapter.
+ * This is the C-ABI GLFW library consumed by LWJGL 3's generated function table.
+ * Mojo's ART-side Android JNI binding is a separate Java API and is adapted by O Engine.
  */
 object OEngineAndroidGlfwArtifactInstaller {
     private val supportedAbis = setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
