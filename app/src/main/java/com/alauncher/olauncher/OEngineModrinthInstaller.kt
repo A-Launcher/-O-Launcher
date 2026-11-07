@@ -104,8 +104,12 @@ object OEngineModrinthInstaller {
   require(file.size in 1..(512L*1024L*1024L)) { "File exceeds 512 MiB or has invalid size." }
   val root=gameRoot.canonicalFile
   require(root.exists() || root.mkdirs())
-  val folder=targetDirectory(root,type,worldName).canonicalFile
-  require(folder.toPath().startsWith(root.toPath()) && (folder.exists() || folder.mkdirs()))
+  val requestedFolder=targetDirectory(root,type,worldName)
+  require(!java.nio.file.Files.isSymbolicLink(requestedFolder.toPath())) { "The content destination cannot be a symbolic link." }
+  require(requestedFolder.exists() || requestedFolder.mkdirs()) { "Could not create the content destination." }
+  require(!java.nio.file.Files.isSymbolicLink(requestedFolder.toPath())) { "The content destination changed unexpectedly." }
+  val folder=requestedFolder.canonicalFile
+  require(folder.toPath().startsWith(root.toPath()) && folder.isDirectory)
   val destination=File(folder,safeFilename(file.filename)).canonicalFile
   require(destination.parentFile==folder)
   val temp=File(folder,destination.name+".oengine-part")
@@ -138,7 +142,7 @@ object OEngineModrinthInstaller {
   loader:String?,
   onProgress:(Long,Long)->Unit={_,_->}
  ):DependencyInstallResult {
-  val primary=install(projectId,versionId,type,gameRoot,onProgress)
+  val primary=install(projectId,versionId,type,gameRoot,onProgress=onProgress)
   val installed=mutableListOf<InstallResult>()
   val unresolved=mutableListOf<String>()
   val visited=linkedSetOf(projectId)
