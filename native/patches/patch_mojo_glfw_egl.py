@@ -13,21 +13,38 @@ include_replacement = include_anchor + r'''
 
 /* The LTW session is created on the HotSpot owner thread before GLFW starts. */
 typedef uint32_t (*OEngineActiveShareInfoFn)(OEngineLtwEglShareInfo*);
+typedef uint32_t (*OEngineProcessPendingWindowFn)(void);
 static void* oengine_ltw_handle = NULL;
 static OEngineActiveShareInfoFn oengine_ltw_share_info_fn = NULL;
+static OEngineProcessPendingWindowFn oengine_ltw_process_pending_fn = NULL;
 
 static GLFWbool oengine_get_ltw_share_info(OEngineLtwEglShareInfo* info)
 {
-    if (!oengine_ltw_share_info_fn)
-    {
-        if (!oengine_ltw_handle)
-            oengine_ltw_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
-        if (oengine_ltw_handle)
-            oengine_ltw_share_info_fn = (OEngineActiveShareInfoFn)
-                dlsym(oengine_ltw_handle, "oengine_ltw_egl_active_share_info");
-    }
+    if (!oengine_ltw_handle)
+        oengine_ltw_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
+    if (!oengine_ltw_share_info_fn && oengine_ltw_handle)
+        oengine_ltw_share_info_fn = (OEngineActiveShareInfoFn)
+            dlsym(oengine_ltw_handle, "oengine_ltw_egl_active_share_info");
     return oengine_ltw_share_info_fn && info &&
         oengine_ltw_share_info_fn(info) == 1;
+}
+
+/* Surface IPC only queues ownership changes. Drain them on the EGL/GLFW owner thread. */
+static GLFWbool oengine_process_pending_ltw_window(void)
+{
+    if (!oengine_ltw_handle)
+        oengine_ltw_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
+    if (!oengine_ltw_process_pending_fn && oengine_ltw_handle)
+        oengine_ltw_process_pending_fn = (OEngineProcessPendingWindowFn)
+            dlsym(oengine_ltw_handle, "oengine_ltw_egl_process_pending_window");
+    if (!oengine_ltw_process_pending_fn)
+        return GLFW_FALSE;
+    if (oengine_ltw_process_pending_fn() != 1)
+    {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL: queued Surface transition failed");
+        return GLFW_FALSE;
+    }
+    return GLFW_TRUE;
 }
 #endif
 '''
@@ -112,21 +129,33 @@ make_replacement = '''static void makeContextCurrentEGL(_GLFWwindow* window)
     OEngineLtwEglShareInfo oengine_ltw_share = {0};
     if (oengine_get_ltw_share_info(&oengine_ltw_share))
     {
-        typedef EGLBoolean (*OEngineLtwMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
-        OEngineLtwMakeCurrentFn make_current =
-            (OEngineLtwMakeCurrentFn) oengine_ltw_share.make_current;
-        EGLSurface target = window && oengine_ltw_share.window_surface
-            ? (EGLSurface) oengine_ltw_share.window_surface
-            : (EGLSurface) oengine_ltw_share.pbuffer;
-        if (!make_current || !make_current((EGLDisplay) oengine_ltw_share.display,
-                                            target, target,
-                                            (EGLContext) oengine_ltw_share.context))
-        {
-            _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL: failed to make shared context current");
+        /* The Android manager tracks surfaceInUse and switches to the LTW pbuffer
+           on detach. Bypassing it lets nativeSurfaceDestroyed race EGL teardown. */
+        if (!oengine_process_pending_ltw_window())
             return;
-        }
         if (window)
+        {
+            EGLSurface target = _glfwManageEglSurfaceAndroid(window);
+            if (!target)
+                return;
             window->context.egl.surface = target;
+        }
+        else
+        {
+            if (!oengine_get_ltw_share_info(&oengine_ltw_share))
+                return;
+            typedef EGLBoolean (*OEngineLtwMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
+            OEngineLtwMakeCurrentFn make_current =
+                (OEngineLtwMakeCurrentFn) oengine_ltw_share.make_current;
+            EGLSurface target = (EGLSurface) oengine_ltw_share.pbuffer;
+            if (!make_current || !make_current((EGLDisplay) oengine_ltw_share.display,
+                                                target, target,
+                                                (EGLContext) oengine_ltw_share.context))
+            {
+                _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL: failed to make shared context current");
+                return;
+            }
+        }
         _glfwPlatformSetTls(&_glfw.contextSlot, window);
         return;
     }
@@ -149,6 +178,13 @@ swap_replacement = swap_anchor + '''#if defined(_GLFW_ANDROID)
     OEngineLtwEglShareInfo oengine_ltw_share = {0};
     if (oengine_get_ltw_share_info(&oengine_ltw_share))
     {
+        /* A resize/detach may arrive while the game is between make-current calls.
+           Drain it here too, then let the Android manager update the current surface. */
+        if (!oengine_process_pending_ltw_window())
+            return;
+        EGLSurface target = _glfwManageEglSurfaceAndroid(window);
+        if (!target || !oengine_get_ltw_share_info(&oengine_ltw_share))
+            return;
         typedef EGLBoolean (*OEngineLtwSwapBuffersFn)(EGLDisplay, EGLSurface);
         OEngineLtwSwapBuffersFn swap_buffers =
             (OEngineLtwSwapBuffersFn) oengine_ltw_share.swap_buffers;
@@ -480,6 +516,9 @@ required = [
     "window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;",
     "O Engine LTW EGL: failed to make shared context current",
     "O Engine LTW EGL: frame presentation failed",
+    "oengine_ltw_egl_process_pending_window",
+    "oengine_process_pending_ltw_window()",
+    "_glfwManageEglSurfaceAndroid(window)",
     "const GLFWbool is_ltw_context",
     "const GLFWbool is_ltw_surface",
     "display_is_ltw_owned",
