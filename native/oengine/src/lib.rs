@@ -37,7 +37,7 @@ type OEngineNativeWindowRelease = unsafe extern "C" fn(*mut c_void);
 
 fn android_library() -> *mut c_void {
     *ANDROID_LIBRARY.get_or_init(|| {
-        libc::dlopen(b"libandroid.so\\0".as_ptr() as *const c_char, libc::RTLD_NOW | libc::RTLD_LOCAL) as usize
+        unsafe { libc::dlopen(b"libandroid.so\0".as_ptr() as *const c_char, libc::RTLD_NOW | libc::RTLD_LOCAL) as usize }
     }) as *mut c_void
 }
 
@@ -58,9 +58,9 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     if library.is_null() {
         return 0;
     }
-    let from_surface = libc::dlsym(library, b"ANativeWindow_fromSurface\\0".as_ptr() as *const c_char);
-    let set_geometry = libc::dlsym(library, b"ANativeWindow_setBuffersGeometry\\0".as_ptr() as *const c_char);
-    let release = libc::dlsym(library, b"ANativeWindow_release\\0".as_ptr() as *const c_char);
+    let from_surface = libc::dlsym(library, b"ANativeWindow_fromSurface\0".as_ptr() as *const c_char);
+    let set_geometry = libc::dlsym(library, b"ANativeWindow_setBuffersGeometry\0".as_ptr() as *const c_char);
+    let release = libc::dlsym(library, b"ANativeWindow_release\0".as_ptr() as *const c_char);
     if from_surface.is_null() || set_geometry.is_null() || release.is_null() {
         return 0;
     }
@@ -93,7 +93,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     if library.is_null() {
         return;
     }
-    let release = libc::dlsym(library, b"ANativeWindow_release\\0".as_ptr() as *const c_char);
+    let release = libc::dlsym(library, b"ANativeWindow_release\0".as_ptr() as *const c_char);
     if !release.is_null() {
         let release: OEngineNativeWindowRelease = std::mem::transmute(release);
         release(handle as *mut c_void);
