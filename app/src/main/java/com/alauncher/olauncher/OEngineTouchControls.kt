@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.awaitFirstDown
+import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -165,10 +167,10 @@ fun OEngineTouchControlsOverlay(
                             }
                         } else {
                             androidx.compose.foundation.gestures.awaitEachGesture {
-                                val down = androidx.compose.ui.input.pointer.awaitFirstDown()
+                                val down = awaitFirstDown()
                                 onKey(control.keyCode, true)
                                 try {
-                                    androidx.compose.ui.input.pointer.waitForUpOrCancellation()
+                                    waitForUpOrCancellation()
                                 } finally {
                                     onKey(control.keyCode, false)
                                 }
