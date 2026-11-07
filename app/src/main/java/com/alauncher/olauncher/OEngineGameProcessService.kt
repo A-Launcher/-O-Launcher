@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Build
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
@@ -201,6 +202,21 @@ class OEngineGameProcessService : Service() {
                         check(eglBootstrap == null) { "The LTW EGL session is already initialized." }
                         // LTW must be loaded first: its EGL wrappers register the context
                         // in the compatibility layer's context map.
+                        val androidAbi = Build.SUPPORTED_ABIS.firstOrNull { it in setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64") }
+                            ?: throw IllegalStateException("No supported Android ABI is available for the GLFW platform backend.")
+                        val androidGlfw = OEngineAndroidGlfwArtifactInstaller.install(
+                            sourceDirectory = File(applicationInfo.nativeLibraryDir),
+                            destinationRoot = File(filesDir, "oengine/android-glfw"),
+                            abi = androidAbi
+                        )
+                        OEngineSessionLog.append(
+                            this,
+                            "ANDROID_GLFW_ARTIFACTS_STAGED",
+                            "abi=" + androidGlfw.abi + ", libraries=" +
+                                androidGlfw.libraries.joinToString { it.name + ":" + androidGlfw.sha256ByLibrary.getValue(it.name).take(12) } +
+                                ", manifest=" + androidGlfw.manifest.absolutePath +
+                                "; staged only, not yet bound to LWJGL org.lwjgl.glfw."
+                        )
                         rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
                         eglBootstrap = OEngineEglBootstrap.create(rendererHandle, OEngineGraphicsStack.LTW_MIN_GLES_MAJOR).also { egl ->
                             OEngineSessionLog.append(
