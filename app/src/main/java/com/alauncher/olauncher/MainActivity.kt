@@ -1531,6 +1531,12 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
+    val installedMinecraftVersions = remember(activeGameRoot) {
+        File(activeGameRoot, "versions").listFiles().orEmpty()
+            .filter { it.isDirectory && File(it, it.name + ".json").isFile }
+            .map { it.name }.distinct().sortedDescending()
+    }
+    var compatibleGameVersion by remember { mutableStateOf("All versions") }
     var projects by remember { mutableStateOf<List<OEngineModrinthCatalog.Project>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1601,7 +1607,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
         loadingVersions = true
         scope.launch {
             try {
-                installVersions = OEngineModrinthInstaller.versions(project.id)
+                installVersions = OEngineModrinthInstaller.versions(project.id, compatibleGameVersion.takeUnless { it == "All versions" })
                 if (installVersions.isEmpty()) installStatus = "No verified downloadable versions were returned."
             } catch (failure: Exception) {
                 installStatus = failure.message ?: "Could not load project versions."
@@ -1617,6 +1623,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             try {
                 val root = OEngineInstanceManager.active(context).root
                 val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root)
+                refreshInstalledContent()
                 installStatus = "Installed " + result.filename + " in " + (result.destination.parentFile?.name ?: "instance") + ". " +
                     if (result.requiredDependencies.isEmpty()) "File integrity verified."
                     else "WARNING: " + result.requiredDependencies.size + " required dependencies still need installation."
@@ -1665,6 +1672,27 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     )
                 }
                 TextButton(onClick = { loadProjects() }, enabled = !loading) { Text("SEARCH", color = Ink, fontWeight = FontWeight.Bold) }
+            }
+            if (installedMinecraftVersions.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("FILTER BY INSTALLED MINECRAFT VERSION", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        (listOf("All versions") + installedMinecraftVersions).forEach { version ->
+                            val selected = compatibleGameVersion == version
+                            Surface(onClick = {
+                                if (compatibleGameVersion != version) {
+                                    compatibleGameVersion = version
+                                    if (installingProject != null) prepareProjectInstall(installingProject!!)
+                                }
+                            }, color = if (selected) Color(0xFF704329) else Panel,
+                                shape = RoundedCornerShape(24.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                                Text(version, Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    color = if (selected) Color.White else Ink, fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
             }
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 categories.forEach { category ->
