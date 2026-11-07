@@ -35,6 +35,8 @@ static ANDROID_LIBRARY: OnceLock<usize> = OnceLock::new();
 
 const INPUT_QUEUE_CAPACITY: usize = 512;
 const INPUT_MAX_TRACKED_CONTROLS: usize = 1024;
+const INPUT_MAX_TRACKED_ANALOG: usize = 7;
+const INPUT_MAX_RESET_RELEASES: usize = INPUT_MAX_TRACKED_CONTROLS + INPUT_MAX_TRACKED_ANALOG;
 
 fn lwjgl_required_glfw_symbols() -> Vec<&'static str> {
     let mut symbols = Vec::new();
@@ -73,6 +75,7 @@ pub struct OEngineNativeInputEvent {
 struct OEngineNativeInputQueue {
     events: VecDeque<OEngineNativeInputEvent>,
     pressed: Vec<OEngineNativeInputEvent>,
+    active_gamepad_axes: Vec<OEngineNativeInputEvent>,
     reset_required: bool,
     dropped: u64,
 }
@@ -109,6 +112,27 @@ impl OEngineNativeInputQueue {
         false
     }
 
+    fn track_gamepad_axis(&mut self, event: OEngineNativeInputEvent) {
+        if event.device != 3 || event.action != 3 || !(0..=6).contains(&event.code) {
+            return;
+        }
+        let neutral = if event.code == 6 {
+            event.x == 0.0 && event.y == 0.0
+        } else {
+            event.value == 0.0
+        };
+        let position = self.active_gamepad_axes.iter().position(|axis| Self::same_control(axis, &event));
+        if neutral {
+            if let Some(index) = position {
+                self.active_gamepad_axes.remove(index);
+            }
+        } else if let Some(index) = position {
+            self.active_gamepad_axes[index] = event;
+        } else {
+            self.active_gamepad_axes.push(event);
+        }
+    }
+
     fn enqueue(&mut self, event: OEngineNativeInputEvent) -> bool {
         let control = self.pressed.iter().position(|pressed| Self::same_control(pressed, &event));
         match event.action {
@@ -134,7 +158,16 @@ impl OEngineNativeInputQueue {
             }
             _ => {}
         }
-        self.offer_event(event)
+        if event.device == 3 && event.action == 3 {
+            self.track_gamepad_axis(event);
+        }
+        let accepted = self.offer_event(event);
+        if !accepted && event.device == 3 && event.action == 3 {
+            // Losing an analog sample while the queue is transition-saturated
+            // must reset the last delivered axis state instead of leaving it stuck.
+            self.reset_required = true;
+        }
+        accepted
     }
 
     fn enqueue_batch(&mut self, events: &[OEngineNativeInputEvent]) -> bool {
@@ -152,11 +185,12 @@ impl OEngineNativeInputQueue {
 
     fn drain(&mut self, output: &mut [OEngineNativeInputEvent]) -> usize {
         if self.reset_required {
-            if output.len() < self.pressed.len() {
+            let release_count = self.pressed.len() + self.active_gamepad_axes.len();
+            if output.len() < release_count {
                 return 0;
             }
             self.events.clear();
-            let count = self.pressed.len();
+            let digital_count = self.pressed.len();
             for (index, pressed) in self.pressed.iter().rev().enumerate() {
                 output[index] = OEngineNativeInputEvent {
                     device: pressed.device,
@@ -172,9 +206,25 @@ impl OEngineNativeInputQueue {
                     reserved: 0,
                 };
             }
+            for (index, axis) in self.active_gamepad_axes.iter().rev().enumerate() {
+                output[digital_count + index] = OEngineNativeInputEvent {
+                    device: 3,
+                    action: 3,
+                    code: axis.code,
+                    x: 0.0,
+                    y: 0.0,
+                    value: 0.0,
+                    timestamp_nanos: 0,
+                    modifiers: 0,
+                    codepoint: 0,
+                    scan_code: 0,
+                    reserved: 0,
+                };
+            }
             self.pressed.clear();
+            self.active_gamepad_axes.clear();
             self.reset_required = false;
-            return count;
+            return release_count;
         }
         let count = output.len().min(self.events.len());
         for slot in output.iter_mut().take(count) {
@@ -307,6 +357,7 @@ pub extern "C" fn oengine_input_clear_session() {
     if let Ok(mut queue) = native_input_queue().lock() {
         queue.events.clear();
         queue.pressed.clear();
+        queue.active_gamepad_axes.clear();
         queue.reset_required = false;
     }
 }
@@ -2472,6 +2523,24 @@ mod native_input_tests {
         assert_eq!(GAMEPAD_CAPTURE_ACTION.load(Ordering::SeqCst), 3);
         assert_eq!(GAMEPAD_CAPTURE_CODE.load(Ordering::SeqCst), 4);
         assert_eq!(GAMEPAD_CAPTURE_VALUE.load(Ordering::SeqCst), 0.75f32.to_bits() as usize);
+    }
+
+    #[test]
+    fn dropped_gamepad_axis_sample_resets_last_delivered_axis_state() {
+        let mut queue = OEngineNativeInputQueue::default();
+        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+            assert!(queue.enqueue(event(1, 0, code, 0.0)));
+        }
+        let mut axis = event(3, 3, 0, 0.0);
+        axis.value = 0.8;
+        assert!(!queue.enqueue(axis));
+        assert!(queue.reset_required);
+        let mut output = [OEngineNativeInputEvent::default(); INPUT_MAX_RESET_RELEASES];
+        let count = queue.drain(&mut output);
+        assert_eq!(count, INPUT_QUEUE_CAPACITY + 1);
+        assert!(output[..count].iter().any(|item|
+            item.device == 3 && item.action == 3 && item.code == 0 && item.value == 0.0));
+        assert!(queue.active_gamepad_axes.is_empty());
     }
 
     #[test]
