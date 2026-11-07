@@ -179,7 +179,7 @@ object OEngineModrinthInstaller {
   return DependencyInstallResult(primary,installed,unresolved)
  }
  private fun download(file:VersionFile,destination:File,onProgress:(Long,Long)->Unit) {
-  val c=(URL(file.url).openConnection() as HttpURLConnection).apply { connectTimeout=15000;readTimeout=60000;instanceFollowRedirects=true;setRequestProperty("User-Agent","O-Launcher/1.0 (Android)") }
+  val c=openHttpsGet(file.url, 15000, 60000)
   var count=0L
   val d1=MessageDigest.getInstance("SHA-1"); val d512=MessageDigest.getInstance("SHA-512")
   try {
@@ -198,11 +198,42 @@ object OEngineModrinthInstaller {
    destination.delete();error("Modrinth file integrity verification failed.")
   }
  }
+ private fun openHttpsGet(address:String,connectTimeout:Int=12000,readTimeout:Int=30000):HttpURLConnection {
+  var current=URL(address)
+  require(current.protocol.equals("https",true) && current.host.isNotBlank() && current.userInfo==null) { "Modrinth requests must use a valid HTTPS URL." }
+  repeat(6) {
+   val connection=(current.openConnection() as HttpURLConnection).apply {
+    requestMethod="GET"; this.connectTimeout=connectTimeout; this.readTimeout=readTimeout
+    instanceFollowRedirects=false
+    setRequestProperty("User-Agent","O-Launcher/1.0 (Android)")
+    setRequestProperty("Accept","application/json")
+   }
+   val status=connection.responseCode
+   if(status !in setOf(301,302,303,307,308)) return connection
+   val location=connection.getHeaderField("Location")
+   connection.disconnect()
+   require(!location.isNullOrBlank()) { "Modrinth returned a redirect without a destination." }
+   current=URL(current,location)
+   require(current.protocol.equals("https",true) && current.host.isNotBlank() && current.userInfo==null) { "Modrinth attempted an insecure or invalid redirect." }
+  }
+  error("Modrinth exceeded the allowed redirect count.")
+ }
+ private fun readMetadataBody(stream:java.io.InputStream?):String {
+  if(stream==null) return ""
+  stream.use { input ->
+   val output=java.io.ByteArrayOutputStream(); val buffer=ByteArray(8192); var total=0
+   while(true) { val count=input.read(buffer); if(count<0) break; total+=count
+    require(total<=8*1024*1024) { "Modrinth metadata response exceeded the 8 MiB limit." }
+    output.write(buffer,0,count)
+   }
+   return output.toString(Charsets.UTF_8.name())
+  }
+ }
  private fun request(address:String):String {
-  val c=(URL(address).openConnection() as HttpURLConnection).apply { connectTimeout=12000;readTimeout=30000;instanceFollowRedirects=true;setRequestProperty("User-Agent","O-Launcher/1.0 (Android)");setRequestProperty("Accept","application/json") }
+  val c=openHttpsGet(address, 12000, 30000)
   try {
    val status=c.responseCode;val stream=if(status in 200..299)c.inputStream else c.errorStream
-   val body=stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+   val body=readMetadataBody(stream)
    if(status !in 200..299) error(runCatching { JSONObject(body).optString("description") }.getOrNull()?.takeIf(String::isNotBlank) ?: "Modrinth returned HTTP "+status)
    return body
   } finally { c.disconnect() }
