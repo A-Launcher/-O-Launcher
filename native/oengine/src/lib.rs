@@ -406,6 +406,94 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 }
 
 
+
+/// Runtime ABI gate for the exact GLFW function table used by LWJGL 3.3.3.
+/// This checks the library that ART has loaded, before HotSpot attempts to bind it.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeVerifyGlfwLibrary(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    library_path: jstring,
+) -> jstring {
+    if raw_env.is_null() || library_path.is_null() { return ptr::null_mut(); }
+    let mut env = match JNIEnv::from_raw(raw_env) {
+        Ok(value) => value,
+        Err(_) => return ptr::null_mut(),
+    };
+    let java_path = JString::from_raw(library_path);
+    let path: String = match env.get_string(&java_path) {
+        Ok(value) => value.into(),
+        Err(_) => return ptr::null_mut(),
+    };
+    let response = |status: &str, detail: &str| {
+        env.new_string(format!("{status}:{detail}"))
+            .map(|value| value.into_raw())
+            .unwrap_or(ptr::null_mut())
+    };
+    if !path.starts_with('/') {
+        return response("invalid_path", "GLFW library path must be absolute");
+    }
+    let requested = match CString::new(path) {
+        Ok(value) => value,
+        Err(_) => return response("invalid_path", "GLFW library path contains a NUL byte"),
+    };
+    let handle = libc::dlopen(requested.as_ptr(), libc::RTLD_NOW | libc::RTLD_LOCAL);
+    if handle.is_null() {
+        let error = libc::dlerror();
+        let detail = if error.is_null() {
+            "dlopen failed without detail".to_owned()
+        } else {
+            CStr::from_ptr(error).to_string_lossy().into_owned()
+        };
+        return response("glfw_load_error", &detail);
+    }
+
+    let mut missing = Vec::new();
+    for raw in include_str!("../../android-glfw/lwjgl-3.3.3-required-symbols.txt").lines() {
+        let name = raw.trim();
+        if name.is_empty() || name.starts_with('#') { continue; }
+        let symbol = match CString::new(name) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if libc::dlsym(handle, symbol.as_ptr()).is_null() && !missing.iter().any(|v: &String| v == name) {
+            missing.push(name.to_owned());
+        }
+    }
+
+    let version_symbol = libc::dlsym(handle, b"glfwGetVersion\0".as_ptr() as *const c_char);
+    let mut version = (0, 0, 0);
+    if !version_symbol.is_null() {
+        type GetVersion = unsafe extern "C" fn(*mut i32, *mut i32, *mut i32);
+        let get_version: GetVersion = std::mem::transmute(version_symbol);
+        let mut major = 0;
+        let mut minor = 0;
+        let mut revision = 0;
+        get_version(&mut major, &mut minor, &mut revision);
+        version = (major, minor, revision);
+    } else if !missing.iter().any(|v| v == "glfwGetVersion") {
+        missing.push("glfwGetVersion".to_owned());
+    }
+
+    libc::dlclose(handle);
+    if !missing.is_empty() {
+        return response("glfw_missing_symbols", &format!(
+            "GLFW {}.{}.{} is missing {} LWJGL 3.3.3 exports: {}",
+            version.0, version.1, version.2, missing.len(), missing.join(", ")
+        ));
+    }
+    if version.0 != 3 || version.1 < 3 {
+        return response("glfw_version_unsupported", &format!(
+            "Expected GLFW 3.3 or newer in major version 3; found {}.{}.{}",
+            version.0, version.1, version.2
+        ));
+    }
+    response("glfw_compatible", &format!(
+        "GLFW {}.{}.{} exports the complete LWJGL 3.3.3 function table",
+        version.0, version.1, version.2
+    ))
+}
+
 type OEngineNativeWindowFromSurface = unsafe extern "system" fn(*mut RawJNIEnv, jobject) -> *mut c_void;
 type OEngineNativeWindowSetBuffersGeometry = unsafe extern "C" fn(*mut c_void, i32, i32, i32) -> i32;
 type OEngineNativeWindowRelease = unsafe extern "C" fn(*mut c_void);
