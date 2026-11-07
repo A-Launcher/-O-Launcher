@@ -30,6 +30,87 @@ static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::ne
 static RENDERER_LOAD_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static RENDERER_HOOK_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 
+type OEngineNativeWindowFromSurface = unsafe extern "system" fn(*mut RawJNIEnv, jobject) -> *mut c_void;
+type OEngineNativeWindowSetBuffersGeometry = unsafe extern "C" fn(*mut c_void, i32, i32, i32) -> i32;
+type OEngineNativeWindowGetWidth = unsafe extern "C" fn(*mut c_void) -> i32;
+type OEngineNativeWindowGetHeight = unsafe extern "C" fn(*mut c_void) -> i32;
+type OEngineNativeWindowRelease = unsafe extern "C" fn(*mut c_void);
+
+/// Acquires an ANativeWindow reference from Android's Surface. The returned pointer
+/// is owned by the caller and must be passed to nativeReleaseWindow exactly once.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeAcquireWindow(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    surface: jobject,
+    width: jint,
+    height: jint,
+) -> jlong {
+    if raw_env.is_null() || surface.is_null() || width <= 0 || height <= 0 {
+        return 0;
+    }
+    let from_surface = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_fromSurface\\0".as_ptr() as *const c_char);
+    let set_geometry = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_setBuffersGeometry\\0".as_ptr() as *const c_char);
+    let release = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_release\\0".as_ptr() as *const c_char);
+    if from_surface.is_null() || set_geometry.is_null() || release.is_null() {
+        return 0;
+    }
+    let from_surface: OEngineNativeWindowFromSurface = std::mem::transmute(from_surface);
+    let set_geometry: OEngineNativeWindowSetBuffersGeometry = std::mem::transmute(set_geometry);
+    let release: OEngineNativeWindowRelease = std::mem::transmute(release);
+    let window = from_surface(raw_env, surface);
+    if window.is_null() {
+        return 0;
+    }
+    // Format 0 preserves the Surface's configured native buffer format.
+    if set_geometry(window, width, height, 0) != 0 {
+        release(window);
+        return 0;
+    }
+    window as jlong
+}
+
+/// Releases the exact ANativeWindow reference returned by nativeAcquireWindow.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeReleaseWindow(
+    _raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    handle: jlong,
+) {
+    if handle == 0 {
+        return;
+    }
+    let release = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_release\\0".as_ptr() as *const c_char);
+    if !release.is_null() {
+        let release: OEngineNativeWindowRelease = std::mem::transmute(release);
+        release(handle as *mut c_void);
+    }
+}
+
+/// Reads the native dimensions without transferring ownership.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeWindowSize(
+    _raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    handle: jlong,
+) -> jni::sys::jintArray {
+    if handle == 0 {
+        return ptr::null_mut();
+    }
+    let get_width = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_getWidth\\0".as_ptr() as *const c_char);
+    let get_height = libc::dlsym(libc::RTLD_DEFAULT, b"ANativeWindow_getHeight\\0".as_ptr() as *const c_char);
+    if get_width.is_null() || get_height.is_null() {
+        return ptr::null_mut();
+    }
+    let get_width: OEngineNativeWindowGetWidth = std::mem::transmute(get_width);
+    let get_height: OEngineNativeWindowGetHeight = std::mem::transmute(get_height);
+    let window = handle as *mut c_void;
+    // Kept as a separate native query so Kotlin can validate the ANativeWindow geometry.
+    let _dimensions = [get_width(window), get_height(window)];
+    ptr::null_mut()
+}
+
+
 fn hook_config() -> &'static RwLock<Option<HookConfig>> {
     HOOK_CONFIG.get_or_init(|| RwLock::new(None))
 }
