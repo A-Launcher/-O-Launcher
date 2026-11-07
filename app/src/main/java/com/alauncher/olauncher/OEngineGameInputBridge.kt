@@ -7,7 +7,8 @@ package com.alauncher.olauncher
 object OEngineGameInputBridge {
     private val lock = Any()
     private val queue = OEngineInputQueue()
-    private val stateTracker = OEngineInputStateTracker(OEngineInputQueue.DEFAULT_CAPACITY * 2)
+    private val maxTrackedControls = OEngineInputQueue.DEFAULT_CAPACITY * 2
+    private val stateTracker = OEngineInputStateTracker(maxTrackedControls)
 
     val inputResetRequired: Boolean
         get() = queue.inputResetRequired
@@ -15,6 +16,12 @@ object OEngineGameInputBridge {
     /** Accepts one validated event. Duplicate digital transitions are safely suppressed. */
     @JvmStatic
     fun enqueue(event: OEngineInputEvent): Boolean = synchronized(lock) {
+        if (event.action == OEngineInputAction.DOWN &&
+            stateTracker.pressedCount >= maxTrackedControls &&
+            !stateTracker.isPressed(event.device, event.code)) {
+            queue.requestInputReset()
+            return@synchronized false
+        }
         val acceptedEvent = stateTracker.accept(event) ?: return@synchronized true
         val queued = queue.offer(acceptedEvent)
         // If an UP cannot fit, retain the pressed state so the consumer's overflow reset
