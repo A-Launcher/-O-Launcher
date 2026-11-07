@@ -236,3 +236,14 @@ The earlier "not yet connected" paragraphs above are historical checkpoints and 
 - Gamepad events cross the existing bounded Messenger protocol. In the isolated game process, they also update Mojo's 14-button / 6-axis direct GLFW joystick buffers using the same button and axis ordering as Mojo's GamepadKeycodes. O Engine's bounded Rust event queue remains in place; the upstream fixed-capacity queue was not transplanted.
 
 These are source-level integrations. They are not a substitute for Android CI, a real Minecraft launch, physical mouse/controller testing, Surface recreation testing, or proof that a rendered frame reaches the display.
+
+
+## Android runtime native bootstrap checkpoint (2026-11-07)
+
+The render bootstrap now includes the two Android-native LWJGL modules that the Java runtime's static initializers need: `liblwjgl.so` and `liblwjgl_opengl.so`. O Launcher obtains the ABI-specific binaries from PojavLauncher commit `b12ad048157b3aa255d078c235dd4571e1900309`, verifies their Git blob hashes in CI, and packages the optional NanoVG, STB and TinyFD modules from the same pinned source. The isolated game process refuses to create HotSpot if the required core/OpenGL modules are absent from Android's native library directory. This avoids treating Mojang's Linux native classifier archives as Android binaries.
+
+The ART-side `git.artdeell.mojoexec.MojoExec` JNI declaration is now present with the exact upstream package and native method signatures. Before the GLFW JNI bootstrap, O Engine sets MojoExec's native-library directory and calls `prepareEgl("libEGL.so", false, true, 3)`. This is required by Mojo's Android backend: `_glfwLoadEglAndroid()` obtains its EGL handle through MojoExec, and `android_reconfigure_context()` reads its GLES context settings. Merely loading `libglfw.so` did not initialize either value. CI checks these MojoExec JNI exports for every ABI.
+
+The Android Surface destroy callback patch also now waits in a mutex-protected `while (surfaceInUse)` condition loop after waking GLFW. This closes a lost-wakeup race in the upstream one-shot `pthread_cond_wait` sequence. The GLFW event thread switches to the LTW pbuffer before the Android callback releases its native-window reference.
+
+These changes close missing runtime prerequisites and harden a lifecycle race. They still require a successful Android CI run, a real Minecraft launch, and a physical-device frame/pause/resume test before rendering can be called verified.
