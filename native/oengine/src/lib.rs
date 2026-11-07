@@ -1,10 +1,11 @@
 //! O Engine native core. Rust owns the LWJGL native-loader hook.
 //! Android UI and lifecycle remain in Kotlin.
 
-use jni::objects::{JClass, JObject, JObjectArray, JString, JValue};
-use jni::sys::{jboolean, jint, jlong, jobject, jstring, JNIEnv as RawJNIEnv};
+use jni::objects::{JClass, JFloatArray, JIntArray, JLongArray, JObject, JObjectArray, JString, JValue};
+use jni::sys::{jboolean, jfloatArray, jint, jintArray, jlong, jlongArray, jobject, jstring, JNIEnv as RawJNIEnv};
 use jni::{JNIEnv, NativeMethod};
 use libc::{c_char, c_void};
+use std::collections::VecDeque;
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::sync::{Mutex, OnceLock, RwLock};
@@ -30,6 +31,249 @@ static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::ne
 static RENDERER_LOAD_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static RENDERER_HOOK_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static ANDROID_LIBRARY: OnceLock<usize> = OnceLock::new();
+
+const INPUT_QUEUE_CAPACITY: usize = 512;
+const INPUT_MAX_TRACKED_CONTROLS: usize = 1024;
+
+/// Stable C ABI consumed by the Android GLFW event-poll backend.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct OEngineNativeInputEvent {
+    pub device: i32,
+    pub action: i32,
+    pub code: i32,
+    pub x: f32,
+    pub y: f32,
+    pub value: f32,
+    pub timestamp_nanos: i64,
+    pub modifiers: i32,
+    pub codepoint: u32,
+}
+
+#[derive(Default)]
+struct OEngineNativeInputQueue {
+    events: VecDeque<OEngineNativeInputEvent>,
+    pressed: Vec<OEngineNativeInputEvent>,
+    reset_required: bool,
+    dropped: u64,
+}
+
+impl OEngineNativeInputQueue {
+    fn same_control(a: &OEngineNativeInputEvent, b: &OEngineNativeInputEvent) -> bool {
+        a.device == b.device && a.code == b.code
+    }
+
+    fn offer_event(&mut self, event: OEngineNativeInputEvent) -> bool {
+        let disposable = event.action == 3 || event.action == 4; // MOVE / SCROLL
+        if event.action == 3 {
+            if let Some(previous) = self.events.iter_mut().rev().find(|queued|
+                queued.action == 3 && Self::same_control(queued, &event)) {
+                *previous = event;
+                self.dropped += 1;
+                return true;
+            }
+        }
+        if self.events.len() < INPUT_QUEUE_CAPACITY {
+            self.events.push_back(event);
+            return true;
+        }
+        if let Some(index) = self.events.iter().position(|queued| queued.action == 3 || queued.action == 4) {
+            self.events.remove(index);
+            self.dropped += 1;
+            self.events.push_back(event);
+            return true;
+        }
+        self.dropped += 1;
+        if !disposable {
+            self.reset_required = true;
+        }
+        false
+    }
+
+    fn enqueue(&mut self, event: OEngineNativeInputEvent) -> bool {
+        let control = self.pressed.iter().position(|pressed| Self::same_control(pressed, &event));
+        match event.action {
+            0 => { // DOWN
+                if control.is_some() { return true; }
+                if self.pressed.len() >= INPUT_MAX_TRACKED_CONTROLS {
+                    self.reset_required = true;
+                    return false;
+                }
+                self.pressed.push(event);
+            }
+            1 => { // UP
+                let Some(index) = control else { return true; };
+                let previous = self.pressed.remove(index);
+                if !self.offer_event(event) {
+                    self.pressed.push(previous);
+                    return false;
+                }
+                return true;
+            }
+            2 => { // REPEAT
+                if control.is_none() { return true; }
+            }
+            _ => {}
+        }
+        self.offer_event(event)
+    }
+
+    fn drain(&mut self, output: &mut [OEngineNativeInputEvent]) -> usize {
+        if self.reset_required {
+            if output.len() < self.pressed.len() {
+                return 0;
+            }
+            self.events.clear();
+            let count = self.pressed.len();
+            for (index, pressed) in self.pressed.iter().rev().enumerate() {
+                output[index] = OEngineNativeInputEvent {
+                    device: pressed.device,
+                    action: 1,
+                    code: pressed.code,
+                    x: 0.0,
+                    y: 0.0,
+                    value: 0.0,
+                    timestamp_nanos: 0,
+                    modifiers: pressed.modifiers,
+                    codepoint: 0,
+                };
+            }
+            self.pressed.clear();
+            self.reset_required = false;
+            return count;
+        }
+        let count = output.len().min(self.events.len());
+        for slot in output.iter_mut().take(count) {
+            if let Some(event) = self.events.pop_front() {
+                *slot = event;
+            }
+        }
+        count
+    }
+}
+
+static NATIVE_INPUT_QUEUE: OnceLock<Mutex<OEngineNativeInputQueue>> = OnceLock::new();
+
+fn native_input_queue() -> &'static Mutex<OEngineNativeInputQueue> {
+    NATIVE_INPUT_QUEUE.get_or_init(|| Mutex::new(OEngineNativeInputQueue::default()))
+}
+
+/// Drains pending platform events on the actual GLFW/game thread. On transition overflow,
+/// the caller must provide enough room for every tracked release (at most 1024).
+#[no_mangle]
+pub unsafe extern "C" fn oengine_input_drain(
+    output: *mut OEngineNativeInputEvent,
+    capacity: usize,
+) -> usize {
+    if output.is_null() || capacity == 0 || capacity > 4096 {
+        return 0;
+    }
+    let Ok(mut queue) = native_input_queue().lock() else { return 0; };
+    queue.drain(std::slice::from_raw_parts_mut(output, capacity))
+}
+
+#[no_mangle]
+pub extern "C" fn oengine_input_reset_pending() -> bool {
+    native_input_queue().lock().map(|queue| queue.reset_required).unwrap_or(true)
+}
+
+#[no_mangle]
+pub extern "C" fn oengine_input_clear_session() {
+    if let Ok(mut queue) = native_input_queue().lock() {
+        queue.events.clear();
+        queue.pressed.clear();
+        queue.reset_required = false;
+    }
+}
+
+/// Copies a bounded Android input batch into the native queue shared with the GLFW backend.
+/// The native queue is independent of HotSpot's JNI environment; GLFW drains it through C ABI.
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeEnqueueInputBatch(
+    raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+    devices_raw: jintArray,
+    actions_raw: jintArray,
+    codes_raw: jintArray,
+    xs_raw: jfloatArray,
+    ys_raw: jfloatArray,
+    values_raw: jfloatArray,
+    times_raw: jlongArray,
+    modifiers_raw: jintArray,
+    codepoints_raw: jintArray,
+) -> jint {
+    if raw_env.is_null() || devices_raw.is_null() || actions_raw.is_null() ||
+        codes_raw.is_null() || xs_raw.is_null() || ys_raw.is_null() || values_raw.is_null() ||
+        times_raw.is_null() || modifiers_raw.is_null() || codepoints_raw.is_null() {
+        return -1;
+    }
+    let mut env = match JNIEnv::from_raw(raw_env) { Ok(value) => value, Err(_) => return -1 };
+    let devices = JIntArray::from_raw(devices_raw);
+    let actions = JIntArray::from_raw(actions_raw);
+    let codes = JIntArray::from_raw(codes_raw);
+    let xs = JFloatArray::from_raw(xs_raw);
+    let ys = JFloatArray::from_raw(ys_raw);
+    let values = JFloatArray::from_raw(values_raw);
+    let times = JLongArray::from_raw(times_raw);
+    let modifiers = JIntArray::from_raw(modifiers_raw);
+    let codepoints = JIntArray::from_raw(codepoints_raw);
+    let count = match env.get_array_length(&devices) { Ok(value) if (1..=128).contains(&value) => value as usize, _ => return -1 };
+    let arrays_match = [
+        env.get_array_length(&actions), env.get_array_length(&codes),
+        env.get_array_length(&xs), env.get_array_length(&ys), env.get_array_length(&values),
+        env.get_array_length(&times), env.get_array_length(&modifiers), env.get_array_length(&codepoints),
+    ].into_iter().all(|length| length == Ok(count as i32));
+    if !arrays_match { return -1; }
+    let mut d = vec![0; count];
+    let mut a = vec![0; count];
+    let mut c = vec![0; count];
+    let mut x = vec![0.0; count];
+    let mut y = vec![0.0; count];
+    let mut v = vec![0.0; count];
+    let mut t = vec![0; count];
+    let mut m = vec![0; count];
+    let mut cp = vec![0; count];
+    if env.get_int_array_region(&devices, 0, &mut d).is_err() ||
+        env.get_int_array_region(&actions, 0, &mut a).is_err() ||
+        env.get_int_array_region(&codes, 0, &mut c).is_err() ||
+        env.get_float_array_region(&xs, 0, &mut x).is_err() ||
+        env.get_float_array_region(&ys, 0, &mut y).is_err() ||
+        env.get_float_array_region(&values, 0, &mut v).is_err() ||
+        env.get_long_array_region(&times, 0, &mut t).is_err() ||
+        env.get_int_array_region(&modifiers, 0, &mut m).is_err() ||
+        env.get_int_array_region(&codepoints, 0, &mut cp).is_err() {
+        return -1;
+    }
+    let mut parsed = Vec::with_capacity(count);
+    for index in 0..count {
+        if !(0..=3).contains(&d[index]) || !(0..=4).contains(&a[index]) ||
+            !x[index].is_finite() || !y[index].is_finite() || !v[index].is_finite() ||
+            m[index] < 0 || !(0..=0x10FFFF).contains(&cp[index]) ||
+            (0xD800..=0xDFFF).contains(&cp[index]) {
+            return -1;
+        }
+        parsed.push(OEngineNativeInputEvent {
+            device: d[index], action: a[index], code: c[index],
+            x: x[index], y: y[index], value: v[index],
+            timestamp_nanos: t[index], modifiers: m[index], codepoint: cp[index] as u32,
+        });
+    }
+    let Ok(mut queue) = native_input_queue().lock() else { return -1; };
+    let mut accepted = 0;
+    for event in parsed {
+        if queue.enqueue(event) { accepted += 1; }
+    }
+    accepted
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInputResetPending(
+    _raw_env: *mut RawJNIEnv,
+    _receiver: jobject,
+) -> jboolean {
+    if oengine_input_reset_pending() { 1 } else { 0 }
+}
+
 
 type OEngineNativeWindowFromSurface = unsafe extern "system" fn(*mut RawJNIEnv, jobject) -> *mut c_void;
 type OEngineNativeWindowSetBuffersGeometry = unsafe extern "C" fn(*mut c_void, i32, i32, i32) -> i32;
