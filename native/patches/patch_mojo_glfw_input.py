@@ -83,7 +83,7 @@ static void oengine_glfw_platform(void* window, int32_t device, int32_t action,
 
 /* Wake GLFW's native wait-event condition after Rust accepts a new batch. */
 void oengine_wake_input(void) {
-    if (_glfw.initialized)
+    if (atomic_load(&oengine_glfw_ready))
         glfwPostEmptyEvent();
 }
 
