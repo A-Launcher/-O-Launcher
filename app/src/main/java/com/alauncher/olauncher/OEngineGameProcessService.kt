@@ -89,6 +89,7 @@ class OEngineGameProcessService : Service() {
     @Volatile private var jvmCreated = false
     @Volatile private var rendererHandle: Long = 0L
     @Volatile private var rendererLibraryName: String? = null
+    @Volatile private var androidGlfwLibraryFile: File? = null
     @Volatile private var rendererHookInstalled = false
     @Volatile private var eglBootstrap: OEngineEglBootstrap? = null
     @Volatile private var nativeWindowHandle: Long = 0L
@@ -209,13 +210,14 @@ class OEngineGameProcessService : Service() {
                             destinationRoot = File(filesDir, "oengine/android-glfw"),
                             abi = androidAbi
                         )
+                        androidGlfwLibraryFile = androidGlfw.libraries.single { it.name == "libglfw.so" }.canonicalFile
                         OEngineSessionLog.append(
                             this,
                             "ANDROID_GLFW_ARTIFACTS_STAGED",
                             "abi=" + androidGlfw.abi + ", libraries=" +
                                 androidGlfw.libraries.joinToString { it.name + ":" + androidGlfw.sha256ByLibrary.getValue(it.name).take(12) } +
                                 ", manifest=" + androidGlfw.manifest.absolutePath +
-                                "; staged only, not yet bound to LWJGL org.lwjgl.glfw."
+                                "; absolute LWJGL library path will be supplied before HotSpot creation; EGL/window behavior remains device-unverified."
                         )
                         rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
                         eglBootstrap = OEngineEglBootstrap.create(rendererHandle, OEngineGraphicsStack.LTW_MIN_GLES_MAJOR).also { egl ->
@@ -330,14 +332,14 @@ class OEngineGameProcessService : Service() {
                         val runtimeHome = File(message.data.getString(KEY_RUNTIME_HOME).orEmpty()).canonicalFile
                         val workingDirectory = File(message.data.getString(KEY_WORKING_DIRECTORY).orEmpty()).canonicalFile
                         val libraryPath = File(message.data.getString(KEY_JVM_LIBRARY).orEmpty()).canonicalFile
-                        val options = message.data.getStringArray(KEY_VM_OPTIONS)?.toList().orEmpty()
+                        val requestedOptions = message.data.getStringArray(KEY_VM_OPTIONS)?.toList().orEmpty()
                         val javaMajor = message.data.getInt(KEY_JAVA_MAJOR)
                         require(runtimeHome.isDirectory) { "Selected Java runtime directory is missing." }
                         require(workingDirectory.isDirectory) { "Selected game working directory is missing." }
                         require(libraryPath.name == "libjvm.so" && libraryPath.toPath().startsWith(runtimeHome.toPath())) {
                             "The JVM library must be inside the selected runtime directory."
                         }
-                        require(options.isNotEmpty() && options.size <= 512) { "JVM options are empty or exceed the safety limit." }
+                        require(requestedOptions.isNotEmpty() && requestedOptions.size <= 512) { "JVM options are empty or exceed the safety limit." }
                         check(rendererHandle != 0L) { "A renderer must be preloaded before HotSpot creation." }
                         check(rendererLibraryName == "libltw.so") {
                             "This JVM bootstrap profile is LTW-only; GL4ES cannot use the LTW LWJGL alias."
@@ -345,13 +347,25 @@ class OEngineGameProcessService : Service() {
                         require(options.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
                             "The JVM must use the libGLMojo.so LWJGL alias for the staged renderer."
                         }
+                        val glfwLibrary = androidGlfwLibraryFile?.canonicalFile
+                            ?: throw IllegalStateException("Android GLFW was not staged before HotSpot creation.")
+                        require(glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L) {
+                            "The staged Android GLFW native library is missing."
+                        }
+                        val expectedGlfwOption = "-Dorg.lwjgl.glfw.libname=${glfwLibrary.absolutePath}"
+                        val suppliedGlfwOptions = requestedOptions.filter { it.startsWith("-Dorg.lwjgl.glfw.libname=") }
+                        require(suppliedGlfwOptions.size == 1 && suppliedGlfwOptions.single() == expectedGlfwOption) {
+                            "The JVM must use the exact staged libglfw.so absolute path through org.lwjgl.glfw.libname."
+                        }
+                        val options = requestedOptions
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
                         val searchPaths = listOf(
                             File(runtimeHome, "lib"),
                             File(runtimeHome, "lib/server"),
                             File(runtimeHome, "lib/jli"),
-                            nativeDir
+                            nativeDir,
+                            glfwLibrary.parentFile
                         ).filter { it.isDirectory }.map { it.absolutePath }
                         val existing = System.getenv("LD_LIBRARY_PATH").orEmpty()
                         val ldPath = (searchPaths + existing.split(File.pathSeparator).filter { it.isNotBlank() })
