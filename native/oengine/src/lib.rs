@@ -120,6 +120,19 @@ impl OEngineNativeInputQueue {
         self.offer_event(event)
     }
 
+    fn enqueue_batch(&mut self, events: &[OEngineNativeInputEvent]) -> bool {
+        let mut staged = self.clone();
+        for event in events.iter().copied() {
+            if !staged.enqueue(event) {
+                self.reset_required = true;
+                self.dropped = self.dropped.saturating_add(events.len() as u64);
+                return false;
+            }
+        }
+        *self = staged;
+        true
+    }
+
     fn drain(&mut self, output: &mut [OEngineNativeInputEvent]) -> usize {
         if self.reset_required {
             if output.len() < self.pressed.len() {
@@ -360,11 +373,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         });
     }
     let Ok(mut queue) = native_input_queue().lock() else { return -1; };
-    let mut accepted = 0;
-    for event in parsed {
-        if queue.enqueue(event) { accepted += 1; }
-    }
-    accepted
+    if !queue.enqueue_batch(&parsed) { return -1; }
+    parsed.len() as jint
 }
 
 #[no_mangle]
@@ -1334,6 +1344,26 @@ mod native_input_dispatch_tests {
             (1, 87, 42), (7, 0, 0),
             (1, 87, 42), (7, 2, 0), (2, 119, 0), (7, 119, 0)
         ]);
+    }
+
+    #[test]
+    fn native_batch_enqueue_is_atomic_when_a_transition_cannot_fit() {
+        let mut queue = OEngineNativeInputQueue::default();
+        for code in 0..INPUT_QUEUE_CAPACITY {
+            assert!(queue.enqueue(OEngineNativeInputEvent {
+                device: 1, action: 0, code: code as i32, ..Default::default()
+            }));
+        }
+        let before = queue.events.len();
+        let batch = [
+            OEngineNativeInputEvent { device: 1, action: 0, code: 9001, ..Default::default() },
+            OEngineNativeInputEvent { device: 1, action: 1, code: 9001, ..Default::default() },
+        ];
+        assert!(!queue.enqueue_batch(&batch));
+        assert_eq!(queue.events.len(), before);
+        assert_eq!(queue.pressed.len(), INPUT_QUEUE_CAPACITY);
+        assert!(queue.reset_required);
+        assert!(!queue.pressed.iter().any(|event| event.code == 9001));
     }
 
     #[test]
