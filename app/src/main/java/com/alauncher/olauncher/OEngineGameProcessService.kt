@@ -344,7 +344,7 @@ class OEngineGameProcessService : Service() {
                         check(rendererLibraryName == "libltw.so") {
                             "This JVM bootstrap profile is LTW-only; GL4ES cannot use the LTW LWJGL alias."
                         }
-                        require(options.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
+                        require(requestedOptions.contains("-Dorg.lwjgl.opengl.libname=${OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS}")) {
                             "The JVM must use the libGLMojo.so LWJGL alias for the staged renderer."
                         }
                         val glfwLibrary = androidGlfwLibraryFile?.canonicalFile
