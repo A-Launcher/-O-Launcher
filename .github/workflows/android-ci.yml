@@ -190,6 +190,13 @@ jobs:
           test -s ../../app/src/main/assets/licenses/GPL-3.0.txt
           cp ../../THIRD_PARTY_NOTICES.md ../../app/src/main/assets/THIRD_PARTY_NOTICES.md
 
+      - name: Install MojoLauncher LGPL source license
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/licenses
+          cp third_party/MojoLauncher/LICENSE app/src/main/assets/licenses/LGPL-3.0-MojoLauncher.txt
+          test -s app/src/main/assets/licenses/LGPL-3.0-MojoLauncher.txt
+
       - name: Install original uploaded artwork (preserve filenames)
         run: |
           set -euo pipefail
