@@ -20,6 +20,35 @@ typedef struct OEngineNativeInputEvent {
 
 /* Drain on the GLFW/game thread. Supply room for up to 1024 reset releases. */
 size_t oengine_input_drain(OEngineNativeInputEvent *output, size_t capacity);
+
+/*
+ * Optional callback dispatcher for a native GLFW backend. Call only from the game's
+ * event-poll thread. Callback pointers must be the active HotSpot GLFW callbacks.
+ * Touch/gamepad events are preserved through platform_event for backend-specific handling.
+ */
+typedef void (*OEngineGlfwKeyCallback)(void *window, int32_t key, int32_t scancode, int32_t action, int32_t mods);
+typedef void (*OEngineGlfwCharCallback)(void *window, uint32_t codepoint);
+typedef void (*OEngineGlfwCursorPosCallback)(void *window, double x, double y);
+typedef void (*OEngineGlfwMouseButtonCallback)(void *window, int32_t button, int32_t action, int32_t mods);
+typedef void (*OEngineGlfwScrollCallback)(void *window, double x, double y);
+typedef void (*OEnginePlatformInputCallback)(
+    void *window, int32_t device, int32_t action, int32_t code,
+    float x, float y, float value, int64_t timestamp_nanos,
+    int32_t modifiers, uint32_t codepoint
+);
+
+typedef struct OEngineNativeInputCallbacks {
+    OEngineGlfwKeyCallback key;
+    OEngineGlfwCharCallback character;
+    OEngineGlfwCursorPosCallback cursor_position;
+    OEngineGlfwMouseButtonCallback mouse_button;
+    OEngineGlfwScrollCallback scroll;
+    OEnginePlatformInputCallback platform_event;
+} OEngineNativeInputCallbacks;
+
+size_t oengine_input_dispatch(
+    void *window, const OEngineNativeInputCallbacks *callbacks, size_t capacity
+);
 bool oengine_input_reset_pending(void);
 void oengine_input_clear_session(void);
 
