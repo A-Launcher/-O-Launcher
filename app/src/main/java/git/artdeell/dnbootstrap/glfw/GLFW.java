@@ -9,6 +9,10 @@ import android.view.PointerIcon;
 import android.view.View;
 import android.os.Build;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 
 /**
  * ART-side JNI bootstrap for the pinned Mojo Android GLFW backend.
@@ -27,6 +31,9 @@ public final class GLFW {
     private static volatile double cursorY;
     private static volatile View hostView;
     private static volatile GLFWCursor activeCursor;
+    private static volatile ByteBuffer gamepadButtons;
+    private static volatile FloatBuffer gamepadAxes;
+    private static volatile boolean gamepadConnected;
 
     public static synchronized void initializeOnce(Context context) {
         if (context != null) applicationContext = context.getApplicationContext();
@@ -147,10 +154,71 @@ public final class GLFW {
         }
     }
 
-    public static void enableDirectGamepad(ByteBuffer buttons, ByteBuffer axes) {}
+    public static synchronized void enableDirectGamepad(ByteBuffer buttons, ByteBuffer axes) {
+        if (buttons == null || axes == null) return;
+        ByteBuffer buttonView = buttons.duplicate().order(ByteOrder.nativeOrder());
+        FloatBuffer axisView = axes.duplicate().order(ByteOrder.nativeOrder()).asFloatBuffer();
+        if (buttonView.capacity() != 14 || axisView.capacity() != 6) return;
+        gamepadButtons = buttonView;
+        gamepadAxes = axisView;
+    }
+
+    /** Updates the direct GLFW joystick buffers from the validated Android input IPC event. */
+    public static synchronized void updateGamepadEvent(int code, int action, float x, float y, float value) {
+        if (!initialized) return;
+        if (!gamepadConnected) {
+            try {
+                nativeNotifyGamepadConnected();
+                gamepadConnected = true;
+            } catch (UnsatisfiedLinkError ignored) {
+                return;
+            }
+        }
+        ByteBuffer buttons = gamepadButtons;
+        FloatBuffer axes = gamepadAxes;
+        if (buttons == null || axes == null) return;
+        boolean pressed = action == 0 || action == 2;
+        if (action == 0 || action == 1 || action == 2) {
+            int button = gamepadButtonIndex(code);
+            if (button >= 0) buttons.put(button, (byte) (pressed ? 1 : 0));
+            if (code == KeyEvent.KEYCODE_BUTTON_L2) axes.put(4, pressed ? 1f : -1f);
+            if (code == KeyEvent.KEYCODE_BUTTON_R2) axes.put(5, pressed ? 1f : -1f);
+            return;
+        }
+        if (action != 3) return;
+        if (code >= 0 && code <= 5) {
+            axes.put(code, code >= 4 ? value * 2f - 1f : value);
+        } else if (code == 6) {
+            buttons.put(13, (byte) (x < -0.85f ? 1 : 0));
+            buttons.put(11, (byte) (x > 0.85f ? 1 : 0));
+            buttons.put(10, (byte) (y < -0.85f ? 1 : 0));
+            buttons.put(12, (byte) (y > 0.85f ? 1 : 0));
+        }
+    }
+
+    private static int gamepadButtonIndex(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_BUTTON_A: return 0;
+            case KeyEvent.KEYCODE_BUTTON_B: return 1;
+            case KeyEvent.KEYCODE_BUTTON_X: return 2;
+            case KeyEvent.KEYCODE_BUTTON_Y: return 3;
+            case KeyEvent.KEYCODE_BUTTON_L1: return 4;
+            case KeyEvent.KEYCODE_BUTTON_R1: return 5;
+            case KeyEvent.KEYCODE_BUTTON_SELECT: return 6;
+            case KeyEvent.KEYCODE_BUTTON_START: return 7;
+            case KeyEvent.KEYCODE_BUTTON_THUMBL: return 8;
+            case KeyEvent.KEYCODE_BUTTON_THUMBR: return 9;
+            case KeyEvent.KEYCODE_DPAD_UP: return 10;
+            case KeyEvent.KEYCODE_DPAD_RIGHT: return 11;
+            case KeyEvent.KEYCODE_DPAD_DOWN: return 12;
+            case KeyEvent.KEYCODE_DPAD_LEFT: return 13;
+            default: return -1;
+        }
+    }
+
     public static void receiveInit() {}
 
-    public static boolean isCursorGrabbed() { return cursorGrabbed; }
+    public static boolean isInitialized() { return initialized; }\n    public static boolean isCursorGrabbed() { return cursorGrabbed; }
     public static double getCursorX() { return cursorX; }
     public static double getCursorY() { return cursorY; }
 
