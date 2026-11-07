@@ -2810,6 +2810,15 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 if (!hasWindowFocus) gameInputForwarder.releaseAll()
                             }
 
+                            override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
+                                val translated = OEngineAndroidInputAdapter.fromMotionEvent(event)
+                                if (translated.isNotEmpty()) {
+                                    gameInputForwarder.forward(translated)
+                                    return true
+                                }
+                                return super.onCapturedPointerEvent(event)
+                            }
+
                             override fun onDetachedFromWindow() {
                                 GLFW.detachHostView(this)
                                 super.onDetachedFromWindow()
