@@ -169,3 +169,10 @@ The native C event structure is explicitly 48 bytes with a reserved trailing wor
 ### Atomic native batch admission
 
 JNI input batches are now admitted transactionally. Rust stages the entire batch against a cloned bounded queue and publishes the staged queue only if every event is accepted. If any transition cannot fit, none of that batch is exposed to the game thread; the live queue instead requests an all-controls-up reset for already-held controls. This prevents a Binder batch containing a press/release sequence from being partially applied. The native unit test fills the queue with held controls, submits a two-event batch that cannot fit, and verifies that neither event leaks into the live queue and reset recovery is requested.
+
+
+### Pinned Android GLFW poll-path adapter
+
+O Launcher now builds the pinned MojoLauncher Android GLFW 3.5 fork and its MojoExec dependency as separate Android shared libraries for arm64-v8a, armeabi-v7a, x86, and x86_64. A reproducible source patch is applied in CI to the fork's Android poll/wait paths. On the GLFW event thread it drains O Engine's Rust queue and maps GLFW key, character, mouse, scroll, and primary-touch events into GLFW's own internal input callbacks. The Rust ingress also wakes GLFW's wait-event condition after accepting a batch, and the wait paths drain again after waking. The character adapter intentionally uses GLFW's single internal character entry point so both GLFW character callback variants are delivered once, not duplicated.
+
+The native backend is packaged and CI checks its GLFW entry points and the O Engine wake symbol. This is an integration point in the pinned Android GLFW backend, **not proof that Minecraft's downloaded LWJGL native/Java pair is already using that backend**. The runtime classloader/native-library binding and the renderer's single EGL-context ownership still need to be connected before in-game input or rendering can be claimed. Touch pointer zero maps to the primary mouse; gamepad event adaptation remains pending.
