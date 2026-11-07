@@ -1568,9 +1568,10 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     var candidate = baseName
                     var suffix = 2
                     while (OEngineInstanceManager.list(context).any { it.name.equals(candidate, true) }) { candidate = baseName + " " + suffix; suffix++ }
-                    created = OEngineInstanceManager.create(context, candidate)
-                    val result = OEngineModrinthPackImporter.importPack(staged, created.root)
-                    OEngineInstanceManager.select(context, created.id)
+                    val instance = OEngineInstanceManager.create(context, candidate)
+                    created = instance
+                    val result = OEngineModrinthPackImporter.importPack(staged, instance.root)
+                    OEngineInstanceManager.select(context, instance.id)
                     modpackStatus = "Imported " + result.name + ": " + result.downloadedFiles + " verified downloads, " + result.copiedOverrideFiles + " override files. Minecraft " + result.minecraftVersion + "; loader: " + result.loaders.entries.joinToString { it.key + " " + it.value }.ifBlank { "Vanilla" } + ". Install the base game and loader from Installations next."
                     refreshInstalledContent()
                 } catch (failure: Exception) {
@@ -1743,6 +1744,12 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 Button(onClick = { loadProjects(reset = false) }, enabled = !loading, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
                     Text(if (loading) "LOADING…" else "LOAD MORE PROJECTS")
                 }
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { modpackPicker.launch(arrayOf("*/*")) }, enabled = !importingModpack, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
+                    Text(if (importingModpack) "IMPORTING MODPACK…" else "IMPORT .MRPACK")
+                }
+                modpackStatus?.let { Text(it, color = Ink, fontSize = 10.sp, modifier = Modifier.weight(1f)) }
             }
             Text("Install into active instance: " + OEngineInstanceManager.active(context).name + ". Check Minecraft and loader compatibility before choosing a version.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
             Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
