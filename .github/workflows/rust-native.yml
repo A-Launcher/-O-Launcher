@@ -1,5 +1,10 @@
 name: O Engine Rust Native CI
 
+# Keep only the newest validation run for this branch; older commits are superseded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main ]
