@@ -1439,7 +1439,59 @@ private fun AccountDestination(images: LauncherImages) {
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        DestinationHero(images, "Player account", "Connect a Microsoft account or create an offline profile", "YOUR PROFILE")
+        DestinationHero(images, "Account Type", "Choose how you want to play Minecraft Java Edition", "PLAYER ACCOUNT")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Surface(Modifier.weight(1f).height(270.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
+                Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+                    Image(images.avatar, contentDescription = "Offline player", modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(17.dp)), contentScale = ContentScale.Crop)
+                    Text("Offline Account", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("Play without signing in to Microsoft.", color = Muted, fontSize = 11.sp)
+                    Button(onClick = { showOfflineForm = true; offlineName = if (isOffline) playerName else "" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(24.dp)) {
+                        Text("SELECT  →", fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+            Surface(Modifier.weight(1f).height(270.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
+                Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+                    Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(17.dp)).background(Brush.linearGradient(listOf(Color(0xFFBFE8FF), Color(0xFFFFE4BD)))), contentAlignment = Alignment.Center) {
+                        Image(images.logo, contentDescription = "Microsoft account sign-in", modifier = Modifier.size(92.dp), contentScale = ContentScale.Fit)
+                    }
+                    Text("Microsoft Account", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("Recommended for online play.", color = Muted, fontSize = 11.sp)
+                    Button(enabled = !busy && !signedIn, onClick = {
+                        busy = true
+                        status = "Requesting a secure sign-in code…"
+                        scope.launch {
+                            try {
+                                val pending = MinecraftAuth.beginDeviceLogin()
+                                device = pending
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pending.verificationUri)))
+                                status = "Waiting for Microsoft sign-in approval…"
+                                val account = MinecraftAuth.completeDeviceLogin(pending)
+                                MicrosoftTokenVault.save(context, account.refreshToken)
+                                playerName = account.name
+                                playerUuid = account.uuid
+                                prefs.edit().putString("microsoft_name", account.name).putString("microsoft_uuid", account.uuid).putBoolean("is_offline", false).apply()
+                                signedIn = true; isOffline = false; device = null
+                                status = "Minecraft Java profile verified."
+                            } catch (e: Exception) {
+                                status = e.message ?: "Sign-in failed. Please try again."
+                                device = null
+                            } finally { busy = false }
+                        }
+                    }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB5E96D), contentColor = Ink), shape = RoundedCornerShape(24.dp)) {
+                        Text(if (busy) "WAITING…" else "SIGN IN WITH MICROSOFT  →", fontWeight = FontWeight.Black, fontSize = 10.sp)
+                    }
+                }
+            }
+        }
+        Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (signedIn) "CONNECTED: $playerName" else if (isOffline) "OFFLINE PROFILE: $playerName" else "ACCOUNT STATUS", color = Ink, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                Text(status, color = Muted, fontSize = 10.sp)
+            }
+        }
+        DestinationHero(images, "Account Details", "Manage your saved account and sign-in options", "ACCOUNT MANAGEMENT")
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
             Row(Modifier.fillMaxWidth().padding(24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                 Image(images.avatar, contentDescription = "Profile avatar", modifier = Modifier.size(112.dp).clip(RoundedCornerShape(22.dp)), contentScale = ContentScale.Crop)
