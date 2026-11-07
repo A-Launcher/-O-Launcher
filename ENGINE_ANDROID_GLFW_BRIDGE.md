@@ -134,3 +134,16 @@ The Android JNI batch method writes into this same Rust queue. Rust host tests c
 The fullscreen game SurfaceView now requests keyboard focus and forwards Android key, touch, mouse-button, mouse-hover, scroll, and gamepad-motion events through `OEngineAndroidInputAdapter`. `OEngineGameInputForwarder` serializes held-control tracking and chunks messages to the Binder limit of 128 events. Focus loss, surface destruction, and view dismissal send synthesized key/button/touch releases. The isolated process validates each batch and writes it into the Rust queue.
 
 This closes the Android frontend and process-transport gap. It does **not** yet make Minecraft respond: the Rust queue's `oengine_input_drain()` still needs to be called by the exact GLFW `pojavPumpEvents`/equivalent event-poll backend, and drained events must be delivered to the GLFW callback/state machinery. Android gamepad button keycodes also need a backend-specific mapping before claiming gamepad support.
+
+
+## GLFW callback dispatch ABI
+
+A native callback dispatcher now sits directly on the Rust queue. `oengine_input_dispatch(window, callbacks, capacity)` drains a bounded batch, releases the queue mutex, then invokes callback pointers on the calling thread. The callback table mirrors the standard GLFW callback signatures for key, character, cursor position, mouse button, and scroll. Touch and gamepad events are preserved through a separate raw platform-event callback instead of being misrepresented as mouse buttons. Overflow recovery releases are delivered through the same key/mouse callback paths.
+
+The callback pointers must be obtained from the active embedded HotSpot GLFW implementation. Never pass ART method pointers or call Kotlin through HotSpot's `JNIEnv`. The dispatcher is now test-covered, but no packaged GLFW implementation calls it yet.
+
+### Pojav reference contract inspected
+
+The PojavLauncher source was inspected at its final pre-discontinuation commit `6eb830ba7aa8465d872a9ef0a8d87592c978e292` (repository branch `v3_openjdk`; project is discontinued). Its LWJGL 3.4.0 Java GLFW fork loads `libpojavexec.so`, whose function table includes `pojavCreateContext`, `pojavMakeCurrent`, `pojavSwapBuffers`, `pojavPumpEvents`, `pojavStartPumping`, and `pojavStopPumping`. Its `glfwPollEvents()` calls StartPumping, invokes PumpEvents once per window, then StopPumping. The native input bridge registers HotSpot callback function pointers through `nglfwSetKeyCallback`, `nglfwSetCharCallback`, `nglfwSetCursorPosCallback`, `nglfwSetMouseButtonCallback`, and `nglfwSetScrollCallback`.
+
+This confirms the shape of the callback boundary that O Engine's new C table can support. It does **not** mean the Pojav Java fork or `libpojavexec.so` has been copied, packaged, or linked into O Engine. Pojav's library is a coordinated multi-file native module (EGL bridge, context bridge, input bridge, environment, JVM hooks, and more); taking only its input file would not create a working GLFW backend. The reference is used for ABI study and provenance, not as a claim that the backend is already present.
