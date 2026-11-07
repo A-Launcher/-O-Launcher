@@ -169,6 +169,19 @@ if "atomic_store(&oengine_glfw_ready, 1);" not in text:
     raise SystemExit("GLFW create path does not publish readiness")
 if text.count("static int32_t oengine_primary_touch_pointer = -1;") != 1:
     raise SystemExit("Primary-touch state must have exactly one definition")
+# Keep the callback adapter contract explicit: key scancodes/modifiers and GLFW
+# PRESS/RELEASE semantics must survive the Rust-to-Mojo boundary.
+for required in (
+    "_glfwInputKey((_GLFWwindow*) window, key, scan, action, mods);",
+    "_glfwInputChar((_GLFWwindow*) window, codepoint, mods, GLFW_TRUE);",
+    "_glfwInputCursorPos((_GLFWwindow*) window, x, y);",
+    "_glfwInputMouseClick((_GLFWwindow*) window, button, action, mods);",
+    "_glfwInputScroll((_GLFWwindow*) window, x, y);",
+    "GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS",
+    "GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE",
+):
+    if required not in text:
+        raise SystemExit("GLFW callback adapter contract missing: " + required)
 
 poll_start = text.index("void _glfwPollEventsAndroid(void)")
 wait_start = text.index("void _glfwWaitEventsAndroid(void)")
