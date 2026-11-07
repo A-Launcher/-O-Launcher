@@ -4,9 +4,30 @@
 
 _Static_assert(sizeof(OEngineNativeInputCallbacks) == 7 * sizeof(void *),
                "callback table must contain six native function pointers");
-_Static_assert(offsetof(OEngineNativeInputEvent, timestamp_nanos) >=
-                   3 * sizeof(int32_t) + 3 * sizeof(float),
-               "timestamp must follow the three float payload fields");
+_Static_assert(offsetof(OEngineNativeInputEvent, device) == 0,
+               "device offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, action) == 4,
+               "action offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, code) == 8,
+               "code offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, x) == 12,
+               "x offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, y) == 16,
+               "y offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, value) == 20,
+               "value offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, timestamp_nanos) == 24,
+               "timestamp offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, modifiers) == 32,
+               "modifiers offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, codepoint) == 36,
+               "codepoint offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, scan_code) == 40,
+               "scancode offset changed");
+_Static_assert(offsetof(OEngineNativeInputEvent, reserved) == 44,
+               "reserved offset changed");
+_Static_assert(sizeof(OEngineNativeInputEvent) == 48,
+               "input event stride must remain 48 bytes on every ABI");
 
 static void key_callback(void *window, int32_t key, int32_t scancode,
                          int32_t action, int32_t modifiers) {
