@@ -294,5 +294,67 @@ if "while (surfaceInUse)" not in text or "pthread_cond_wait(&nw_egl_cond, &nw_eg
     raise SystemExit("Android Surface destroy waiter must use a mutex-protected predicate loop")
 
 
+# Surface callbacks can arrive before glfwInit and after glfwTerminate. Keep
+# the EGL condition primitives statically initialized for the entire library
+# lifetime instead of creating/destroying them with the GLFW window subsystem.
+mutex_anchor = '''static pthread_mutex_t nw_egl_mutex;
+static pthread_cond_t nw_egl_cond;
+static pthread_mutex_t nw_vulkan_mutex;
+static pthread_cond_t nw_vulkan_cond;'''
+mutex_replacement = '''static pthread_mutex_t nw_egl_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t nw_egl_cond = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t nw_vulkan_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t nw_vulkan_cond = PTHREAD_COND_INITIALIZER;'''
+if "PTHREAD_MUTEX_INITIALIZER" not in text:
+    if mutex_anchor not in text:
+        raise SystemExit("Pinned Mojo EGL/Vulkan mutex declarations changed")
+    text = text.replace(mutex_anchor, mutex_replacement, 1)
+
+init_anchor = '''GLFWbool android_init_window(void) {
+    if(pthread_mutex_init(&nw_egl_mutex, NULL) != 0) return GLFW_FALSE;
+    if(pthread_cond_init(&nw_egl_cond, NULL) != 0) goto fail1;
+    if(pthread_mutex_init(&nw_vulkan_mutex, NULL) != 0) goto fail2;
+    if(pthread_cond_init(&nw_vulkan_cond, NULL) != 0) goto fail3;
+    if(!_input_queue_init(&input_queue)) goto fail4;
+    return GLFW_TRUE;
+
+    fail4:
+    pthread_cond_destroy(&nw_vulkan_cond);
+    fail3:
+    pthread_mutex_destroy(&nw_vulkan_mutex);
+    fail2:
+    pthread_cond_destroy(&nw_egl_cond);
+    fail1:
+    pthread_mutex_destroy(&nw_egl_mutex);
+    return GLFW_FALSE;
+}
+
+void android_destroy_window(void) {
+    pthread_mutex_destroy(&nw_egl_mutex);
+    pthread_cond_destroy(&nw_egl_cond);
+    pthread_mutex_destroy(&nw_vulkan_mutex);
+    pthread_cond_destroy(&nw_vulkan_cond);
+    _input_queue_destroy(&input_queue);
+}'''
+init_replacement = '''GLFWbool android_init_window(void) {
+    return _input_queue_init(&input_queue) ? GLFW_TRUE : GLFW_FALSE;
+}
+
+void android_destroy_window(void) {
+    pthread_mutex_lock(&nw_egl_mutex);
+    surfaceInUse = false;
+    pthread_cond_broadcast(&nw_egl_cond);
+    pthread_mutex_unlock(&nw_egl_mutex);
+    _input_queue_destroy(&input_queue);
+}'''
+if "pthread_mutex_init(&nw_egl_mutex" in text:
+    if init_anchor not in text:
+        raise SystemExit("Pinned Mojo Android window mutex lifecycle changed")
+    text = text.replace(init_anchor, init_replacement, 1)
+if "pthread_mutex_init(&nw_egl_mutex" in text or "pthread_mutex_destroy(&nw_egl_mutex" in text:
+    raise SystemExit("EGL condition mutexes must remain valid across Surface callbacks")
+if "PTHREAD_MUTEX_INITIALIZER" not in text or "PTHREAD_COND_INITIALIZER" not in text:
+    raise SystemExit("Android Surface condition primitives are not statically initialized")
+
 source.write_text(text, encoding="utf-8")
-print("Patched pinned Mojo Android GLFW poll/wait paths for O Engine keyboard, mouse and primary-touch input.")
+print("Patched pinned Mojo Android GLFW poll/wait paths and lifetime-safe Surface condition primitives.")
