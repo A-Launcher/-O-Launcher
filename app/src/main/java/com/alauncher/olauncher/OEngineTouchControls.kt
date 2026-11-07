@@ -189,7 +189,16 @@ fun OEngineTouchControlsOverlay(
     androidx.compose.foundation.layout.BoxWithConstraints(androidx.compose.ui.Modifier.fillMaxSize()) {
         androidx.compose.material3.TextButton(
             modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(12.dp),
-            onClick = { editing = !editing },
+            onClick = {
+                if (!editing) {
+                    // Entering the editor must not leave a toggle key held in Minecraft.
+                    toggled.forEach { (id, pressed) ->
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                    }
+                    toggled.clear()
+                }
+                editing = !editing
+            },
             colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color.White)
         ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
 
@@ -228,6 +237,12 @@ fun OEngineTouchControlsOverlay(
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
                 }) { androidx.compose.material3.Text("KEY −") }
+                androidx.compose.material3.TextButton(onClick = {
+                    if (selected != null) {
+                        val updated = controls.map { if (it.id == selectedId) it.copy(toggle = !it.toggle) else it }
+                        controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
+                    }
+                }) { androidx.compose.material3.Text(if (selected?.toggle == true) "HOLD" else "TOGGLE") }
                 androidx.compose.material3.Text(
                     selected?.let { KeyEvent.keyCodeToString(it.keyCode).removePrefix("KEYCODE_") } ?: "KEY",
                     color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp
@@ -281,7 +296,9 @@ fun OEngineTouchControlsOverlay(
                     )
                     .pointerInput(control.id, editing, control.toggle) {
                         if (editing) {
-                            detectDragGestures { change, drag ->
+                            detectDragGestures(
+                                onDragStart = { selectedId = control.id },
+                                onDrag = { change, drag ->
                                 selectedId = control.id
                                 change.consume()
                                 val current = controls.first { it.id == control.id }
@@ -291,7 +308,8 @@ fun OEngineTouchControlsOverlay(
                                     current.y + drag.y / constraints.maxHeight.toFloat().coerceAtLeast(1f)
                                 )
                                 controls.clear(); controls.addAll(moved); onLayoutChanged(moved)
-                            }
+                                }
+                            )
                         } else {
                             awaitEachGesture {
                                 awaitFirstDown()
