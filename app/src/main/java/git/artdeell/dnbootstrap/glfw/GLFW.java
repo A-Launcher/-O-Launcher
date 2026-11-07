@@ -54,10 +54,11 @@ public final class GLFW {
     /** Connects native cursor-grab state to the currently displayed game SurfaceView. */
     public static void attachHostView(View view) {
         hostView = view;
-        if (view != null && Build.VERSION.SDK_INT >= 26 && cursorGrabbed) {
+        if (view != null) {
             view.post(() -> {
-                if (hostView == view && view.hasWindowFocus()) {
-                    applyCursor(view, true);
+                if (hostView != view) return;
+                applyCursor(view, cursorGrabbed);
+                if (Build.VERSION.SDK_INT >= 26 && cursorGrabbed && view.hasWindowFocus()) {
                     view.requestPointerCapture();
                 }
             });
