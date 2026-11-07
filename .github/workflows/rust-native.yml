@@ -19,6 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Compile public C input ABI header
+        run: cc -std=c11 -Wall -Wextra -Werror -fsyntax-only -I native/oengine/include native/oengine/tests/input_bridge_header_test.c
       - name: Run native policy tests
         run: cargo test --manifest-path native/oengine/Cargo.toml
 
