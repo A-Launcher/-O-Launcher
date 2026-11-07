@@ -238,6 +238,7 @@ public final class GLFW {
     public static double getCursorY() { return cursorY; }
 
     public static native void initialize();
+    public static native void nativeNotifyGamepadConnected();
     public static native void nativeSurfaceCreated(Surface surface);
     public static native void nativeSurfaceUpdated();
     public static native void nativeSurfaceDestroyed();
