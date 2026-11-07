@@ -1550,6 +1550,7 @@ struct OEngineLtwEglSession {
     context: *mut c_void,
     pbuffer: *mut c_void,
     window_surface: *mut c_void,
+    native_window: *mut c_void,
     egl_destroy_surface: OEngineEglDestroySurface,
     egl_terminate: OEngineEglTerminate,
     egl_get_error: OEngineEglGetError,
@@ -1565,6 +1566,10 @@ struct OEngineLtwEglSession {
 
 static LTW_EGL_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static ACTIVE_LTW_EGL_SESSION: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Clone, Copy)]
+struct PendingLtwWindow { window: usize, width: i32, height: i32 }
+static PENDING_LTW_WINDOW: OnceLock<Mutex<Option<PendingLtwWindow>>> = OnceLock::new();
 
 fn set_ltw_egl_error(message: String) {
     if let Ok(mut value) = LTW_EGL_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
@@ -1584,12 +1589,144 @@ unsafe fn oengine_egl_error(get_error: OEngineEglGetError, operation: &str) -> S
     format!("{operation} failed with EGL error 0x{:04x}", get_error())
 }
 
+unsafe fn release_anative_window(window: *mut c_void) {
+    if window.is_null() { return; }
+    let library = android_library();
+    if library.is_null() { return; }
+    let release = libc::dlsym(library, b"ANativeWindow_release\0".as_ptr() as *const c_char);
+    if !release.is_null() {
+        let release: OEngineNativeWindowRelease = std::mem::transmute(release);
+        release(window);
+    }
+}
+
+unsafe fn attach_ltw_window_inner(
+    session: &mut OEngineLtwEglSession, window: *mut c_void, width: i32, height: i32,
+) -> Result<(), String> {
+    if window.is_null() || width <= 0 || height <= 0 {
+        return Err("Queued LTW window attachment has an invalid window or size.".to_owned());
+    }
+    if !session.window_surface.is_null() {
+        if (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(pbuffer before window replacement)"));
+        }
+        if (session.egl_destroy_surface)(session.display, session.window_surface) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "eglDestroySurface(previous window)"));
+        }
+        session.window_surface = ptr::null_mut();
+    }
+    let create_window: OEngineEglCreateWindow = oengine_symbol(session.egl_library, b"eglCreateWindowSurface\0")?;
+    let surface = create_window(session.display, session.config, window, [0x3038].as_ptr());
+    if surface.is_null() {
+        return Err(oengine_egl_error(session.egl_get_error, "eglCreateWindowSurface(queued window)"));
+    }
+    if (session.ltw_make_current)(session.display, surface, surface, session.context) == 0 {
+        let detail = oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(queued window)");
+        let _ = (session.egl_destroy_surface)(session.display, surface);
+        return Err(detail);
+    }
+    if let Some(viewport) = session.gl_viewport { viewport(0, 0, width, height); }
+    let previous_window = session.native_window;
+    session.window_surface = surface;
+    session.native_window = window;
+    if !previous_window.is_null() && previous_window != window {
+        release_anative_window(previous_window);
+    }
+    Ok(())
+}
+
+unsafe fn detach_ltw_window_inner(session: &mut OEngineLtwEglSession) -> Result<(), String> {
+    if !session.window_surface.is_null() {
+        if (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(pbuffer for detach)"));
+        }
+        if (session.egl_destroy_surface)(session.display, session.window_surface) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "eglDestroySurface(window detach)"));
+        }
+        session.window_surface = ptr::null_mut();
+    }
+    if let Some(viewport) = session.gl_viewport { viewport(0, 0, 1, 1); }
+    let previous_window = std::mem::replace(&mut session.native_window, ptr::null_mut());
+    release_anative_window(previous_window);
+    Ok(())
+}
+
+/// Called from GLFW's event-poll thread, which is also the LTW session owner.
+#[no_mangle]
+pub unsafe extern "C" fn oengine_ltw_egl_process_pending_window() -> u32 {
+    let pending = match PENDING_LTW_WINDOW.get_or_init(|| Mutex::new(None)).lock() {
+        Ok(mut slot) => slot.take(),
+        Err(_) => return 0,
+    };
+    let Some(change) = pending else { return 1; };
+    let handle = ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire);
+    if handle == 0 {
+        if change.window != 0 { release_anative_window(change.window as *mut c_void); }
+        set_ltw_egl_error("Cannot apply queued Android Surface change: no active LTW session.".to_owned());
+        return 0;
+    }
+    let session = match with_ltw_egl_session(handle as jlong) {
+        Ok(value) => value,
+        Err(error) => {
+            if change.window != 0 { release_anative_window(change.window as *mut c_void); }
+            set_ltw_egl_error(error);
+            return 0;
+        }
+    };
+    let result = if change.window == 0 {
+        detach_ltw_window_inner(session)
+    } else {
+        attach_ltw_window_inner(session, change.window as *mut c_void, change.width, change.height)
+    };
+    match result {
+        Ok(()) => 1,
+        Err(error) => {
+            if change.window != 0 && session.native_window != change.window as *mut c_void {
+                release_anative_window(change.window as *mut c_void);
+            }
+            set_ltw_egl_error(error);
+            0
+        }
+    }
+}
+
+/// Queue a Surface transition from Binder/ART; EGL is only touched later by GLFW's game thread.
+#[no_mangle]
+pub unsafe extern "C" fn oengine_ltw_egl_queue_window(
+    window: *mut c_void, width: i32, height: i32,
+) -> u32 {
+    if !window.is_null() && (width <= 0 || height <= 0) {
+        set_ltw_egl_error("Queued LTW window dimensions must be positive.".to_owned());
+        return 0;
+    }
+    if ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) == 0 {
+        set_ltw_egl_error("Cannot queue Android Surface change before LTW EGL session creation.".to_owned());
+        return 0;
+    }
+    let slot = PENDING_LTW_WINDOW.get_or_init(|| Mutex::new(None));
+    let mut pending = match slot.lock() {
+        Ok(value) => value,
+        Err(_) => {
+            set_ltw_egl_error("LTW Surface event queue lock is poisoned.".to_owned());
+            return 0;
+        }
+    };
+    if let Some(previous) = pending.take() {
+        if previous.window != 0 && previous.window != window as usize {
+            release_anative_window(previous.window as *mut c_void);
+        }
+    }
+    *pending = Some(PendingLtwWindow { window: window as usize, width, height });
+    1
+}
+
 unsafe fn destroy_ltw_egl_session(session: &mut OEngineLtwEglSession) {
     if !session.window_surface.is_null() {
         let _ = (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context);
         let _ = (session.egl_destroy_surface)(session.display, session.window_surface);
         session.window_surface = ptr::null_mut();
     }
+    release_anative_window(std::mem::replace(&mut session.native_window, ptr::null_mut()));
     if !session.display.is_null() {
         let _ = (session.ltw_make_current)(session.display, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
     }
@@ -1732,7 +1869,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         let viewport = libc::dlsym(gles_library, b"glViewport\0".as_ptr() as *const c_char);
         Ok(OEngineLtwEglSession {
             egl_library, gles_library, display, config, context, pbuffer,
-            window_surface: ptr::null_mut(), egl_destroy_surface: destroy_surface,
+            window_surface: ptr::null_mut(), native_window: ptr::null_mut(), egl_destroy_surface: destroy_surface,
             egl_terminate: terminate, egl_get_error: get_error, egl_swap_buffers: swap_buffers,
             ltw_create_context: ltw_create, ltw_destroy_context: ltw_destroy, ltw_make_current,
             gl_viewport: if viewport.is_null() { None } else { Some(std::mem::transmute_copy(&viewport)) },
@@ -1818,22 +1955,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     let result = (|| -> Result<(), String> {
         if window == 0 || width <= 0 || height <= 0 { return Err("Invalid ANativeWindow or dimensions.".to_owned()); }
         let session = with_ltw_egl_session(handle)?;
-        if !session.window_surface.is_null() {
-            let _ = (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context);
-            let _ = (session.egl_destroy_surface)(session.display, session.window_surface);
-            session.window_surface = ptr::null_mut();
-        }
-        let create_window: OEngineEglCreateWindow = oengine_symbol(session.egl_library, b"eglCreateWindowSurface\0")?;
-        let surface = create_window(session.display, session.config, window as *mut c_void, [0x3038].as_ptr());
-        if surface.is_null() { return Err(oengine_egl_error(session.egl_get_error, "eglCreateWindowSurface")); }
-        if (session.ltw_make_current)(session.display, surface, surface, session.context) == 0 {
-            let detail = oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(window)");
-            let _ = (session.egl_destroy_surface)(session.display, surface);
-            return Err(detail);
-        }
-        if let Some(viewport) = session.gl_viewport { viewport(0, 0, width, height); }
-        session.window_surface = surface;
-        Ok(())
+        attach_ltw_window_inner(session, window as *mut c_void, width, height)
     })();
     match result {
         Ok(()) => 1,
@@ -1847,18 +1969,31 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 ) -> jboolean {
     let result = (|| -> Result<(), String> {
         let session = with_ltw_egl_session(handle)?;
-        if session.window_surface.is_null() { return Ok(()); }
-        if (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context) == 0 {
-            return Err(oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(pbuffer)"));
-        }
-        if (session.egl_destroy_surface)(session.display, session.window_surface) == 0 {
-            return Err(oengine_egl_error(session.egl_get_error, "eglDestroySurface(window)"));
-        }
-        session.window_surface = ptr::null_mut();
-        if let Some(viewport) = session.gl_viewport { viewport(0, 0, 1, 1); }
-        Ok(())
+        detach_ltw_window_inner(session)
     })();
     match result { Ok(()) => 1, Err(error) => { set_ltw_egl_error(error); 0 } }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeQueueLtwWindow(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong, window: jlong, width: jint, height: jint,
+) -> jboolean {
+    if handle == 0 || ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) != handle as usize {
+        set_ltw_egl_error("Queued Surface event references a stale LTW session.".to_owned());
+        return 0;
+    }
+    if window != 0 && (width <= 0 || height <= 0) {
+        set_ltw_egl_error("Queued Surface event has invalid dimensions.".to_owned());
+        return 0;
+    }
+    if oengine_ltw_egl_queue_window(window as *mut c_void, width, height) == 1 { 1 } else { 0 }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProcessPendingLtwWindow(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject,
+) -> jboolean {
+    if oengine_ltw_egl_process_pending_window() == 1 { 1 } else { 0 }
 }
 
 #[no_mangle]
