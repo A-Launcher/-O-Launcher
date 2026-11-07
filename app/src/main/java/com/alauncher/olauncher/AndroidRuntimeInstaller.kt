@@ -129,6 +129,8 @@ object AndroidRuntimeInstaller {
         if (staging.exists()) staging.deleteRecursively()
         if (!staging.mkdirs()) throw IllegalStateException("Could not create the runtime staging directory.")
         var extracted = 0
+        var entriesSeen = 0
+        var extractedBytes = 0L
         try {
             onProgress("Extracting Android Java " + javaMajor + "…")
             XZInputStream(BufferedInputStream(archive.inputStream())).use { xz ->
@@ -165,13 +167,18 @@ object AndroidRuntimeInstaller {
                             }
                             entry.isFile -> {
                                 if (target.exists() && !target.delete()) throw IllegalStateException("Could not replace runtime file: " + name)
+                                var fileBytes = 0L
                                 FileOutputStream(target).use { output ->
                                     while (true) {
                                         val count = tar.read(buffer)
                                         if (count < 0) break
+                                        fileBytes += count
+                                        if (fileBytes > entry.size) throw IllegalStateException("Runtime archive entry exceeded its declared size: $name")
                                         output.write(buffer, 0, count)
                                     }
                                 }
+                                if (fileBytes != entry.size) throw IllegalStateException("Runtime archive entry was truncated: $name")
+                                extracted++
                                 val mode = entry.mode
                                 if ((mode and 73) != 0) target.setExecutable(true, false)
                                 if ((mode and 292) != 0) target.setReadable(true, false)
@@ -217,7 +224,7 @@ object AndroidRuntimeInstaller {
         val release = File(runtimeHome, "release")
         val java = File(runtimeHome, "bin/java")
         if (java.isFile && release.isFile) {
-            val major = Regex("""JAVA_VERSION="(?:1\\.)?(\\d+)"""")
+            val major = Regex("""JAVA_VERSION="(?:1\.)?(\d+)""")
                 .find(release.readText())?.groupValues?.get(1)?.toIntOrNull()
             if (major == javaMajor) {
                 onStatus("Reusing installed Android Java $javaMajor runtime.")
