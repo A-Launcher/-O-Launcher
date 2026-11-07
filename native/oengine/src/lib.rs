@@ -35,6 +35,22 @@ static ANDROID_LIBRARY: OnceLock<usize> = OnceLock::new();
 const INPUT_QUEUE_CAPACITY: usize = 512;
 const INPUT_MAX_TRACKED_CONTROLS: usize = 1024;
 
+fn lwjgl_required_glfw_symbols() -> Vec<&'static str> {
+    let mut symbols = Vec::new();
+    for line in include_str!("../../android-glfw/lwjgl-3.3.3-required-symbols.txt").lines() {
+        let name = line.trim();
+        if !name.is_empty() && !name.starts_with('#') && !symbols.contains(&name) {
+            symbols.push(name);
+        }
+    }
+    symbols
+}
+
+fn is_supported_lwjgl_glfw_version(major: i32, minor: i32) -> bool {
+    major == 3 && minor >= 3
+}
+
+
 /// Stable C ABI consumed by the Android GLFW event-poll backend.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -449,9 +465,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
 
     let mut missing = Vec::new();
-    for raw in include_str!("../../android-glfw/lwjgl-3.3.3-required-symbols.txt").lines() {
-        let name = raw.trim();
-        if name.is_empty() || name.starts_with('#') { continue; }
+    for name in lwjgl_required_glfw_symbols() {
         let symbol = match CString::new(name) {
             Ok(value) => value,
             Err(_) => continue,
@@ -482,7 +496,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             version.0, version.1, version.2, missing.len(), missing.join(", ")
         ));
     }
-    if version.0 != 3 || version.1 < 3 {
+    if !is_supported_lwjgl_glfw_version(version.0, version.1) {
         return response("glfw_version_unsupported", &format!(
             "Expected GLFW 3.3 or newer in major version 3; found {}.{}.{}",
             version.0, version.1, version.2
@@ -2167,6 +2181,29 @@ mod native_input_tests {
             device, action, code, x, y: 0.0, value: 1.0,
             timestamp_nanos: 1, modifiers: 0, codepoint: 0, scan_code: 0, reserved: 0,
         }
+    }
+
+    #[test]
+    fn lwjgl_glfw_symbol_manifest_is_unique_and_covers_runtime_essentials() {
+        let symbols = lwjgl_required_glfw_symbols();
+        assert!(symbols.len() >= 100);
+        assert!(symbols.iter().all(|name| name.starts_with("glfw")));
+        for required in [
+            "glfwInit", "glfwGetVersion", "glfwCreateWindow", "glfwPollEvents",
+            "glfwWaitEvents", "glfwPostEmptyEvent", "glfwMakeContextCurrent",
+            "glfwSwapBuffers", "glfwGetProcAddress",
+        ] {
+            assert!(symbols.contains(&required), "missing required symbol {required}");
+        }
+    }
+
+    #[test]
+    fn lwjgl_glfw_version_gate_accepts_supported_minor_versions_only() {
+        assert!(is_supported_lwjgl_glfw_version(3, 3));
+        assert!(is_supported_lwjgl_glfw_version(3, 5));
+        assert!(!is_supported_lwjgl_glfw_version(3, 2));
+        assert!(!is_supported_lwjgl_glfw_version(4, 0));
+        assert!(!is_supported_lwjgl_glfw_version(0, 0));
     }
 
     #[test]
