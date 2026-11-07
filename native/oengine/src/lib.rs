@@ -1711,6 +1711,10 @@ pub unsafe extern "C" fn oengine_ltw_egl_queue_window(
             return 0;
         }
     };
+    if ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) == 0 {
+        set_ltw_egl_error("LTW EGL session closed before the Surface event could be queued.".to_owned());
+        return 0;
+    }
     if let Some(previous) = pending.take() {
         if previous.window != 0 {
             release_anative_window(previous.window as *mut c_void);
