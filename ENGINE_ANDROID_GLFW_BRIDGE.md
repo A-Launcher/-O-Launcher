@@ -81,6 +81,21 @@ Add a bounded IPC event protocol and a game-thread consumer. Port/adapt the nati
 
 Run instrumented tests on a physical Android device: attach, render, resize, detach, recreate, pause/resume, input, and close. Confirm an actual Minecraft frame reaches the Surface and the session log records lifecycle transitions.
 
+
+## Input translation work now present
+
+The Android-side input translation layer now has a standalone GLFW key mapper:
+
+- Android physical keyboard codes are translated into GLFW 3 key values; unknown keys are rejected instead of passing Android key numbers into GLFW.
+- Modifier flags are translated to GLFW modifier bits.
+- Android mouse button bit flags are translated to GLFW's zero-based button indices.
+- Key repeat and Unicode codepoint metadata are represented in the platform-neutral event.
+- Touch pointer IDs are retained; mouse wheel carries both axes; gamepad motion exposes six analog samples plus hat axes.
+- Queue coalescing replaces a pending motion sample in its original FIFO position, so it does not move pointer motion across intervening key transitions.
+- Queue overflow continues to request an explicit all-controls-up reset if a key/button transition cannot be queued.
+
+This is Android-to-GLFW data preparation only. It is not connected to Pojav's native callback ABI or a live GLFW event loop. In particular, gamepad axis conventions still require device normalization and end-to-end tests against the actual native backend.
+
 ## Current status
 
 The LTW-tracked EGL context and Android Surface attach/swap primitives exist. They are groundwork only. The native GLFW platform backend, event-loop consumer, input callbacks, actual Minecraft swap integration, and physical-device rendering verification are not yet implemented.
