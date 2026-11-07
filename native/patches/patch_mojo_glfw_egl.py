@@ -238,6 +238,94 @@ if "display_is_ltw_owned" not in text:
         raise SystemExit("EGL terminate anchor changed")
     text = text.replace(terminate_anchor, terminate_replacement, 1)
 
+init_anchor = '''GLFWbool _glfwInitEGL(void)
+{
+    int i;
+    EGLint* attribs = NULL;
+    const char* extensions;
+'''
+init_replacement = init_anchor + '''#if defined(_GLFW_ANDROID)
+    OEngineLtwEglShareInfo oengine_init_share = {0};
+    const GLFWbool oengine_init_uses_ltw = oengine_get_ltw_share_info(&oengine_init_share);
+#endif
+'''
+if "oengine_init_uses_ltw" not in text:
+    if init_anchor not in text:
+        raise SystemExit("EGL initialization function anchor changed")
+    text = text.replace(init_anchor, init_replacement, 1)
+
+display_anchor = '''    _glfw.egl.platform = _glfw.platform.getEGLPlatform(&attribs);
+    if (_glfw.egl.platform)
+    {
+        _glfw.egl.display =
+            eglGetPlatformDisplayEXT(_glfw.egl.platform,
+                                     _glfw.platform.getEGLNativeDisplay(),
+                                     attribs);
+    }
+    else
+        _glfw.egl.display = eglGetDisplay(_glfw.platform.getEGLNativeDisplay());
+
+    _glfw_free(attribs);
+'''
+display_replacement = '''#if defined(_GLFW_ANDROID)
+    if (oengine_init_uses_ltw)
+        _glfw.egl.display = (EGLDisplay) oengine_init_share.display;
+    else
+#endif
+    {
+        _glfw.egl.platform = _glfw.platform.getEGLPlatform(&attribs);
+        if (_glfw.egl.platform)
+        {
+            _glfw.egl.display =
+                eglGetPlatformDisplayEXT(_glfw.egl.platform,
+                                         _glfw.platform.getEGLNativeDisplay(),
+                                         attribs);
+        }
+        else
+            _glfw.egl.display = eglGetDisplay(_glfw.platform.getEGLNativeDisplay());
+    }
+
+    _glfw_free(attribs);
+'''
+if "oengine_init_share.display" not in text:
+    if display_anchor not in text:
+        raise SystemExit("EGL display selection anchor changed")
+    text = text.replace(display_anchor, display_replacement, 1)
+
+initialize_anchor = '''    if (!eglInitialize(_glfw.egl.display, &_glfw.egl.major, &_glfw.egl.minor))
+    {
+        _glfwInputError(GLFW_API_UNAVAILABLE,
+                        "EGL: Failed to initialize EGL: %s",
+                        getEGLErrorString(eglGetError()));
+
+        _glfwTerminateEGL();
+        return GLFW_FALSE;
+    }
+'''
+initialize_replacement = '''#if defined(_GLFW_ANDROID)
+    if (oengine_init_uses_ltw)
+    {
+        const char* egl_version = eglQueryString(_glfw.egl.display, 0x3054 /* EGL_VERSION */);
+        if (egl_version)
+            sscanf(egl_version, "%d.%d", &_glfw.egl.major, &_glfw.egl.minor);
+    }
+    else
+#endif
+    if (!eglInitialize(_glfw.egl.display, &_glfw.egl.major, &_glfw.egl.minor))
+    {
+        _glfwInputError(GLFW_API_UNAVAILABLE,
+                        "EGL: Failed to initialize EGL: %s",
+                        getEGLErrorString(eglGetError()));
+
+        _glfwTerminateEGL();
+        return GLFW_FALSE;
+    }
+'''
+if "oengine_init_uses_ltw)" not in text:
+    if initialize_anchor not in text:
+        raise SystemExit("EGL initialize call anchor changed")
+    text = text.replace(initialize_anchor, initialize_replacement, 1)
+
 required = [
     "oengine_get_ltw_share_info",
     "window->context.egl.handle = (EGLContext) oengine_ltw_share.context;",
