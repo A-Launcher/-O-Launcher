@@ -415,9 +415,9 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
         wantedMode != GLFW_ANDROID_WINDOW_MODE_SURFACE)
     {
         pthread_mutex_lock(&nw_egl_mutex);
+        surfaceInUse = false;
         pthread_cond_broadcast(&nw_egl_cond);
         pthread_mutex_unlock(&nw_egl_mutex);
-        surfaceInUse = false;
     }
 
     if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE)
@@ -441,6 +441,8 @@ if "eglDestroySurface(_glfw.egl.display, oldSurface)" in android_text[android_te
     raise SystemExit("Android EGL surface manager still destroys LTW-owned surfaces")
 if "oengine_android_get_ltw_share_info(&share)" not in android_text:
     raise SystemExit("Android GLFW surface manager is not using LTW share-info")
+if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in android_text:
+    raise SystemExit("Android GLFW must clear surfaceInUse before waking nativeSurfaceDestroyed")
 android_source.write_text(android_text, encoding="utf-8")
 
 required = [
