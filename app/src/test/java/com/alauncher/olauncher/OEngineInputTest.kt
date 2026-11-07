@@ -214,4 +214,32 @@ class OEngineInputTest {
         assertEquals(1, tracker.pressedCount)
         assertTrue(tracker.isPressed(OEngineInputDevice.KEYBOARD, 87))
     }
+
+    @Test fun gameInputForwarderTracksAndReleasesSurfaceControls() {
+        val sent = mutableListOf<OEngineInputEvent>()
+        val forwarder = OEngineGameInputForwarder { batch -> sent.addAll(batch); true }
+        val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f)
+        val up = down.copy(action = OEngineInputAction.UP, value = 0f)
+        assertTrue(forwarder.forward(listOf(down, down)))
+        assertEquals(1, sent.size)
+        assertTrue(forwarder.releaseAll(99L))
+        assertEquals(2, sent.size)
+        assertEquals(OEngineInputAction.UP, sent.last().action)
+        assertEquals(99L, sent.last().timestampNanos)
+        assertTrue(forwarder.forward(listOf(up)))
+        assertEquals(2, sent.size)
+    }
+
+    @Test fun gameInputForwarderSplitsLargeReleaseBatchesForBinderLimit() {
+        val batches = mutableListOf<Int>()
+        val forwarder = OEngineGameInputForwarder { batch -> batches += batch.size; true }
+        val downs = (0 until 300).map { code ->
+            OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, code, value = 1f)
+        }
+        assertTrue(forwarder.forward(downs))
+        assertEquals(listOf(128, 128, 44), batches)
+        batches.clear()
+        assertTrue(forwarder.releaseAll())
+        assertEquals(listOf(128, 128, 44), batches)
+    }
 }
