@@ -30,7 +30,7 @@ data class OEngineLwjglResolution(
     val ndlopenSignaturePresent: Boolean,
     val glfwModulePresent: Boolean,
     val glfwJavaClassPresent: Boolean,
-    val androidGlfwNativeProviderIntegrated: Boolean,
+    val androidGlfwLibraryConfigured: Boolean,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -187,10 +187,10 @@ object OEngineLwjglNativeResolver {
         // platform port exports the pinned LWJGL function surface; runtime EGL/window
         // semantics remain a separate device-validation gate.
         val glfwLibrary = androidGlfwLibrary?.canonicalFile
-        val androidGlfwNativeProviderIntegrated =
+        val androidGlfwLibraryConfigured =
             glfwLibrary != null && glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L
         if (generation == OEngineLwjglGeneration.LWJGL3 && glfwJavaClassPresent) {
-            if (!androidGlfwNativeProviderIntegrated) {
+            if (!androidGlfwLibraryConfigured) {
                 blockers += "The Android GLFW native library is missing; LWJGL 3 requires a staged libglfw.so path."
             } else {
                 warnings += "LWJGL is configured to load the staged Android libglfw.so by absolute path; Android EGL/window lifecycle and rendering still require device validation."
@@ -267,7 +267,7 @@ object OEngineLwjglNativeResolver {
             ndlopenSignaturePresent = ndlopenSignaturePresent,
             glfwModulePresent = glfwModules.size == 1,
             glfwJavaClassPresent = glfwJavaClassPresent,
-            androidGlfwNativeProviderIntegrated = androidGlfwNativeProviderIntegrated,
+            androidGlfwLibraryConfigured = androidGlfwLibraryConfigured,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )
