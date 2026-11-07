@@ -49,7 +49,7 @@ object OEngineAndroidInputAdapter {
         val output = mutableListOf<OEngineInputEvent>()
 
         when (event.actionMasked) {
-            MotionEvent.ACTION_MOVE -> {
+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_HOVER_MOVE -> {
                 if (isGamepad) {
                     val axes = intArrayOf(
                         MotionEvent.AXIS_X, MotionEvent.AXIS_Y,
