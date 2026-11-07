@@ -124,7 +124,19 @@ text = text.replace(
     1,
 )
 
-if "oengine_drain_input_events();" not in text:
-    raise SystemExit("O Engine input drain was not installed")
+if "oengine_wake_input" not in text or "glfwPostEmptyEvent();" not in text:
+    raise SystemExit("O Engine GLFW wake bridge was not installed")
+
+poll_start = text.index("void _glfwPollEventsAndroid(void)")
+wait_start = text.index("void _glfwWaitEventsAndroid(void)")
+timeout_start = text.index("void _glfwWaitEventsTimeoutAndroid(double timeout)")
+post_start = text.index("void _glfwPostEmptyEventAndroid(void)")
+if text[poll_start:wait_start].count("oengine_drain_input_events();") < 1:
+    raise SystemExit("GLFW poll path does not drain O Engine input")
+if text[wait_start:timeout_start].count("oengine_drain_input_events();") < 2:
+    raise SystemExit("GLFW wait path must drain before and after its wait")
+if text[timeout_start:post_start].count("oengine_drain_input_events();") < 2:
+    raise SystemExit("GLFW timed-wait path must drain before and after its wait")
+
 source.write_text(text, encoding="utf-8")
 print("Patched pinned Mojo Android GLFW poll/wait paths for O Engine keyboard, mouse and primary-touch input.")
