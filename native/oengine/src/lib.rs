@@ -311,7 +311,7 @@ pub extern "C" fn oengine_input_clear_session() {
     }
 }
 
-/// Notify the Android GLFW backend so glfwWaitEvents cannot sleep through newly queued input.
+/// Wake the Android GLFW owner thread after input or a queued Surface transition.
 fn wake_android_glfw_event_loop() {
     unsafe {
         let handle = libc::dlopen(
@@ -319,10 +319,9 @@ fn wake_android_glfw_event_loop() {
             libc::RTLD_NOW | libc::RTLD_LOCAL,
         );
         if handle.is_null() { return; }
-        // GLFW already exposes this stable API in its public function table.
-        // Prefer it over a private O Engine export: Android linkers may hide
-        // backend-local symbols even when the function is compiled successfully.
-        let symbol = libc::dlsym(handle, b"glfwPostEmptyEvent\0".as_ptr() as *const c_char);
+        // O Engine's backend-local wake bridge checks that GLFW owns a live game
+        // window before calling glfwPostEmptyEvent, so pre-init Surface events are safe.
+        let symbol = libc::dlsym(handle, b"oengine_wake_input\0".as_ptr() as *const c_char);
         if !symbol.is_null() {
             let wake: unsafe extern "C" fn() = std::mem::transmute(symbol);
             wake();
@@ -2302,7 +2301,12 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         set_ltw_egl_error("Queued Surface event has invalid dimensions.".to_owned());
         return 0;
     }
-    if oengine_ltw_egl_queue_window(window as *mut c_void, width, height) == 1 { 1 } else { 0 }
+    if oengine_ltw_egl_queue_window(window as *mut c_void, width, height) == 1 {
+        wake_android_glfw_event_loop();
+        1
+    } else {
+        0
+    }
 }
 
 #[no_mangle]
