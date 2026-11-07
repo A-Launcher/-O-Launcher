@@ -78,6 +78,15 @@ jobs:
           test "$(git hash-object "$license")" = "57dbca92b4cbc989e95d3a6fcb63ea2e70825381"
           echo "Verified GL4ES MIT license text."
 
+      - name: Install Android GLFW and MojoExec license texts
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/licenses
+          cp native/upstream/mojo-glfw/LICENSE.md app/src/main/assets/licenses/LICENSE-Mojo-GLFW.txt
+          cp native/upstream/mojoexec/LICENSE app/src/main/assets/licenses/LICENSE-MojoExec.txt
+          test -s app/src/main/assets/licenses/LICENSE-Mojo-GLFW.txt
+          test -s app/src/main/assets/licenses/LICENSE-MojoExec.txt
+
       - name: Build O Engine Rust native library for all Android ABIs
         working-directory: native/oengine
         run: |
