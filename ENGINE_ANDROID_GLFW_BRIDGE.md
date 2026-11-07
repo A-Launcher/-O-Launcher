@@ -42,6 +42,10 @@ This separation is useful for O Engine, but the backend is not merely a Kotlin e
 
 Therefore a Messenger input event handler or a second Kotlin thread calling EGL is not a valid runtime solution.
 
+## Primary touch-pointer handling
+
+The Android adapter preserves each touch pointer ID in the native event payload. The GLFW adapter now selects the first pointer that becomes active as the desktop primary mouse pointer, tracks that pointer ID rather than assuming it is numeric zero, and ignores secondary fingers for mouse-button state. This prevents a secondary finger's UP event from releasing the primary finger's held left mouse button. When the primary pointer is released, the next DOWN may become primary. Touch IDs remain platform event data; they are not interpreted as GLFW mouse-button indices.
+
 ## Required architecture
 
 The next implementation must establish one explicit game-thread platform event boundary:
