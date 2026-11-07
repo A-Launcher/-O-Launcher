@@ -5,6 +5,12 @@ package com.alauncher.olauncher
  * Slot order: A, B, X, Y, L1, R1, SELECT, START, L3, R3, D-pad U/R/D/L.
  */
 object OEngineAndroidGamepadMapper {
+    fun triggerAxisIndex(androidKeyCode: Int): Int? = when (androidKeyCode) {
+        104 -> 4 // KEYCODE_BUTTON_L2
+        105 -> 5 // KEYCODE_BUTTON_R2
+        else -> null
+    }
+
     fun buttonIndex(androidKeyCode: Int): Int? = when (androidKeyCode) {
         96 -> 0  // KEYCODE_BUTTON_A
         97 -> 1  // KEYCODE_BUTTON_B
