@@ -283,13 +283,13 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     devices_raw: jintArray,
     actions_raw: jintArray,
     codes_raw: jintArray,
+    scan_codes_raw: jintArray,
     xs_raw: jfloatArray,
     ys_raw: jfloatArray,
     values_raw: jfloatArray,
     times_raw: jlongArray,
     modifiers_raw: jintArray,
     codepoints_raw: jintArray,
-    scan_codes_raw: jintArray,
 ) -> jint {
     if raw_env.is_null() || devices_raw.is_null() || actions_raw.is_null() ||
         codes_raw.is_null() || xs_raw.is_null() || ys_raw.is_null() || values_raw.is_null() ||
