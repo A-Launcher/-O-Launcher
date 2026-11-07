@@ -98,4 +98,39 @@ class OEngineInputTest {
         assertEquals(1L, queue.droppedEventCount)
     }
 
+
+    @Test fun androidKeysMapToGlfwKeyNamespace() {
+        assertEquals(65, OEngineGlfwKeyMapper.key(29)) // Android A
+        assertEquals(87, OEngineGlfwKeyMapper.key(51)) // Android W
+        assertEquals(48, OEngineGlfwKeyMapper.key(7))  // Android 0
+        assertEquals(290, OEngineGlfwKeyMapper.key(131)) // Android F1
+        assertEquals(257, OEngineGlfwKeyMapper.key(66)) // Android Enter
+        assertNull(OEngineGlfwKeyMapper.key(9999))
+    }
+
+    @Test fun androidModifiersMapToGlfwModifierBits() {
+        val meta = 0x1 or 0x1000 or 0x2 or 0x10000 or 0x100000
+        assertEquals(0x1 or 0x2 or 0x4 or 0x8 or 0x10,
+            OEngineGlfwKeyMapper.modifiers(meta))
+    }
+
+    @Test fun androidMouseButtonsMapToGlfwIndices() {
+        assertEquals(0, OEngineGlfwKeyMapper.mouseButton(1))
+        assertEquals(1, OEngineGlfwKeyMapper.mouseButton(2))
+        assertEquals(2, OEngineGlfwKeyMapper.mouseButton(4))
+        assertEquals(3, OEngineGlfwKeyMapper.mouseButton(8))
+        assertEquals(4, OEngineGlfwKeyMapper.mouseButton(16))
+        assertNull(OEngineGlfwKeyMapper.mouseButton(0))
+    }
+
+    @Test fun motionCoalescingPreservesOrderAcrossKeyTransitions() {
+        val queue = OEngineInputQueue(capacity = 8)
+        queue.offer(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, x = 1f))
+        queue.offer(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87))
+        queue.offer(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, x = 9f))
+        val drained = queue.drain()
+        assertEquals(listOf(OEngineInputAction.MOVE, OEngineInputAction.DOWN), drained.map { it.action })
+        assertEquals(9f, drained[0].x, 0f)
+    }
+
 }
