@@ -148,7 +148,10 @@ class OEngineGameProcessService : Service() {
                 "Replacement Surface queued for GLFW owner-thread application • " + width + "x" + height)
         } catch (error: Throwable) {
             if (candidateWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateWindow) }
-            if (queuedWindow) runCatching { eglBootstrap?.queueDetachWindow() }
+            if (queuedWindow) {
+                runCatching { eglBootstrap?.queueDetachWindow() }
+                runCatching { OEngineAndroidGlfwBootstrap.surfaceUpdated() }
+            }
             runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
             surface?.release()
             reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
@@ -191,6 +194,7 @@ class OEngineGameProcessService : Service() {
                         reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached through LTW eglMakeCurrent; LTW context tracking is active.")
                     } catch (error: Throwable) {
                         if (candidateNativeWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateNativeWindow) }
+                        else runCatching { eglBootstrap?.detachWindow() }
                         runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
                         receivedSurface?.release()
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACH_FAILED", error.message ?: error.javaClass.simpleName, error)
