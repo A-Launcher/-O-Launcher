@@ -46,11 +46,11 @@ class OEngineGameProcessService : Service() {
                         val surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
                             ?: throw IllegalArgumentException("Game Surface IPC payload is missing.")
                         receivedSurface = surface
-                        val egl = eglBootstrap ?: throw IllegalStateException("Persistent EGL is not initialized yet.")
+                        val egl = eglBootstrap ?: throw IllegalStateException("LTW EGL session is not initialized yet.")
                         val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
                         val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
                         candidateNativeWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
-                        egl.attachWindow(surface, width, height)
+                        egl.attachWindow(candidateNativeWindow, width, height)
                         // EGL now owns this Surface reference. Transfer ownership before releasing
                         // the previous ANativeWindow so a cleanup error cannot release the live Surface.
                         receivedSurface = null
@@ -66,10 +66,10 @@ class OEngineGameProcessService : Service() {
                                     )
                                 }
                         }
-                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
+                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "LTW-tracked EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
-                        reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached to the persistent EGL context.")
+                        reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached through LTW eglMakeCurrent; LTW context tracking is active.")
                     } catch (error: Throwable) {
                         if (candidateNativeWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateNativeWindow) }
                         receivedSurface?.release()
@@ -136,16 +136,18 @@ class OEngineGameProcessService : Service() {
                             "Applied " + ltwEnvironment.size + " Mojo-informed LTW compatibility variables before HotSpot: " +
                                 ltwEnvironment.keys.sorted().joinToString()
                         )
-                        check(eglBootstrap == null) { "The persistent EGL bootstrap is already initialized." }
-                        eglBootstrap = OEngineEglBootstrap.create(OEngineGraphicsStack.LTW_MIN_GLES_MAJOR).also { egl ->
+                        check(eglBootstrap == null) { "The LTW EGL session is already initialized." }
+                        // LTW must be loaded first: its EGL wrappers register the context
+                        // in the compatibility layer's context map.
+                        rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
+                        eglBootstrap = OEngineEglBootstrap.create(rendererHandle, OEngineGraphicsStack.LTW_MIN_GLES_MAJOR).also { egl ->
                             OEngineSessionLog.append(
                                 this,
                                 "EGL_BOOTSTRAP_READY",
-                                "Persistent pbuffer context current on game worker thread • EGL " + egl.eglVersion +
+                                "LTW-tracked EGL context current on game worker thread • " + egl.eglVersion +
                                     " • GLES " + egl.glesMajor + " • " + egl.glVersion + " • " + egl.glRenderer
                             )
                         }
-                        rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
                         OEngineSessionLog.append(
                             this,
                             "RENDERER_PRELOADED",
