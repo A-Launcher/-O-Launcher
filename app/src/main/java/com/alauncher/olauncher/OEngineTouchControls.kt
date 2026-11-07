@@ -155,6 +155,14 @@ object OEngineTouchControls {
         return controls.map { if (it.id == id) it.copy(keyCode = keyCode) else it }
     }
 
+    fun rename(controls: List<OEngineTouchControl>, id: String, label: String): List<OEngineTouchControl> {
+        require(controls.any { it.id == id }) { "Unknown touch control: $id" }
+        val normalized = label.trim()
+        require(normalized.isNotEmpty()) { "A control label cannot be empty." }
+        require(normalized.length <= 12) { "A control label can contain at most 12 characters." }
+        return controls.map { if (it.id == id) it.copy(label = normalized) else it }
+    }
+
     fun applyPreset(controls: List<OEngineTouchControl>, preset: String): List<OEngineTouchControl> {
         require(controls.isNotEmpty())
         val result = when (preset.lowercase()) {
@@ -198,6 +206,8 @@ fun OEngineTouchControlsOverlay(
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     var presetIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var showLabelEditor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var labelDraft by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
     DisposableEffect(Unit) {
         onDispose {
@@ -271,6 +281,13 @@ fun OEngineTouchControlsOverlay(
                         }
                     }
                 }) { androidx.compose.material3.Text("PASTE") }
+                androidx.compose.material3.TextButton(
+                    onClick = {
+                        labelDraft = selected?.label.orEmpty()
+                        showLabelEditor = selected != null
+                    },
+                    enabled = selected != null
+                ) { androidx.compose.material3.Text("RENAME") }
                 androidx.compose.material3.TextButton(onClick = {
                     val presets = listOf("classic", "left-handed", "compact")
                     presetIndex = (presetIndex + 1) % presets.size
@@ -336,6 +353,36 @@ fun OEngineTouchControlsOverlay(
                     }
                 }, enabled = controls.size > 1) { androidx.compose.material3.Text("DELETE") }
             }
+        }
+
+        if (showLabelEditor) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showLabelEditor = false },
+                title = { androidx.compose.material3.Text("Rename control") },
+                text = {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = labelDraft,
+                        onValueChange = { labelDraft = it.take(12) },
+                        singleLine = true,
+                        label = { androidx.compose.material3.Text("Button label") }
+                    )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(onClick = {
+                        runCatching { OEngineTouchControls.rename(controls.toList(), selectedId, labelDraft) }
+                            .onSuccess { updated ->
+                                controls.clear(); controls.addAll(updated)
+                                onLayoutChanged(updated)
+                                showLabelEditor = false
+                            }
+                    }) { androidx.compose.material3.Text("SAVE") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showLabelEditor = false }) {
+                        androidx.compose.material3.Text("CANCEL")
+                    }
+                }
+            )
         }
 
         controls.forEach { control ->
