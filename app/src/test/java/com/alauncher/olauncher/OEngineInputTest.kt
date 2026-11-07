@@ -133,4 +133,38 @@ class OEngineInputTest {
         assertEquals(9f, drained[0].x, 0f)
     }
 
+
+    @Test fun focusLossSynthesizesUpsInReversePressOrder() {
+        val tracker = OEngineInputStateTracker()
+        assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87)))
+        assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.DOWN, 0)))
+        assertEquals(2, tracker.pressedCount)
+        val releases = tracker.releaseAll(123L)
+        assertEquals(listOf(OEngineInputDevice.MOUSE, OEngineInputDevice.KEYBOARD),
+            releases.map { it.device })
+        assertTrue(releases.all { it.action == OEngineInputAction.UP && it.timestampNanos == 123L })
+        assertEquals(0, tracker.pressedCount)
+    }
+
+    @Test fun duplicateDownAndUnmatchedUpDoNotCorruptPressedState() {
+        val tracker = OEngineInputStateTracker()
+        val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 65)
+        assertNotNull(tracker.accept(down))
+        assertNull(tracker.accept(down))
+        assertNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 66)))
+        assertEquals(1, tracker.pressedCount)
+        assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 65)))
+        assertEquals(0, tracker.pressedCount)
+    }
+
+    @Test fun releaseDeviceLeavesOtherDeviceControlsHeld() {
+        val tracker = OEngineInputStateTracker()
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87))
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.GAMEPAD, OEngineInputAction.DOWN, 0))
+        val releases = tracker.releaseDevice(OEngineInputDevice.GAMEPAD, 9L)
+        assertEquals(listOf(0), releases.map { it.code })
+        assertEquals(1, tracker.pressedCount)
+        assertEquals(listOf(87), tracker.releaseAll().map { it.code })
+    }
+
 }
