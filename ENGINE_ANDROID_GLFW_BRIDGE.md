@@ -109,8 +109,21 @@ This tracker is a tested primitive, not yet wired to the Activity's focus callba
 
 ## Independent input IPC ingress foundation
 
-The game process now exposes a second Messenger endpoint on a dedicated `OEngineInputIngress` HandlerThread. The health-check handshake returns this endpoint to the launcher process, and the client can send bounded batches of typed input events through it. The ingress validates array lengths, batch size, enum values, and each event's numeric invariants before adding events to the process-local `OEngineGameInputBridge`. The bridge exposes a stable `@JvmStatic drainForGameThread()` API for the future JNI/GLFW event-poll hook, tracks held digital controls, and converts transition overflow into an all-controls-up reset. Both the event queue and tracked-control set are bounded.
+The game process now exposes a second Messenger endpoint on a dedicated `OEngineInputIngress` HandlerThread. The health-check handshake returns this endpoint to the launcher process, and the client can send bounded batches of typed input events through it. The ingress validates array lengths, batch size, enum values, and each event's numeric invariants before passing the batch to the Rust-native bounded queue. The queue exposes the C ABI `oengine_input_drain()` for the future GLFW event-poll hook, tracks held digital controls, and converts transition overflow into an all-controls-up reset. The event queue is capped at 512 entries and held-control tracking at 1024 entries.
 
 This split is deliberate: the original game-process command HandlerThread is also the HotSpot/JVM owner thread and can remain inside Minecraft's synchronous `main()` call. The new endpoint can still receive Binder messages without moving EGL or JNI calls to an unsafe thread.
 
-**Not yet connected:** the SurfaceView does not send events through this channel, and no GLFW/game-thread consumer calls `drainForGameThread()` yet. The endpoint currently establishes responsive transport and validation only; it does not produce in-game input. The next required step is to connect the queue to the exact native GLFW event-poll contract after verifying the packaged LWJGL/GLFW implementation. Surface attach/resize/detach also still needs to be consumed on the LTW EGL owner/game thread rather than the blocked command handler.
+**Not yet connected:** the SurfaceView does not send events through this channel, and no GLFW/game-thread consumer calls `oengine_input_drain()` yet. The endpoint currently establishes responsive transport and validation only; it does not produce in-game input. The next required step is to connect the queue to the exact native GLFW event-poll contract after verifying the packaged LWJGL/GLFW implementation. Surface attach/resize/detach also still needs to be consumed on the LTW EGL owner/game thread rather than the blocked command handler.
+
+
+## Rust-native input queue and C handoff
+
+The dedicated Messenger ingress now forwards validated batches into a process-global Rust queue in `liboengine_native.so`. This avoids a subtle but important two-VM mistake: the Android launcher code runs on ART, while Minecraft and its LWJGL native library run inside embedded HotSpot. A GLFW native function must not try to call an ART/Kotlin class using HotSpot's `JNIEnv`.
+
+The queue instead exposes a plain C ABI in `native/oengine/include/oengine_input_bridge.h`:
+
+- `oengine_input_drain(output, capacity)` — called by the GLFW event loop on the game thread
+- `oengine_input_reset_pending()` — reports whether digital transition overflow requires reset
+- `oengine_input_clear_session()` — clears a dead session
+
+The Android JNI batch method writes into this same Rust queue. Rust host tests cover FIFO motion coalescing, bounded overflow, release recovery, unmatched/duplicate transitions, and ensuring reset does not discard releases when the consumer's output buffer is too small. The native queue is now the intended production handoff; the actual GLFW poll loop has not been wired to it yet. Bulk text events are currently rejected by the native batch API; per-key Unicode codepoint metadata is supported.
