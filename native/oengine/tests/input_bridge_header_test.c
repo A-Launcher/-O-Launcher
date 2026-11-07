@@ -38,12 +38,38 @@ static void key_callback(void *window, int32_t key, int32_t scancode,
     (void)modifiers;
 }
 
+static void char_mods_callback(void *window, uint32_t codepoint, int32_t modifiers) {
+    (void)window;
+    (void)codepoint;
+    (void)modifiers;
+}
+
+static void platform_callback(void *window, int32_t device, int32_t action,
+                              int32_t code, int32_t scan_code, float x, float y,
+                              float value, int64_t timestamp_nanos,
+                              int32_t modifiers, uint32_t codepoint) {
+    (void)window;
+    (void)device;
+    (void)action;
+    (void)code;
+    (void)scan_code;
+    (void)x;
+    (void)y;
+    (void)value;
+    (void)timestamp_nanos;
+    (void)modifiers;
+    (void)codepoint;
+}
+
 int main(void) {
     OEngineNativeInputCallbacks callbacks = {0};
     OEngineNativeInputEvent event = {0};
     callbacks.key = key_callback;
+    callbacks.character_mods = char_mods_callback;
+    callbacks.platform_event = platform_callback;
     event.device = 1;
     event.action = 0;
     event.scan_code = 30;
-    return callbacks.key == NULL || event.device != 1;
+    return callbacks.key == NULL || callbacks.character_mods == NULL ||
+           callbacks.platform_event == NULL || event.device != 1;
 }
