@@ -1622,11 +1622,23 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
         scope.launch {
             try {
                 val root = OEngineInstanceManager.active(context).root
-                val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root)
-                refreshInstalledContent()
-                installStatus = "Installed " + result.filename + " in " + (result.destination.parentFile?.name ?: "instance") + ". " +
-                    if (result.requiredDependencies.isEmpty()) "File integrity verified."
-                    else "WARNING: " + result.requiredDependencies.size + " required dependencies still need installation."
+                if (project.projectType == OEngineModrinthCatalog.ProjectType.MOD) {
+                    val batch = OEngineModrinthInstaller.installWithRequiredDependencies(
+                        project.id, version.id, project.projectType, root,
+                        version.gameVersions.firstOrNull() ?: compatibleGameVersion.takeUnless { it == "All versions" },
+                        version.loaders.firstOrNull()
+                    )
+                    refreshInstalledContent()
+                    installStatus = "Installed " + batch.primary.filename + " plus " +
+                        batch.installedDependencies.size + " required dependencies. " +
+                        if (batch.unresolvedDependencies.isEmpty()) "All resolved files passed integrity verification."
+                        else "Needs attention: " + batch.unresolvedDependencies.take(4).joinToString("; ")
+                } else {
+                    val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root)
+                    refreshInstalledContent()
+                    installStatus = "Installed " + result.filename + " in " +
+                        (result.destination.parentFile?.name ?: "instance") + ". File integrity verified."
+                }
             } catch (failure: Exception) {
                 installStatus = failure.message ?: "Installation failed."
             } finally { installingFile = false }
