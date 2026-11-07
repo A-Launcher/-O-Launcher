@@ -3363,7 +3363,16 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                         "Downloading $selectedLoader installer: ${received * 100 / total}%"
                                                     } else "Downloading $selectedLoader installer: ${received / 1024} KB"
                                                 }
-                                                loaderInstallStatus = "$selectedLoader installer downloaded and SHA-1 verified (${staged.bytes / 1024} KB). Mojo installer-agent execution is the next integration step; this is not installed yet."
+                                                val agent = OEngineInstallerAgent.stage(context, activeInstance.root)
+                                                val invocation = OEngineInstallerAgent.buildLaunchArguments(agent, staged.file)
+                                                profilePreferences.edit()
+                                                    .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
+                                                    .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation).toString())
+                                                    .putString("pending_installer_loader.$selectedProfile", selectedLoader)
+                                                    .putString("pending_installer_version.$selectedProfile", version)
+                                                    .putString("pending_installer_mc.$selectedProfile", release.id)
+                                                    .apply()
+                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). Mojo agent staged and Java invocation prepared. Android AWT runtime execution is still pending; loader is not installed yet."
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
