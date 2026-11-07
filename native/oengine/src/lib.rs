@@ -1309,7 +1309,7 @@ mod native_input_dispatch_tests {
             });
         }
         assert_eq!(*trace.lock().unwrap(), vec![
-            (1, 87, 1), (2, 119, 0), (7, 119, 1), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
+            (1, 87, 1), (8, 42, 0), (2, 119, 0), (7, 119, 1), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
         ]);
     }
 
@@ -1335,7 +1335,7 @@ mod native_input_dispatch_tests {
         };
         let count = unsafe { oengine_input_dispatch(ptr::null_mut(), &callbacks, 8) };
         assert_eq!(count, 1);
-        assert_eq!(*TRACE.get().unwrap().lock().unwrap(), vec![(1, 65, 1), (2, 97, 0), (7, 97, 0)]);
+        assert_eq!(*TRACE.get().unwrap().lock().unwrap(), vec![(1, 65, 1), (8, 0, 0), (2, 97, 0), (7, 97, 0)]);
         oengine_input_clear_session();
     }
 
