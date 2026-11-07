@@ -1603,6 +1603,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var loadingVersions by remember { mutableStateOf(false) }
     var installingFile by remember { mutableStateOf(false) }
     var installStatus by remember { mutableStateOf<String?>(null) }
+    var choosingDataPackWorldFor by remember { mutableStateOf<Pair<OEngineModrinthCatalog.Project, OEngineModrinthInstaller.ProjectVersion>?>(null) }
     val scope = rememberCoroutineScope()
     var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
     var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
@@ -1671,8 +1672,12 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
         }
     }
 
-    fun installProjectVersion(project: OEngineModrinthCatalog.Project, version: OEngineModrinthInstaller.ProjectVersion) {
+    fun installProjectVersion(project: OEngineModrinthCatalog.Project, version: OEngineModrinthInstaller.ProjectVersion, worldName: String? = null) {
         if (installingFile) return
+        if (project.projectType == OEngineModrinthCatalog.ProjectType.DATA_PACK && worldName == null) {
+            choosingDataPackWorldFor = project to version
+            return
+        }
         installingFile = true
         installStatus = "Downloading and verifying " + version.versionNumber + "…"
         scope.launch {
@@ -1690,7 +1695,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                         if (batch.unresolvedDependencies.isEmpty()) "All resolved files passed integrity verification."
                         else "Needs attention: " + batch.unresolvedDependencies.take(4).joinToString("; ")
                 } else {
-                    val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root)
+                    val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root, worldName)
                     refreshInstalledContent()
                     installStatus = "Installed " + result.filename + " in " +
                         (result.destination.parentFile?.name ?: "instance") + ". File integrity verified."
@@ -1878,13 +1883,33 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     dismissButton = { TextButton(onClick = { removingContent = null }) { Text("CANCEL") } }
                 )
             }
+            choosingDataPackWorldFor?.let { pending ->
+                val worlds = OEngineInstalledContentManager.worldNames(OEngineInstanceManager.active(context).root)
+                AlertDialog(
+                    onDismissRequest = { choosingDataPackWorldFor = null },
+                    title = { Text("CHOOSE A WORLD") },
+                    text = {
+                        Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Select the world that should receive this data pack.", color = Muted, fontSize = 11.sp)
+                            if (worlds.isEmpty()) Text("No valid worlds found. Create or open a world first.", color = Muted, fontSize = 11.sp)
+                            worlds.forEach { world ->
+                                TextButton(onClick = {
+                                    choosingDataPackWorldFor = null
+                                    installProjectVersion(pending.first, pending.second, world)
+                                }, modifier = Modifier.fillMaxWidth()) { Text(world) }
+                            }
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { choosingDataPackWorldFor = null }) { Text("CANCEL") } }
+                )
+            }
             if (installingProject != null) {
                 AlertDialog(
                     onDismissRequest = { if (!installingFile) { installingProject = null; installVersions = emptyList(); installStatus = null } },
                     title = { Text("Install " + (installingProject?.title ?: "project")) },
                     text = {
                         Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Destination: " + OEngineModrinthInstaller.targetDirectory(OEngineInstanceManager.active(context).root, installingProject!!.projectType).name, fontSize = 11.sp, color = Muted)
+                            Text(if (installingProject!!.projectType == OEngineModrinthCatalog.ProjectType.DATA_PACK) "Destination: selected world's datapacks folder" else "Destination: " + OEngineModrinthInstaller.targetDirectory(OEngineInstanceManager.active(context).root, installingProject!!.projectType).name, fontSize = 11.sp, color = Muted)
                             if (loadingVersions) CircularProgressIndicator(color = Gold)
                             installVersions.take(12).forEach { version ->
                                 Surface(color = Panel, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1897,7 +1922,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                             }
                             if (installVersions.size > 12) Text("Showing the newest 12 versions. Open the project page for the full version history.", color = Muted, fontSize = 10.sp)
                             installStatus?.let { Text(it, color = if (it.startsWith("Installed")) Color(0xFF287A42) else Ink, fontSize = 11.sp) }
-                            Text("Required dependencies are reported after installation; they are not silently installed. Data packs are placed in the instance datapacks folder and may need copying into a specific world.", color = Muted, fontSize = 9.sp)
+                            Text("Required dependencies are reported after installation; they are not silently installed. Data packs are installed directly into the selected world's datapacks folder.", color = Muted, fontSize = 9.sp)
                         }
                     },
                     confirmButton = { TextButton(onClick = { if (!installingFile) { installingProject = null; installVersions = emptyList(); installStatus = null } }) { Text("CLOSE") } }
