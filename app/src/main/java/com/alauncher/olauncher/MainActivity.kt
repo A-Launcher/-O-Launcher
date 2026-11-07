@@ -2884,11 +2884,32 @@ private fun InstallationsDestination(images: LauncherImages) {
                         if (selectedLoader == "Vanilla") Text("SELECTED", fontSize = 9.sp, color = Color(0xFF9B6A35), fontWeight = FontWeight.Black)
                     }
                 }
-                LoaderOptionCard("Quilt", "Community mod platform", R.drawable.loader_fabric, selectedLoader == "Quilt", {
-                    selectedLoader = "Quilt"
-                    installedLoaderProfileId = null
-                    profilePreferences.edit().remove("loader_profile.$selectedProfile").putString("loader.$selectedProfile", "Quilt").apply()
-                }, Modifier.fillMaxWidth().height(92.dp))
+                Surface(
+                    onClick = {
+                        selectedLoader = "Quilt"
+                        installedLoaderProfileId = null
+                        profilePreferences.edit().remove("loader_profile.$selectedProfile")
+                            .remove("loader_profile_loader.$selectedProfile")
+                            .remove("loader_profile_mc.$selectedProfile")
+                            .putString("loader.$selectedProfile", "Quilt").apply()
+                        preparedLaunchPlan = null
+                    },
+                    color = if (selectedLoader == "Quilt") Color(0xFFFFE8B3) else Color(0xFFFFF2DF),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedLoader == "Quilt") Gold else Border),
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Q", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Ink)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("Quilt", fontWeight = FontWeight.Bold, color = Ink)
+                            Text("Community mod platform", fontSize = 10.sp, color = Muted)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (selectedLoader == "Quilt") Text("SELECTED", fontSize = 9.sp, color = Color(0xFF9B6A35), fontWeight = FontWeight.Black)
+                    }
+                }
                 if (selectedLoader != "Vanilla") {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box {
@@ -2964,7 +2985,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 selectedLoader != "OptiFine",
                             colors = ButtonDefaults.buttonColors(containerColor = Ink)
                         ) {
-                            Text(if (installingLoader) "WORKING…" else "INSTALL LOADER")
+                            Text(if (installingLoader) "WORKING…" else if (selectedLoader == "Forge" || selectedLoader == "NeoForge") "DOWNLOAD INSTALLER" else "INSTALL LOADER")
                         }
                     }
                     Text(loaderInstallStatus, color = Muted, fontSize = 11.sp)
@@ -2972,7 +2993,12 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text("Installed profile: $installedLoaderProfileId", color = Color(0xFF38764B), fontSize = 11.sp)
                     }
                     if (selectedLoader == "OptiFine") {
-                        Text("Official installer: ${OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE)}", color = Muted, fontSize = 10.sp)
+                        Text("OptiFine must be downloaded from its official site and installed with the compatible Minecraft profile.", color = Muted, fontSize = 10.sp)
+                        OutlinedButton(onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE)
+                            )))
+                        }) { Text("OPEN OFFICIAL OPTIFINE DOWNLOADS") }
                     }
                 } else {
                     Text("Vanilla Minecraft profile selected.", color = Muted, fontSize = 11.sp)
