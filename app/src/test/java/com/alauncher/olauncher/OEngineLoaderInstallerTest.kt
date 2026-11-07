@@ -38,6 +38,21 @@ class OEngineLoaderInstallerTest {
         assertNull(OEngineLoaderInstaller.mavenArtifactPath("org.example:lib:1.0@../../zip"))
     }
 
+    @Test fun forgeInstallerUrlsMustBeHttpsAndCredentialFree() {
+        assertEquals("https", OEngineInstallerJarStager.validateHttpsUrl("https://maven.minecraftforge.net/installer.jar").protocol)
+        listOf(
+            "http://maven.minecraftforge.net/installer.jar",
+            "https://user:password@maven.minecraftforge.net/installer.jar",
+            "https:///installer.jar"
+        ).forEach { address ->
+            try {
+                OEngineInstallerJarStager.validateHttpsUrl(address)
+                fail("Accepted unsafe installer URL: $address")
+            } catch (_: Exception) {
+                // expected
+            }
+        }
+    }
     @Test fun forgeDoesNotAccidentallyEnterFabriclikeHeadlessFlow() {
         try {
             OEngineLoaderInstaller.profileUrl(OEngineModLoader.FORGE, "1.20.1", "47.2.0")
