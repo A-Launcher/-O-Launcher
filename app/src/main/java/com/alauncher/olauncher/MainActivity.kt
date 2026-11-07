@@ -1145,42 +1145,94 @@ private fun SettingsDestination(images: LauncherImages) {
     val preferences = remember(context) {
         context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
     }
+    var selectedSection by remember { mutableStateOf<String?>(null) }
     var performance by remember(context) { mutableStateOf(preferences.getBoolean("performance", true)) }
     var animations by remember(context) { mutableStateOf(preferences.getBoolean("animations", true)) }
     var compactUi by remember(context) { mutableStateOf(preferences.getBoolean("compact_ui", false)) }
     var notifications by remember(context) { mutableStateOf(preferences.getBoolean("notifications", true)) }
+    val sections = listOf(
+        Triple("General", "App language, theme, and more.", "🖥️"),
+        Triple("Minecraft", "Game settings and launch options.", "🟩"),
+        Triple("Performance", "Allocate resources for smoother gameplay.", "🚀"),
+        Triple("Downloads", "Manage downloads and cache.", "⬇️"),
+        Triple("Launcher Appearance", "Theme, colors, and interface style.", "🎨"),
+        Triple("Miscellaneous Settings", "UI, updates and other options.", "🛠️"),
+        Triple("Experimental Stuff", "Try experimental and unsupported options.", "🧪"),
+        Triple("Control Customization", "Customize keybinds, touch controls and layouts.", "🎮")
+    )
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        DestinationHero(images, "Settings", "Tune O Launcher to match the way you play", "PREFERENCES")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingsGroup("APPEARANCE", "Customize the launcher interface") {
-                    SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) {
-                        animations = it
-                        preferences.edit().putBoolean("animations", it).apply()
-                    }
-                    SettingToggle("Compact interface", "Reduce spacing in content panels", compactUi) {
-                        compactUi = it
-                        preferences.edit().putBoolean("compact_ui", it).apply()
-                    }
-                }
-                SettingsGroup("PERFORMANCE", "Control launcher resource usage") {
-                    SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) {
-                        performance = it
-                        preferences.edit().putBoolean("performance", it).apply()
+        DestinationHero(images, selectedSection ?: "Settings", selectedSection?.let { "Customize $it for your launcher." } ?: "Customize O Launcher Plus to match your style.", "PREFERENCES")
+        if (selectedSection == null) {
+            sections.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    pair.forEach { item ->
+                        Surface(
+                            onClick = { selectedSection = item.first },
+                            modifier = Modifier.weight(1f).height(112.dp),
+                            color = Panel,
+                            shape = RoundedCornerShape(22.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5C5)),
+                            shadowElevation = 2.dp
+                        ) {
+                            Row(Modifier.fillMaxSize().padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                                Surface(Modifier.size(58.dp), color = Color(0xFFFFE8BE), shape = RoundedCornerShape(18.dp)) {
+                                    Box(contentAlignment = Alignment.Center) { Text(item.third, fontSize = 28.sp) }
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text(item.first, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(item.second, color = Muted, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                                Text("›", color = Color(0xFF8A542B), fontSize = 27.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SettingsGroup("NOTIFICATIONS", "Choose what O Launcher can tell you") {
-                    SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) {
-                        notifications = it
-                        preferences.edit().putBoolean("notifications", it).apply()
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { selectedSection = null }) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = null)
+                    Text("ALL SETTINGS")
+                }
+                Text(selectedSection!!, color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsGroup("GENERAL", "Launcher interface preferences") {
+                        SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) {
+                            animations = it; preferences.edit().putBoolean("animations", it).apply()
+                        }
+                        SettingToggle("Compact interface", "Reduce spacing in content panels", compactUi) {
+                            compactUi = it; preferences.edit().putBoolean("compact_ui", it).apply()
+                        }
+                        SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) {
+                            notifications = it; preferences.edit().putBoolean("notifications", it).apply()
+                        }
+                    }
+                    SettingsGroup("PERFORMANCE", "Control launcher resource usage") {
+                        SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) {
+                            performance = it; preferences.edit().putBoolean("performance", it).apply()
+                        }
                     }
                 }
-                SettingsGroup("ABOUT THIS DEVICE", "Launcher environment") {
-                    SettingInfo("Platform", "Android · Landscape")
-                    SettingInfo("Edition", "Minecraft Java Edition")
-                    SettingInfo("Build", "O Launcher · Development")
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SettingsGroup("MINECRAFT", "Game and profile settings") {
+                        SettingInfo("Edition", "Minecraft Java Edition")
+                        SettingInfo("Active instance", OEngineInstanceManager.active(context).name)
+                        SettingInfo("Game directory", OEngineInstanceManager.active(context).root.name)
+                    }
+                    SettingsGroup("CONTROL CUSTOMIZATION", "Touch and keyboard controls") {
+                        SettingInfo("Touch layout", "Editable in the game controls overlay")
+                        SettingInfo("Control profiles", "Stored per device")
+                        Text("Open an installation and use the controls editor while the game surface is active.", color = Muted, fontSize = 10.sp)
+                    }
+                    SettingsGroup("DOWNLOADS & CACHE", "Local storage") {
+                        SettingInfo("Launcher cache", "Managed automatically")
+                        TextButton(onClick = {
+                            val cache = context.cacheDir
+                            cache.listFiles()?.forEach { it.deleteRecursively() }
+                        }) { Text("CLEAR TEMPORARY CACHE", color = Color(0xFF9A4C32), fontWeight = FontWeight.Bold) }
+                    }
                 }
             }
         }
