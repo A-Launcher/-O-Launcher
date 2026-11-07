@@ -99,3 +99,9 @@ This is Android-to-GLFW data preparation only. It is not connected to Pojav's na
 ## Current status
 
 The LTW-tracked EGL context and Android Surface attach/swap primitives exist. They are groundwork only. The native GLFW platform backend, event-loop consumer, input callbacks, actual Minecraft swap integration, and physical-device rendering verification are not yet implemented.
+
+## Focus-loss and canceled-touch safety
+
+A further platform-neutral safety layer now tracks held digital controls. It suppresses duplicate DOWN transitions, forwards REPEAT only for controls already held, ignores unmatched UP events, and can synthesize UP events in reverse press order when focus is lost or an input-device class disconnects. The Android adapter also emits UP events for every active touch pointer on ACTION_CANCEL and handles primary mouse ACTION_DOWN/ACTION_UP in addition to mouse button actions.
+
+This tracker is a tested primitive, not yet wired to the Activity's focus callback or to the game's event loop. The current SurfaceView does not yet forward Android input to the isolated game process; this change must not be mistaken for working in-game keyboard/mouse/gamepad input.
