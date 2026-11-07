@@ -15,6 +15,7 @@ object OEngineModrinthInstaller {
  data class VersionFile(val filename:String,val url:String,val size:Long,val sha1:String,val sha512:String,val primary:Boolean)
  data class Dependency(val projectId:String?,val versionId:String?,val type:String)
  data class InstallResult(val projectId:String,val versionId:String,val filename:String,val destination:File,val bytes:Long,val requiredDependencies:List<Dependency>)
+ data class DependencyInstallResult(val primary:InstallResult,val installedDependencies:List<InstallResult>,val unresolvedDependencies:List<String>)
 
  fun targetDirectory(root:File,type:OEngineModrinthCatalog.ProjectType):File = when(type) {
   OEngineModrinthCatalog.ProjectType.MOD -> File(root,"mods")
@@ -98,6 +99,55 @@ object OEngineModrinthInstaller {
   }
   backup.delete()
   InstallResult(projectId,version.id,file.filename,destination,destination.length(),version.dependencies.filter { it.type=="required" })
+ }
+ /**
+  * Installs required Modrinth dependencies after the selected project. Optional and incompatible
+  * dependencies are never installed automatically; unresolved requirements are returned to UI.
+  */
+ suspend fun installWithRequiredDependencies(
+  projectId:String,
+  versionId:String,
+  type:OEngineModrinthCatalog.ProjectType,
+  gameRoot:File,
+  gameVersion:String?,
+  loader:String?,
+  onProgress:(Long,Long)->Unit={_,_->}
+ ):DependencyInstallResult {
+  val primary=install(projectId,versionId,type,gameRoot,onProgress)
+  val installed=mutableListOf<InstallResult>()
+  val unresolved=mutableListOf<String>()
+  val visited=linkedSetOf(projectId)
+  suspend fun resolve(dependency:Dependency,parentGameVersion:String?,parentLoader:String?,depth:Int) {
+   if(dependency.type!="required") return
+   val id=dependency.projectId
+   if(id.isNullOrBlank()) {
+    unresolved += "Required dependency has no project ID"+(dependency.versionId?.let { " (version $it)" } ?: "")
+    return
+   }
+   if(id in visited) return
+   if(depth>8 || visited.size>=40) {
+    unresolved += "$id (dependency resolution limit reached)"
+    return
+   }
+   visited += id
+   try {
+    val candidates=if(!dependency.versionId.isNullOrBlank()) {
+     val body=request("https://api.modrinth.com/v2/version/"+dependency.versionId)
+     parseVersions(body).filter { it.id==dependency.versionId && JSONObject(body).optString("project_id")==id }
+    } else versions(id,parentGameVersion,parentLoader)
+    val chosen=candidates.firstOrNull { candidate ->
+     (parentGameVersion.isNullOrBlank() || candidate.gameVersions.isEmpty() || parentGameVersion in candidate.gameVersions) &&
+      (parentLoader.isNullOrBlank() || candidate.loaders.isEmpty() || parentLoader.lowercase() in candidate.loaders.map { it.lowercase() })
+    } ?: error("No compatible release for required dependency $id")
+    chosen.dependencies.filter { it.type=="required" }.forEach { resolve(it,parentGameVersion ?: chosen.gameVersions.firstOrNull(),parentLoader ?: chosen.loaders.firstOrNull(),depth+1) }
+    val result=install(id,chosen.id,OEngineModrinthCatalog.ProjectType.MOD,gameRoot)
+    installed += result
+   } catch(failure:Exception) {
+    unresolved += "$id: "+(failure.message ?: "could not resolve/install")
+   }
+  }
+  primary.requiredDependencies.forEach { resolve(it,gameVersion,loader,1) }
+  return DependencyInstallResult(primary,installed,unresolved)
  }
  private fun download(file:VersionFile,destination:File,onProgress:(Long,Long)->Unit) {
   val c=(URL(file.url).openConnection() as HttpURLConnection).apply { connectTimeout=15000;readTimeout=60000;instanceFollowRedirects=true;setRequestProperty("User-Agent","O-Launcher/1.0 (Android)") }
