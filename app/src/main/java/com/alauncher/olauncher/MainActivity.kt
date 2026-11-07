@@ -1541,6 +1541,45 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var installingFile by remember { mutableStateOf(false) }
     var installStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var importingModpack by remember { mutableStateOf(false) }
+    var modpackStatus by remember { mutableStateOf<String?>(null) }
+    val modpackPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && !importingModpack) {
+            importingModpack = true
+            modpackStatus = "Importing and verifying modpack…"
+            scope.launch {
+                var created: OEngineInstance? = null
+                val staged = File(context.cacheDir, "incoming-modpack-" + System.currentTimeMillis() + ".mrpack")
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        staged.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(65536)
+                            var total = 0L
+                            while (true) {
+                                val n = input.read(buffer)
+                                if (n < 0) break
+                                total += n
+                                require(total <= 512L * 1024L * 1024L) { "Modpack archive exceeds 512 MiB." }
+                                output.write(buffer, 0, n)
+                            }
+                        }
+                    } ?: error("Could not read the selected modpack.")
+                    val baseName = staged.nameWithoutExtension.replace(Regex("[^A-Za-z0-9 _.-]"), "").take(32).ifBlank { "Imported Modpack" }
+                    var candidate = baseName
+                    var suffix = 2
+                    while (OEngineInstanceManager.list(context).any { it.name.equals(candidate, true) }) { candidate = baseName + " " + suffix; suffix++ }
+                    created = OEngineInstanceManager.create(context, candidate)
+                    val result = OEngineModrinthPackImporter.importPack(staged, created.root)
+                    OEngineInstanceManager.select(context, created.id)
+                    modpackStatus = "Imported " + result.name + ": " + result.downloadedFiles + " verified downloads, " + result.copiedOverrideFiles + " override files. Minecraft " + result.minecraftVersion + "; loader: " + result.loaders.entries.joinToString { it.key + " " + it.value }.ifBlank { "Vanilla" } + ". Install the base game and loader from Installations next."
+                    refreshInstalledContent()
+                } catch (failure: Exception) {
+                    created?.let { runCatching { it.root.parentFile?.deleteRecursively() } }
+                    modpackStatus = failure.message ?: "Modpack import failed."
+                } finally { staged.delete(); importingModpack = false }
+            }
+        }
+    }
     val activeGameRoot = remember { OEngineInstanceManager.active(context).root }
     var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
     var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
