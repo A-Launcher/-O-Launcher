@@ -141,13 +141,37 @@ object OEngineModrinthPackImporter {
         return copied to totalBytes
     }
 
-    private fun downloadVerified(address: String, destination: File, expectedSize: Long, sha1: String, sha512: String) {
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "O-Launcher/1.0 (Android)")
+    /** Follow only HTTPS redirects; never let an archive entry redirect a download to cleartext HTTP. */
+    private fun openHttpsDownload(address: String): HttpURLConnection {
+        var current = URL(address)
+        require(current.protocol.equals("https", true) && !current.host.isNullOrBlank() && current.userInfo == null) {
+            "Modpack download URL must be a valid HTTPS URL."
         }
+        repeat(6) { hop ->
+            val connection = (current.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 60_000
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", "O-Launcher/1.0 (Android)")
+            }
+            val status = try { connection.responseCode } catch (failure: Exception) {
+                connection.disconnect()
+                throw failure
+            }
+            if (status !in 300..399) return connection
+            val location = connection.getHeaderField("Location")
+            connection.disconnect()
+            require(hop < 5 && !location.isNullOrBlank()) { "Modpack download redirected too many times or omitted its destination." }
+            current = URL(current, location)
+            require(current.protocol.equals("https", true) && !current.host.isNullOrBlank() && current.userInfo == null) {
+                "Modpack download redirect must remain on a valid HTTPS URL."
+            }
+        }
+        error("Modpack download redirected too many times.")
+    }
+
+    private fun downloadVerified(address: String, destination: File, expectedSize: Long, sha1: String, sha512: String) {
+        val connection = openHttpsDownload(address)
         val digest1 = MessageDigest.getInstance("SHA-1")
         val digest512 = MessageDigest.getInstance("SHA-512")
         var count = 0L
