@@ -65,12 +65,12 @@ object OEngineAndroidInputAdapter {
                     }
                     val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
                     val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
-                    if (hatX != 0f || hatY != 0f) {
-                        output += OEngineInputEvent(
-                            OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 6,
-                            x = hatX, y = hatY, timestampNanos = timestamp
-                        )
-                    }
+                    // Always publish the hat state, including neutral (0, 0), so
+                    // releasing a D-pad direction cannot leave a key stuck in-game.
+                    output += OEngineInputEvent(
+                        OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 6,
+                        x = hatX, y = hatY, timestampNanos = timestamp
+                    )
                 } else if (isMouse) {
                     // Captured-pointer events report relative deltas on Android 8+.
                     // Feeding event.x/event.y here would turn camera motion into
