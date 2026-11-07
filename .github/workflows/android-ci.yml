@@ -93,7 +93,14 @@ jobs:
           set -euo pipefail
           mkdir -p ../../app/src/main/assets/licenses
           cp LICENSE ../../app/src/main/assets/licenses/LGPL-3.0-LTW.txt
-          curl -fsSL https://www.gnu.org/licenses/gpl-3.0.txt -o ../../app/src/main/assets/licenses/GPL-3.0.txt
+          if [ -s /usr/share/common-licenses/GPL-3 ]; then
+            cp /usr/share/common-licenses/GPL-3 ../../app/src/main/assets/licenses/GPL-3.0.txt
+          else
+            curl --fail --show-error --location --retry 4 --retry-all-errors --connect-timeout 20 \
+              https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0.txt \
+              -o ../../app/src/main/assets/licenses/GPL-3.0.txt
+          fi
+          test -s ../../app/src/main/assets/licenses/GPL-3.0.txt
           cp ../../THIRD_PARTY_NOTICES.md ../../app/src/main/assets/THIRD_PARTY_NOTICES.md
 
       - name: Install original uploaded artwork (preserve filenames)
