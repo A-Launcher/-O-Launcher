@@ -38,6 +38,7 @@ class OEngineGameProcessService : Service() {
             when (message.what) {
                 MSG_ATTACH_GAME_SURFACE -> {
                     val reply = Message.obtain(null, MSG_GAME_SURFACE_RESULT)
+                    reply.data.putLong(KEY_SURFACE_REQUEST_ID, message.data.getLong(KEY_SURFACE_REQUEST_ID))
                     var receivedSurface: Surface? = null
                     var candidateNativeWindow = 0L
                     try {
@@ -411,5 +412,6 @@ class OEngineGameProcessService : Service() {
         const val KEY_GAME_SURFACE = "oengine.game_surface"
         const val KEY_SURFACE_WIDTH = "oengine.surface_width"
         const val KEY_SURFACE_HEIGHT = "oengine.surface_height"
+        const val KEY_SURFACE_REQUEST_ID = "oengine.surface_request_id"
     }
 }
