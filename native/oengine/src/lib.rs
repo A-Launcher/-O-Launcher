@@ -222,7 +222,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         env.get_array_length(&actions), env.get_array_length(&codes),
         env.get_array_length(&xs), env.get_array_length(&ys), env.get_array_length(&values),
         env.get_array_length(&times), env.get_array_length(&modifiers), env.get_array_length(&codepoints),
-    ].into_iter().all(|length| length == Ok(count as i32));
+    ].into_iter().all(|length| length.map(|value| value as usize == count).unwrap_or(false));
     if !arrays_match { return -1; }
     let mut d = vec![0; count];
     let mut a = vec![0; count];
@@ -1536,4 +1536,84 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         return;
     }
     destroy_ltw_egl_session(&mut session);
+}
+
+
+#[cfg(test)]
+mod native_input_tests {
+    use super::*;
+
+    fn event(device: i32, action: i32, code: i32, x: f32) -> OEngineNativeInputEvent {
+        OEngineNativeInputEvent {
+            device, action, code, x, y: 0.0, value: 1.0,
+            timestamp_nanos: 1, modifiers: 0, codepoint: 0,
+        }
+    }
+
+    #[test]
+    fn native_input_queue_preserves_order_when_coalescing_motion() {
+        let mut queue = OEngineNativeInputQueue::default();
+        assert!(queue.enqueue(event(0, 3, 7, 1.0)));
+        assert!(queue.enqueue(event(1, 0, 87, 0.0)));
+        assert!(queue.enqueue(event(0, 3, 7, 2.0)));
+        let mut output = [OEngineNativeInputEvent::default(); 8];
+        let count = queue.drain(&mut output);
+        assert_eq!(count, 2);
+        assert_eq!(output[0].x, 2.0);
+        assert_eq!(output[0].action, 3);
+        assert_eq!(output[1].action, 0);
+    }
+
+    #[test]
+    fn native_input_queue_releases_every_held_control_after_overflow() {
+        let mut queue = OEngineNativeInputQueue::default();
+        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+            assert!(queue.enqueue(event(1, 0, code, 0.0)));
+        }
+        assert!(!queue.enqueue(event(1, 0, 900, 0.0)));
+        assert!(queue.reset_required);
+        let mut output = [OEngineNativeInputEvent::default(); INPUT_MAX_TRACKED_CONTROLS];
+        let count = queue.drain(&mut output);
+        assert_eq!(count, INPUT_QUEUE_CAPACITY + 1);
+        assert!(output[..count].iter().all(|item| item.action == 1));
+        assert!(!queue.reset_required);
+        assert!(queue.events.is_empty());
+        assert!(queue.pressed.is_empty());
+    }
+
+    #[test]
+    fn failed_up_transition_keeps_control_in_reset_set() {
+        let mut queue = OEngineNativeInputQueue::default();
+        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+            assert!(queue.enqueue(event(1, 0, code, 0.0)));
+        }
+        assert!(!queue.enqueue(event(1, 1, 0, 0.0)));
+        let mut output = [OEngineNativeInputEvent::default(); INPUT_MAX_TRACKED_CONTROLS];
+        let count = queue.drain(&mut output);
+        assert_eq!(count, INPUT_QUEUE_CAPACITY);
+        assert!(output[..count].iter().any(|item| item.code == 0 && item.action == 1));
+    }
+
+    #[test]
+    fn duplicate_down_and_unmatched_up_are_ignored() {
+        let mut queue = OEngineNativeInputQueue::default();
+        assert!(queue.enqueue(event(1, 0, 87, 0.0)));
+        assert!(queue.enqueue(event(1, 0, 87, 0.0)));
+        assert!(queue.enqueue(event(1, 1, 99, 0.0)));
+        assert_eq!(queue.events.len(), 1);
+        assert_eq!(queue.pressed.len(), 1);
+    }
+
+    #[test]
+    fn reset_waits_until_output_can_hold_every_release() {
+        let mut queue = OEngineNativeInputQueue::default();
+        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+            assert!(queue.enqueue(event(1, 0, code, 0.0)));
+        }
+        assert!(!queue.enqueue(event(1, 0, 901, 0.0)));
+        let mut small = [OEngineNativeInputEvent::default(); 4];
+        assert_eq!(queue.drain(&mut small), 0);
+        assert!(queue.reset_required);
+        assert_eq!(queue.pressed.len(), INPUT_QUEUE_CAPACITY + 1);
+    }
 }
