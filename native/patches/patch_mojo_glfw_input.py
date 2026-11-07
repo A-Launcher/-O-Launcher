@@ -387,6 +387,19 @@ if "#include <stdatomic.h>" not in gamepad_text:
     if '#include "internal.h"' not in gamepad_text:
         raise SystemExit("Pinned Mojo Android joystick include anchor changed")
     gamepad_text = gamepad_text.replace('#include "internal.h"', '#include "internal.h' + '\n' + '#include <stdatomic.h>', 1)
+# O Engine owns gamepad dispatch in the GLFW poll thread. Do not ask Mojo's
+# optional Java GamepadEnableHandler to install direct buffers: this process
+# does not host Mojo's UI handler, and those buffers would race Binder input.
+gamepad_text = gamepad_text.replace(
+    "extern void _glfwEnableGamepadAndroid(unsigned char* buttons, int buttonCount, float* axes, int axisCount);\\n",
+    ""
+)
+gamepad_text = gamepad_text.replace(
+    "    _glfwEnableGamepadAndroid(android_joystick->buttons, buttonCount, android_joystick->axes, axisCount);",
+    "    /* O Engine updates the native joystick arrays on GLFW's owner thread. */"
+)
+if "_glfwEnableGamepadAndroid(android_joystick->buttons" in gamepad_text:
+    raise SystemExit("Mojo Java gamepad handler call must be bypassed for O Engine")
 gamepad_anchor = "void _glfwTerminateJoysticksAndroid(void)\n{"
 gamepad_impl = r"""
 /*
