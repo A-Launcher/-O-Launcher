@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.file.Files
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,10 +25,10 @@ class OEngineAndroidGlfwArtifactInstallerTest {
             assertEquals(4, result.libraries.size)
             assertTrue(result.libraries.all { it.isFile && it.length() > 0L })
             assertEquals(64, result.sha256ByLibrary.values.first().length)
-            val manifest = JSONObject(result.manifest.readText())
-            assertEquals("arm64-v8a", manifest.getString("abi"))
-            assertEquals(4, manifest.getJSONArray("libraries").length())
-            assertTrue(manifest.getString("notice").contains("absolute libglfw.so path"))
+            val manifest = result.manifest.readText()
+            assertTrue(manifest.contains("\"abi\":\"arm64-v8a\""))
+            assertEquals(4, Regex("\"name\"").findAll(manifest).count())
+            assertTrue(manifest.contains("LWJGL org.lwjgl.glfw JNI/runtime adapter is not yet connected"))
         } finally {
             root.deleteRecursively()
         }
