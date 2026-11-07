@@ -1428,7 +1428,49 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var error by remember { mutableStateOf<String?>(null) }
     var totalHits by remember { mutableIntStateOf(0) }
     var offset by remember { mutableIntStateOf(0) }
+    var installingProject by remember { mutableStateOf<OEngineModrinthCatalog.Project?>(null) }
+    var installVersions by remember { mutableStateOf<List<OEngineModrinthInstaller.ProjectVersion>>(emptyList()) }
+    var loadingVersions by remember { mutableStateOf(false) }
+    var installingFile by remember { mutableStateOf(false) }
+    var installStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    fun prepareProjectInstall(project: OEngineModrinthCatalog.Project) {
+        if (project.projectType == OEngineModrinthCatalog.ProjectType.MODPACK ||
+            project.projectType == OEngineModrinthCatalog.ProjectType.ALL) {
+            installStatus = "Modpack archives need the dedicated instance-import workflow. Open the project page to view its instructions."
+            return
+        }
+        installingProject = project
+        installVersions = emptyList()
+        installStatus = null
+        loadingVersions = true
+        scope.launch {
+            try {
+                installVersions = OEngineModrinthInstaller.versions(project.id)
+                if (installVersions.isEmpty()) installStatus = "No verified downloadable versions were returned."
+            } catch (failure: Exception) {
+                installStatus = failure.message ?: "Could not load project versions."
+            } finally { loadingVersions = false }
+        }
+    }
+
+    fun installProjectVersion(project: OEngineModrinthCatalog.Project, version: OEngineModrinthInstaller.ProjectVersion) {
+        if (installingFile) return
+        installingFile = true
+        installStatus = "Downloading and verifying " + version.versionNumber + "…"
+        scope.launch {
+            try {
+                val root = OEngineInstanceManager.active(context).root
+                val result = OEngineModrinthInstaller.install(project.id, version.id, project.projectType, root)
+                installStatus = "Installed " + result.filename + " in " + (result.destination.parentFile?.name ?: "instance") + ". " +
+                    if (result.requiredDependencies.isEmpty()) "File integrity verified."
+                    else "WARNING: " + result.requiredDependencies.size + " required dependencies still need installation."
+            } catch (failure: Exception) {
+                installStatus = failure.message ?: "Installation failed."
+            } finally { installingFile = false }
+        }
+    }
 
     fun loadProjects(reset: Boolean = true, typeOverride: OEngineModrinthCatalog.ProjectType = OEngineModrinthCatalog.ProjectType.fromLabel(selectedCategory)) {
         if (loading) return
@@ -1531,10 +1573,17 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                         Text("by ${project.author}", color = Muted, fontSize = 10.sp)
                         Text(project.description, color = Ink, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
                         Text("${project.downloads} downloads  •  ${project.follows} followers", color = Muted, fontSize = 10.sp)
-                        TextButton(onClick = {
-                            val url = "https://modrinth.com/${project.projectType.apiValue.ifBlank { "mod" }}/${project.slug}"
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-                        }) { Text("OPEN PROJECT  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Button(onClick = { prepareProjectInstall(project) },
+                                enabled = !loadingVersions && !installingFile &&
+                                    project.projectType !in setOf(OEngineModrinthCatalog.ProjectType.MODPACK, OEngineModrinthCatalog.ProjectType.ALL),
+                                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)
+                            ) { Text("INSTALL", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            TextButton(onClick = {
+                                val url = "https://modrinth.com/${project.projectType.apiValue.ifBlank { "mod" }}/${project.slug}"
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            }) { Text("OPEN PROJECT  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                        }
                     }
                 }
             }
@@ -1543,7 +1592,32 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     Text(if (loading) "LOADING…" else "LOAD MORE PROJECTS")
                 }
             }
-            Text("Project discovery is live. Safe, version-aware installation will be connected to each instance's selected mod loader before downloads are enabled.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            Text("Install into active instance: " + OEngineInstanceManager.active(context).name + ". Check Minecraft and loader compatibility before choosing a version.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            if (installingProject != null) {
+                AlertDialog(
+                    onDismissRequest = { if (!installingFile) { installingProject = null; installVersions = emptyList(); installStatus = null } },
+                    title = { Text("Install " + (installingProject?.title ?: "project")) },
+                    text = {
+                        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Destination: " + OEngineModrinthInstaller.targetDirectory(OEngineInstanceManager.active(context).root, installingProject!!.projectType).name, fontSize = 11.sp, color = Muted)
+                            if (loadingVersions) CircularProgressIndicator(color = Gold)
+                            installVersions.take(12).forEach { version ->
+                                Surface(color = Panel, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(version.name.ifBlank { version.versionNumber }, color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Version " + version.versionNumber + " • MC: " + version.gameVersions.take(5).joinToString() + " • Loaders: " + version.loaders.joinToString().ifBlank { "Any / not specified" }, color = Muted, fontSize = 9.sp)
+                                        TextButton(onClick = { installProjectVersion(installingProject!!, version) }, enabled = !installingFile) { Text("INSTALL THIS VERSION") }
+                                    }
+                                }
+                            }
+                            if (installVersions.size > 12) Text("Showing the newest 12 versions. Open the project page for the full version history.", color = Muted, fontSize = 10.sp)
+                            installStatus?.let { Text(it, color = if (it.startsWith("Installed")) Color(0xFF287A42) else Ink, fontSize = 11.sp) }
+                            Text("Required dependencies are reported after installation; they are not silently installed. Data packs are placed in the instance datapacks folder and may need copying into a specific world.", color = Muted, fontSize = 9.sp)
+                        }
+                    },
+                    confirmButton = { TextButton(onClick = { if (!installingFile) { installingProject = null; installVersions = emptyList(); installStatus = null } }) { Text("CLOSE") } }
+                )
+            }
         }
     }
 }
