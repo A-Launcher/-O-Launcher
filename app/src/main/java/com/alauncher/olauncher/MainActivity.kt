@@ -2473,6 +2473,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             onFailure = { error -> error.message ?: "Unknown game-process error" }
                                         ), result.exceptionOrNull())
                                         launchingMinecraft = false
+                                        showGameSurface = false
                                         gameProcessStatus = result.fold(
                                             onSuccess = { main ->
                                                 if (main.successful) {
@@ -2567,6 +2568,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 val release = selectedRelease ?: return@Button
                                 val instance = activeInstance
                                 launchingMinecraft = true
+                                showGameSurface = true
                                 gameProcessStatus = "REFRESHING MICROSOFT SESSION + BUILDING AUTHENTICATED GAME ARGUMENTS…"
                                 scope.launch {
                                     try {
@@ -2590,10 +2592,12 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             "AUTHENTICATED LAUNCH REQUEST SENT • awaiting the game-process result for " + account.name + " • " + authenticatedPlan.version
                                         } else {
                                             launchingMinecraft = false
+                                            showGameSurface = false
                                             "AUTHENTICATION SUCCEEDED, BUT MAIN INVOCATION COULD NOT BE SENT • game process is not connected"
                                         }
                                     } catch (error: Exception) {
                                         launchingMinecraft = false
+                                        showGameSurface = false
                                         gameProcessStatus = "MINECRAFT LAUNCH PREPARATION FAILED • " + (error.message ?: "Unknown authentication error")
                                     }
                                 }
