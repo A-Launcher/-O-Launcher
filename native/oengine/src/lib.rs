@@ -1629,7 +1629,7 @@ unsafe fn attach_ltw_window_inner(
     let previous_window = session.native_window;
     session.window_surface = surface;
     session.native_window = window;
-    if !previous_window.is_null() && previous_window != window {
+    if !previous_window.is_null() {
         release_anative_window(previous_window);
     }
     Ok(())
@@ -1712,7 +1712,7 @@ pub unsafe extern "C" fn oengine_ltw_egl_queue_window(
         }
     };
     if let Some(previous) = pending.take() {
-        if previous.window != 0 && previous.window != window as usize {
+        if previous.window != 0 {
             release_anative_window(previous.window as *mut c_void);
         }
     }
@@ -1721,6 +1721,11 @@ pub unsafe extern "C" fn oengine_ltw_egl_queue_window(
 }
 
 unsafe fn destroy_ltw_egl_session(session: &mut OEngineLtwEglSession) {
+    if let Ok(mut pending) = PENDING_LTW_WINDOW.get_or_init(|| Mutex::new(None)).lock() {
+        if let Some(change) = pending.take() {
+            if change.window != 0 { release_anative_window(change.window as *mut c_void); }
+        }
+    }
     if !session.window_surface.is_null() {
         let _ = (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context);
         let _ = (session.egl_destroy_surface)(session.display, session.window_surface);
