@@ -56,10 +56,11 @@ the MIT license; its upstream license is copied into
 `assets/licenses/LICENSE-MojoExec.txt`.
 
 Both projects are pinned as Git submodules and built as separate shared libraries
-for the four Android ABIs. This packages the Android GLFW platform backend and
-its support libraries; it does **not** yet mean Minecraft's runtime LWJGL JNI
-library has been replaced or that the game event loop calls O Engine's input
-queue. That integration remains a separate required step.
+for the four Android ABIs. O Engine's pinned native patch connects GLFW's poll/wait
+event thread to the bounded Rust input queue and routes the Android Surface manager
+through the LTW-owned EGL session. The separate Android LWJGL core/OpenGL JNI
+modules are packaged from the pinned Pojav source described below. These are
+source/build integrations; physical-device Minecraft rendering is not yet verified.
 
 
 ## Android LWJGL native runtime
