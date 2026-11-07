@@ -122,15 +122,15 @@ impl OEngineNativeInputQueue {
             event.value == 0.0
         };
         let position = self.active_gamepad_axes.iter().position(|axis| Self::same_control(axis, &event));
-        if neutral {
+        if !neutral {
             if let Some(index) = position {
-                self.active_gamepad_axes.remove(index);
+                self.active_gamepad_axes[index] = event;
+            } else {
+                self.active_gamepad_axes.push(event);
             }
-        } else if let Some(index) = position {
-            self.active_gamepad_axes[index] = event;
-        } else {
-            self.active_gamepad_axes.push(event);
         }
+        // Keep an axis marked once it has been non-neutral until a full reset.
+        // A queued neutral sample can still be discarded by a later overflow.
     }
 
     fn enqueue(&mut self, event: OEngineNativeInputEvent) -> bool {
