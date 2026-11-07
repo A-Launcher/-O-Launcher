@@ -104,7 +104,7 @@ The LTW-tracked EGL context and Android Surface attach/swap primitives exist. Th
 
 A further platform-neutral safety layer now tracks held digital controls. It suppresses duplicate DOWN transitions, forwards REPEAT only for controls already held, ignores unmatched UP events, and can synthesize UP events in reverse press order when focus is lost or an input-device class disconnects. The Android adapter also preserves independent motion samples for each touch pointer, emits UP events for every active touch pointer on ACTION_CANCEL, and handles primary mouse ACTION_DOWN/ACTION_UP in addition to mouse button actions.
 
-This tracker is a tested primitive, not yet wired to the Activity's focus callback or to the game's event loop. The current SurfaceView does not yet forward Android input to the isolated game process; this change must not be mistaken for working in-game keyboard/mouse/gamepad input.
+The tracker is now wired to the fullscreen game SurfaceView through an Android-side forwarder. Focus loss, surface destruction, and game-view dismissal synthesize releases; key, touch, mouse, hover, wheel, and gamepad motion events are translated and sent in bounded batches over the independent input Messenger endpoint into the Rust-native queue. The queue is still not consumed by GLFW, so this is end-to-end Android capture → IPC → native queue transport, not yet working in-game keyboard/mouse/gamepad input.
 
 
 ## Independent input IPC ingress foundation
@@ -127,3 +127,10 @@ The queue instead exposes a plain C ABI in `native/oengine/include/oengine_input
 - `oengine_input_clear_session()` — clears a dead session
 
 The Android JNI batch method writes into this same Rust queue. Rust host tests cover FIFO motion coalescing, bounded overflow, release recovery, unmatched/duplicate transitions, and ensuring reset does not discard releases when the consumer's output buffer is too small. The native queue is now the intended production handoff; the actual GLFW poll loop has not been wired to it yet. Bulk text events are currently rejected by the native batch API; per-key Unicode codepoint metadata is supported.
+
+
+## SurfaceView-to-native input transport
+
+The fullscreen game SurfaceView now requests keyboard focus and forwards Android key, touch, mouse-button, mouse-hover, scroll, and gamepad-motion events through `OEngineAndroidInputAdapter`. `OEngineGameInputForwarder` serializes held-control tracking and chunks messages to the Binder limit of 128 events. Focus loss, surface destruction, and view dismissal send synthesized key/button/touch releases. The isolated process validates each batch and writes it into the Rust queue.
+
+This closes the Android frontend and process-transport gap. It does **not** yet make Minecraft respond: the Rust queue's `oengine_input_drain()` still needs to be called by the exact GLFW `pojavPumpEvents`/equivalent event-poll backend, and drained events must be delivered to the GLFW callback/state machinery. Android gamepad button keycodes also need a backend-specific mapping before claiming gamepad support.
