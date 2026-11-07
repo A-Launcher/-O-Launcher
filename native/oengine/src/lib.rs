@@ -8,7 +8,7 @@ use libc::{c_char, c_void};
 use std::collections::VecDeque;
 use std::ffi::{CStr, CString};
 use std::ptr;
-use std::sync::{Mutex, OnceLock, RwLock};
+use std::sync::{atomic::{AtomicUsize, Ordering}, Mutex, OnceLock, RwLock};
 use std::thread::ThreadId;
 
 mod elf_hinter;
@@ -1564,6 +1564,7 @@ struct OEngineLtwEglSession {
 }
 
 static LTW_EGL_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
+static ACTIVE_LTW_EGL_SESSION: AtomicUsize = AtomicUsize::new(0);
 
 fn set_ltw_egl_error(message: String) {
     if let Ok(mut value) = LTW_EGL_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
@@ -1742,7 +1743,9 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     match setup {
         Ok(session) => {
             set_ltw_egl_error(String::new());
-            Box::into_raw(Box::new(session)) as jlong
+            let handle = Box::into_raw(Box::new(session)) as jlong;
+            ACTIVE_LTW_EGL_SESSION.store(handle as usize, Ordering::Release);
+            handle
         }
         Err(error) => {
             libc::dlclose(gles_library);
@@ -1760,6 +1763,20 @@ unsafe fn with_ltw_egl_session<'a>(handle: jlong) -> Result<&'a mut OEngineLtwEg
         return Err("LTW EGL operation called from a thread other than its creating game thread.".to_owned());
     }
     Ok(session)
+}
+
+/// Return the active LTW EGL session's share handles to the Android GLFW backend.
+/// This must be called on the game thread that created the session.
+#[no_mangle]
+pub unsafe extern "C" fn oengine_ltw_egl_active_share_info(
+    output: *mut OEngineLtwEglShareInfo,
+) -> u32 {
+    let handle = ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire);
+    if handle == 0 {
+        set_ltw_egl_error("No active LTW EGL session is registered.".to_owned());
+        return 0;
+    }
+    oengine_ltw_egl_share_info(handle as u64, output)
 }
 
 /// Expose the active LTW-tracked EGL context to a native GLFW adapter for context sharing.
@@ -1888,6 +1905,9 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 ) {
     if handle == 0 { return; }
     let mut session = Box::from_raw(handle as *mut OEngineLtwEglSession);
+    if ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) == handle as usize {
+        ACTIVE_LTW_EGL_SESSION.store(0, Ordering::Release);
+    }
     if session.owner_thread != std::thread::current().id() {
         // Do not destroy EGL objects from the wrong thread. The process owns this
         // session and will reclaim it on process exit if the owner thread is gone.
