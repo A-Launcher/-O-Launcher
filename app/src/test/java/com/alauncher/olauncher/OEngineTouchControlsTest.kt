@@ -58,6 +58,27 @@ class OEngineTouchControlsTest {
         assertEquals("JUMP", remapped.first { it.id == "jump" }.label)
     }
 
+    @Test fun layoutPresetsMirrorAndResizeControlsWithoutBreakingBounds() {
+        val controls = OEngineTouchControls.defaults()
+        val left = OEngineTouchControls.applyPreset(controls, "left-handed")
+        val original = controls.first { it.id == "jump" }
+        val mirrored = left.first { it.id == "jump" }
+        assertEquals(1f - original.x - original.width, mirrored.x, .0001f)
+        assertEquals(original.width, mirrored.width)
+
+        val compact = OEngineTouchControls.applyPreset(controls, "compact")
+        assertTrue(compact.all { it.width <= controls.first { old -> old.id == it.id }.width })
+        assertTrue(compact.all { it.x >= 0f && it.x + it.width <= 1f })
+        assertTrue(compact.all { it.y >= 0f && it.y + it.height <= 1f })
+    }
+
+    @Test fun unknownLayoutPresetIsRejected() {
+        try {
+            OEngineTouchControls.applyPreset(OEngineTouchControls.defaults(), "unknown")
+            fail("Unknown presets must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun layoutEncodingRoundTripsAllControlFields() {
         val controls = OEngineTouchControls.defaults()
         assertEquals(controls, OEngineTouchControls.decode(OEngineTouchControls.encode(controls)))
