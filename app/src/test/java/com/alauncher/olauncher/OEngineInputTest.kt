@@ -74,4 +74,28 @@ class OEngineInputTest {
         assertEquals(2, queue.poll()?.code)
     }
 
+
+    @Test fun transitionOverflowRequestsAllControlsUpResetWithoutEvictingQueuedTransitions() {
+        val queue = OEngineInputQueue(capacity = 8)
+        repeat(8) { index ->
+            queue.offer(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, index))
+        }
+        assertFalse(queue.offer(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 0
+        )))
+        assertTrue(queue.inputResetRequired)
+        assertTrue(queue.consumeInputResetRequired())
+        assertFalse(queue.inputResetRequired)
+        assertEquals((0..7).toList(), queue.drain().map { it.code })
+    }
+
+    @Test fun repeatedMotionForSameControlIsCoalescedToNewestSample() {
+        val queue = OEngineInputQueue(capacity = 8)
+        queue.offer(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, x = 1f))
+        queue.offer(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, x = 9f))
+        assertEquals(1, queue.size)
+        assertEquals(9f, queue.poll()?.x ?: 0f, 0f)
+        assertEquals(1L, queue.droppedEventCount)
+    }
+
 }
