@@ -447,7 +447,7 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
 
     if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE)
     {
-        GLFWbool did_update = __atomic_exchange_n(&surfaceUpdated, GLFW_FALSE, __ATOMIC_SEQ_CST);
+        GLFWbool did_update = atomic_exchange_explicit(&surfaceUpdated, GLFW_FALSE, memory_order_seq_cst);
         if (nativeWindow && did_update)
             updateNativeWindowDimensions(window);
     }
@@ -470,7 +470,7 @@ if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in
     raise SystemExit("Android GLFW must clear surfaceInUse before waking nativeSurfaceDestroyed")
 if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
-if "__atomic_exchange_n(&surfaceUpdated" not in manage_replacement:
+if "atomic_exchange_explicit(&surfaceUpdated" not in manage_replacement:
     raise SystemExit("Android GLFW must consume Surface resize notifications without losing concurrent updates")
 android_source.write_text(android_text, encoding="utf-8")
 
