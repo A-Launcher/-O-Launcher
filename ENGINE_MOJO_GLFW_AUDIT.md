@@ -24,9 +24,9 @@ At the pinned GLFW commit:
 - `src/egl_context.c::swapBuffersEGL` calls `_glfwSwapBuffersAttentionEglAndroid` before `eglSwapBuffers`. This is the actual GLFW presentation path, not a detached helper.
 - `src/android_window.c` handles the native Surface lifecycle through JNI exports for `nativeSurfaceCreated(Surface)`, `nativeSurfaceUpdated()`, and `nativeSurfaceDestroyed()`. It acquires/releases `ANativeWindow` references and coordinates destruction with active EGL use.
 
-## Java-to-native ABI observed
+## Two distinct Java/native boundaries
 
-The Java binding class is `git.artdeell.dnbootstrap.glfw.GLFW`. It loads `libglfw` and calls `initialize()`. Its native methods include:
+Mojo's ART-side Android binding class is `git.artdeell.dnbootstrap.glfw.GLFW`. It loads `libglfw` and calls `initialize()`. Its native methods include:
 
 - `nativeSurfaceCreated(Surface)`, `nativeSurfaceUpdated()`, `nativeSurfaceDestroyed()`
 - `sendMousePosition0(double,double)`
@@ -38,7 +38,11 @@ The Java binding class is `git.artdeell.dnbootstrap.glfw.GLFW`. It loads `libglf
 - `nativeSetWindowAttribs(int,boolean)`
 - `nativeNotifyGamepadConnected()`
 
-Mojo's `GLFWBackend` forwards Surface lifecycle, key, mouse, scroll, text, visibility, and hover events to this ABI. Its Surface provider reports create, resize, and destroy separately.
+Mojo's `GLFWBackend` forwards Surface lifecycle, key, mouse, scroll, text, visibility, and hover events to this ART JNI ABI. Its Surface provider reports create, resize, and destroy separately.
+
+Minecraft's embedded HotSpot uses a different LWJGL 3 boundary: the generated `org.lwjgl.glfw.GLFW` class loads the configured GLFW shared library, resolves exported C functions such as `glfwInit`, `glfwCreateWindow`, `glfwPollEvents`, and `glfwSwapBuffers` into its function table, then invokes those function pointers. It does **not** require a separate `Java_org_lwjgl_glfw_GLFW_*` JNI export for every GLFW API. O Engine's `org.lwjgl.glfw.libname` configuration and pinned C-symbol contract are therefore the correct kind of connection for the GLFW module. The separate LWJGL core native library and its HotSpot JNI loader hooks remain separate runtime requirements.
+
+The ART shim in O Engine is the platform callback endpoint for Mojo's Android native port; it must not be confused with the HotSpot LWJGL class. O Engine has adapted Surface lifecycle, clipboard, pointer capture, and input ingress here, and now adapts custom cursor images into Android `PointerIcon` instances. The upstream cursor buffer contract is copied only at the API boundary; O Engine owns its view lifecycle.
 
 ## Important adaptation blockers
 
@@ -52,3 +56,10 @@ Mojo's `GLFWBackend` forwards Surface lifecycle, key, mouse, scroll, text, visib
 ## O Engine decision
 
 Use this pinned GLFW Android backend as the implementation reference because its native poll and swap paths are now identified. Adapt the platform backend and JNI boundary only after the LTW context ownership design is settled. Keep O Engine's bounded queue, digital-control tracking, and reset behavior; do not transplant the upstream fixed-buffer queue. No actual Minecraft GLFW event delivery or rendered frame is claimed by this audit.
+
+
+## LWJGL 3 function-table clarification
+
+The generated LWJGL 3.3.3 `org.lwjgl.glfw.GLFW` source was inspected at the `3.3.3` tag. Its static `Functions` table obtains C addresses with `apiGetFunctionAddress(GLFW, "glfw...")`; this is a C ABI/function-pointer contract, not a generated GLFW JNI-symbol contract. Accordingly, the pinned `lwjgl-3.3.3-required-symbols.txt` file is the relevant exported-symbol gate for this module. The ART-side Mojo JNI methods (Surface callbacks, input forwarding, cursor callbacks and clipboard) are a separate boundary.
+
+This clarification does not prove that a Minecraft window is created or rendered. The remaining runtime gates include loading the correct LWJGL core native libraries, retained renderer native-loader interception, creating a GLFW window against the LTW-owned context, applying live Surface transitions, polling input on the GLFW owner thread, and presenting a real frame on a device.
