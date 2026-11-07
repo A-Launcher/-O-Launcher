@@ -1,5 +1,28 @@
 # Third-party notices
 
+## MojoLauncher source integration
+
+O Launcher includes the unmodified MojoLauncher source repository as a Git
+submodule at `third_party/MojoLauncher`, pinned to commit
+`1b8d90424c1cb791321d45f60ac62c54f4b013fa` from the upstream
+`v3_openjdk` branch:
+
+https://github.com/MojoLauncher/MojoLauncher/tree/1b8d90424c1cb791321d45f60ac62c54f4b013fa
+
+MojoLauncher is licensed under **GNU Lesser General Public License, version 3
+(LGPL-3.0)**. Its source files are kept unchanged in the submodule; O Launcher's
+integration code is maintained separately. The exact upstream license is copied
+into the installed application's `assets/licenses/LGPL-3.0-MojoLauncher.txt`
+by Android CI. When distributing O Launcher, retain the applicable license,
+notices, and source-availability information required by LGPL-3.0.
+
+O Launcher uses this pinned source as the reference implementation for the
+Minecraft version/instance installer, Fabric, Quilt, Forge, NeoForge, OptiFine,
+modpack installation, and custom-control editor. Reuse of any individual
+upstream component is subject to its own dependencies and third-party license;
+the MojoLauncher repository's top-level LGPL license does not replace those
+component licenses.
+
 ## LTW
 
 O Launcher packages the native LTW OpenGL compatibility library from the upstream

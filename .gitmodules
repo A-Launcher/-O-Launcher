@@ -4,3 +4,6 @@
 [submodule "native/upstream/mojoexec"]
 	path = native/upstream/mojoexec
 	url = https://github.com/MojoLauncher/mojoexec.git
+[submodule "third_party/MojoLauncher"]
+	path = third_party/MojoLauncher
+	url = https://github.com/MojoLauncher/MojoLauncher.git

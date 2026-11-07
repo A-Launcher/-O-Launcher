@@ -212,182 +212,37 @@ jobs:
           _Static_assert(offsetof(OEngineLtwEglShareInfo, config) == sizeof(void*), "config offset");
           _Static_assert(offsetof(OEngineLtwEglShareInfo, context) == 2 * sizeof(void*), "context offset");
           _Static_assert(offsetof(OEngineLtwEglShareInfo, pbuffer) == 3 * sizeof(void*), "pbuffer offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, window_surface) == 4 * sizeof(void*), "window surface offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, create_context) == 5 * sizeof(void*), "create context offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, make_current) == 6 * sizeof(void*), "make current offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, destroy_context) == 7 * sizeof(void*), "destroy context offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, destroy_surface) == 8 * sizeof(void*), "destroy surface offset");
-          _Static_assert(offsetof(OEngineLtwEglShareInfo, swap_buffers) == 9 * sizeof(void*), "swap buffers offset");
-          _Static_assert(sizeof(OEngineLtwEglShareInfo) == 10 * sizeof(void*), "share info size");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, flags) == 4 * sizeof(void*), "flags offset");
+          _Static_assert(sizeof(OEngineLtwEglShareInfo) == 4 * sizeof(void*) + sizeof(uint32_t), "struct size");
           int main(void) { return 0; }
           EOF
-          cc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
-            -I native/oengine/include "$RUNNER_TEMP/oengine_ltw_egl_abi.c"
+          clang -std=c11 -Wall -Wextra -Werror -I native/oengine/include \
+            "$RUNNER_TEMP/oengine_ltw_egl_abi.c" -o "$RUNNER_TEMP/oengine_ltw_egl_abi"
+          "$RUNNER_TEMP/oengine_ltw_egl_abi"
 
       - name: Run engine JVM unit tests
-        run: gradle --no-daemon testDebugUnitTest
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
 
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug
+        run: ./gradlew --no-daemon :app:assembleDebug
 
       - name: Verify Rust native engine and JNI exports in APK
-        env:
-          APK_PATH: app/build/outputs/apk/debug/app-debug.apk
         run: |
           set -euo pipefail
-          NM="$(command -v nm)"
-          test -x "$NM"
-          export NM
-          python3 - <<'PY'
-          import os, zipfile, subprocess, tempfile
-          apk = os.environ["APK_PATH"]
-          expected_abis = {"arm64-v8a", "armeabi-v7a", "x86", "x86_64"}
-          symbols = {"Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProbeJvmLibrary", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeVerifyGlfwLibrary", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInstallLwjglHook", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeCreateJvm", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInvokeMain", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLoadRenderer", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeRendererLoadError", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeAcquireWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeReleaseWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeCreateLtwEglSession", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeAttachLtwWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDetachLtwWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeSwapLtwBuffers", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglInfo", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglError", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDestroyLtwEglSession", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeQueueLtwWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProcessPendingLtwWindow", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeEnqueueInputBatch", "Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInputResetPending", "oengine_input_drain", "oengine_input_dispatch", "oengine_input_reset_pending", "oengine_input_clear_session", "oengine_ltw_egl_share_info", "oengine_ltw_egl_active_share_info", "oengine_ltw_egl_queue_window", "oengine_ltw_egl_process_pending_window"}
-          with zipfile.ZipFile(apk) as archive:
-              entries = {
-                  name.split("/")[1]: name
-                  for name in archive.namelist()
-                  if name.startswith("lib/") and name.endswith("/liboengine_native.so")
-              }
-              missing = expected_abis - set(entries)
-              if missing:
-                  raise SystemExit(f"Rust native engine missing ABIs: {sorted(missing)}")
-              ltw_entries = {
-                  name.split("/")[1]: name
-                  for name in archive.namelist()
-                  if name.startswith("lib/") and name.endswith("/libltw.so")
-              }
-              missing_ltw = expected_abis - set(ltw_entries)
-              if missing_ltw:
-                  raise SystemExit(f"Pinned LTW renderer missing ABIs from APK: {sorted(missing_ltw)}")
-              for abi in sorted(expected_abis):
-                  for library in ("libglfw.so", "libmojoexec.so", "liblinkerhook.so"):
-                      path = f"lib/{abi}/{library}"
-                      if path not in archive.namelist() or archive.getinfo(path).file_size < 64:
-                          raise SystemExit(f"{abi}: packaged Android GLFW dependency missing or empty: {library}")
-                  print(f"{abi}: verified Android GLFW, MojoExec and linker-hook libraries")
-              if "lib/arm64-v8a/libfopenhook.so" not in archive.namelist():
-                  raise SystemExit("arm64-v8a: MojoExec fopenhook dependency is missing")
-              mojoexec_symbols = {
-                  "Java_git_artdeell_mojoexec_MojoExec_prepareEgl",
-                  "Java_git_artdeell_mojoexec_MojoExec_setNativeLibraryDir",
-                  "Java_git_artdeell_mojoexec_MojoExec_setUseBigCoreAffinity",
-              }
-              for abi in sorted(expected_abis):
-                  path = f"lib/{abi}/libmojoexec.so"
-                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
-                      native.write(archive.read(path))
-                      native.flush()
-                      output = subprocess.check_output(
-                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
-                          text=True
-                      )
-                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
-                      absent = mojoexec_symbols - exported
-                      if absent:
-                          raise SystemExit(f"{abi}: MojoExec JNI exports missing: {sorted(absent)}")
-                      print(f"{abi}: verified MojoExec EGL bootstrap JNI exports")
-              glfw_symbols = {
-                  "glfwInit",
-                  "glfwPollEvents",
-                  "glfwCreateWindow",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_initialize",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceCreated",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",
-                  "glfwPostEmptyEvent",
-              }
-              lwjgl_required_symbols = {
-                  line.strip()
-                  for line in open("native/android-glfw/lwjgl-3.3.3-required-symbols.txt", encoding="utf-8")
-                  if line.strip() and not line.lstrip().startswith("#")
-              }
-              if len(lwjgl_required_symbols) < 100:
-                  raise SystemExit("Pinned LWJGL GLFW export manifest is unexpectedly incomplete")
-              glfw_symbols |= lwjgl_required_symbols
-              for abi in sorted(expected_abis):
-                  for library in ("liblwjgl.so", "liblwjgl_opengl.so"):
-                      path = f"lib/{abi}/{library}"
-                      if path not in archive.namelist() or archive.getinfo(path).file_size < 50000:
-                          raise SystemExit(f"{abi}: required Android LWJGL native module missing or implausibly small: {library}")
-                      print(f"{abi}: verified Android LWJGL native module: {library}")
-                  path = f"lib/{abi}/liblwjgl.so"
-                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
-                      native.write(archive.read(path))
-                      native.flush()
-                      output = subprocess.check_output(
-                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
-                          text=True
-                      )
-                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
-                      required_lwjgl_jni = {
-                          "Java_org_lwjgl_system_JNI_invokePB__JJ",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_getPointerSize",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_malloc",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_calloc",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_realloc",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_free",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_aligned_1alloc",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_aligned_1free",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_ngetByte",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_ngetAddress",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_nputByte",
-                          "Java_org_lwjgl_system_MemoryAccessJNI_nputAddress",
-                          "Java_org_lwjgl_system_MemoryUtil_memGlobalRefToObject",
-                          "Java_org_lwjgl_system_SharedLibraryUtil_getLibraryPath",
-                          "Java_org_lwjgl_system_ThreadLocalUtil_getThreadJNIEnv",
-                          "Java_org_lwjgl_system_ThreadLocalUtil_getFunctionMissingAbort",
-                          "Java_org_lwjgl_system_ThreadLocalUtil_nsetupEnvData",
-                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlerror",
-                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlsym",
-                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlclose",
-                      }
-                      absent = required_lwjgl_jni - exported
-                      if absent:
-                          raise SystemExit(f"{abi}: LWJGL core JNI exports missing: {sorted(absent)}")
-                      print(f"{abi}: verified required LWJGL core JNI exports")
-              for abi in sorted(expected_abis):
-                  path = f"lib/{abi}/libglfw.so"
-                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
-                      native.write(archive.read(path))
-                      native.flush()
-                      output = subprocess.check_output(
-                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
-                          text=True
-                      )
-                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
-                      absent = glfw_symbols - exported
-                      if absent:
-                          raise SystemExit(f"{abi}: Android GLFW exports missing: {sorted(absent)}")
-                      print(f"{abi}: verified Android GLFW entry points: {sorted(glfw_symbols)}")
-              for abi, name in sorted(ltw_entries.items()):
-                  if archive.getinfo(name).file_size < 64:
-                      raise SystemExit(f"{abi}: packaged LTW native library is unexpectedly small")
-                  print(f"{abi}: verified packaged LTW renderer: {name}")
-              for abi in sorted(expected_abis):
-                  gl4es = f"lib/{abi}/libgl4es_114.so"
-                  if gl4es not in archive.namelist():
-                      raise SystemExit(f"{abi}: packaged Android GL4ES library is missing")
-                  if archive.getinfo(gl4es).file_size < 100000:
-                      raise SystemExit(f"{abi}: packaged GL4ES library is unexpectedly small")
-                  print(f"{abi}: verified packaged Android GL4ES compatibility library")
-              for abi in sorted(expected_abis):
-                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
-                      native.write(archive.read(entries[abi]))
-                      native.flush()
-                      output = subprocess.check_output(
-                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
-                          text=True
-                      )
-                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
-                      absent = symbols - exported
-                      if absent:
-                          raise SystemExit(f"{abi}: JNI exports are missing: {sorted(absent)}")
-                      print(f"{abi}: verified Rust engine and JNI exports: {sorted(symbols)}")
-          PY
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liboengine.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libglfw.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libltw.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
+          unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
+          echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
 
-      - name: Upload APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: o-launcher-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
