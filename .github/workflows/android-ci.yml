@@ -96,6 +96,7 @@ jobs:
       - name: Build pinned Android GLFW backend for all Android ABIs
         run: |
           set -euo pipefail
+          python3 native/patches/patch_mojo_glfw_input.py
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             build_dir="$RUNNER_TEMP/oengine-glfw-$abi"
             cmake -S native/android-glfw -B "$build_dir" \
