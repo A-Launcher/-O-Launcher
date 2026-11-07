@@ -555,6 +555,9 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
             timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
+            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+            surfaceRequestPending.set(false)
+            surfaceRequestId.incrementAndGet()
             serviceMessenger = null
             OEngineSessionLog.append(appContext, "IPC_CLIENT_CLOSED", "Game-process client closed")
             runCatching { appContext.unbindService(connection) }
