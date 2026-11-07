@@ -38,6 +38,50 @@ object OEngineJvmNativeBridge {
 
     private external fun nativeReleaseWindow(handle: Long)
 
+    private external fun nativeCreateLtwEglSession(rendererHandle: Long, minimumGlesMajor: Int): Long
+    private external fun nativeAttachLtwWindow(session: Long, window: Long, width: Int, height: Int): Boolean
+    private external fun nativeDetachLtwWindow(session: Long): Boolean
+    private external fun nativeSwapLtwBuffers(session: Long): Boolean
+    private external fun nativeLtwEglInfo(session: Long): String
+    private external fun nativeLtwEglError(): String
+    private external fun nativeDestroyLtwEglSession(session: Long)
+
+    internal fun createLtwEglSession(rendererHandle: Long, minimumGlesMajor: Int): Long {
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        require(rendererHandle != 0L && minimumGlesMajor == 3) {
+            "LTW requires its retained native library and OpenGL ES 3."
+        }
+        return nativeCreateLtwEglSession(rendererHandle, minimumGlesMajor).also {
+            check(it != 0L) {
+                nativeLtwEglError().ifBlank { "Could not create the LTW-owned EGL session." }
+            }
+        }
+    }
+
+    internal fun attachLtwWindow(session: Long, window: Long, width: Int, height: Int) {
+        check(nativeAttachLtwWindow(session, window, width, height)) {
+            nativeLtwEglError().ifBlank { "LTW could not attach the Android game window." }
+        }
+    }
+
+    internal fun detachLtwWindow(session: Long) {
+        check(nativeDetachLtwWindow(session)) {
+            nativeLtwEglError().ifBlank { "LTW could not detach the Android game window." }
+        }
+    }
+
+    internal fun swapLtwBuffers(session: Long) {
+        check(nativeSwapLtwBuffers(session)) {
+            nativeLtwEglError().ifBlank { "LTW could not present the current game frame." }
+        }
+    }
+
+    internal fun ltwEglInfo(session: Long): String = nativeLtwEglInfo(session)
+
+    internal fun destroyLtwEglSession(session: Long) {
+        if (session != 0L) nativeDestroyLtwEglSession(session)
+    }
+
     /** Acquire a native Android window reference for the future GLFW/EGL bridge. */
     internal fun acquireNativeWindow(surface: Surface, width: Int, height: Int): Long {
         require(surface.isValid && width > 0 && height > 0) { "Native game window requires a valid Surface and positive dimensions." }
