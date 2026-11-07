@@ -268,6 +268,25 @@ jobs:
                   print(f"{abi}: verified Android GLFW, MojoExec and linker-hook libraries")
               if "lib/arm64-v8a/libfopenhook.so" not in archive.namelist():
                   raise SystemExit("arm64-v8a: MojoExec fopenhook dependency is missing")
+              mojoexec_symbols = {
+                  "Java_git_artdeell_mojoexec_MojoExec_prepareEgl",
+                  "Java_git_artdeell_mojoexec_MojoExec_setNativeLibraryDir",
+                  "Java_git_artdeell_mojoexec_MojoExec_setUseBigCoreAffinity",
+              }
+              for abi in sorted(expected_abis):
+                  path = f"lib/{abi}/libmojoexec.so"
+                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
+                      native.write(archive.read(path))
+                      native.flush()
+                      output = subprocess.check_output(
+                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
+                          text=True
+                      )
+                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
+                      absent = mojoexec_symbols - exported
+                      if absent:
+                          raise SystemExit(f"{abi}: MojoExec JNI exports missing: {sorted(absent)}")
+                      print(f"{abi}: verified MojoExec EGL bootstrap JNI exports")
               glfw_symbols = {
                   "glfwInit",
                   "glfwPollEvents",
