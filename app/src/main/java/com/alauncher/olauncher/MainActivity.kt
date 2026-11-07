@@ -1267,6 +1267,7 @@ private fun SettingsDestination(images: LauncherImages) {
     }
     var selectedSection by remember { mutableStateOf<String?>(null) }
     var performance by remember(context) { mutableStateOf(preferences.getBoolean("performance", true)) }
+    var maxMemoryMb by remember(context) { mutableIntStateOf(preferences.getInt("minecraft_memory_mb", 2048).coerceIn(512, 8192)) }
     var animations by remember(context) { mutableStateOf(preferences.getBoolean("animations", true)) }
     var compactUi by remember(context) { mutableStateOf(preferences.getBoolean("compact_ui", false)) }
     var notifications by remember(context) { mutableStateOf(preferences.getBoolean("notifications", true)) }
@@ -1329,9 +1330,25 @@ private fun SettingsDestination(images: LauncherImages) {
                             notifications = it; preferences.edit().putBoolean("notifications", it).apply()
                         }
                     }
-                    SettingsGroup("PERFORMANCE", "Control launcher resource usage") {
+                    SettingsGroup("PERFORMANCE", "Control launcher and game resource usage") {
                         SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) {
                             performance = it; preferences.edit().putBoolean("performance", it).apply()
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Minecraft memory", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text("$maxMemoryMb MiB", color = Color(0xFF8A542B), fontSize = 12.sp, fontWeight = FontWeight.Black)
+                            }
+                            Slider(
+                                value = maxMemoryMb.toFloat(),
+                                onValueChange = { value ->
+                                    maxMemoryMb = ((value / 512f).toInt() * 512).coerceIn(512, 8192)
+                                    preferences.edit().putInt("minecraft_memory_mb", maxMemoryMb).apply()
+                                },
+                                valueRange = 512f..8192f,
+                                steps = 14
+                            )
+                            Text("Maximum heap size passed to Java when Minecraft starts.", color = Muted, fontSize = 10.sp)
                         }
                     }
                 }
@@ -2568,7 +2585,12 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         }
                                         downloadingDependencies = false
 
-                                        val plan = MinecraftVersionInstaller.prepareLaunchPlan(release, activeInstance.root)
+                                        val plan = MinecraftVersionInstaller.prepareLaunchPlan(
+                                            release,
+                                            activeInstance.root,
+                                            maxMemoryMb = context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
+                                                .getInt("minecraft_memory_mb", 2048).coerceIn(512, 8192)
+                                        )
                                         preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
                                         installingRuntime = true
@@ -3111,7 +3133,9 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             account.name,
                                             account.uuid,
                                             account.accessToken,
-                                            installedLoaderProfileId
+                                            installedLoaderProfileId,
+                                            context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
+                                                .getInt("minecraft_memory_mb", 2048).coerceIn(512, 8192)
                                         )
                                         preparedLaunchPlan = authenticatedPlan
                                         withTimeout(15_000L) {
