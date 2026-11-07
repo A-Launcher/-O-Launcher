@@ -17,6 +17,7 @@ import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -171,6 +172,13 @@ fun OEngineTouchControlsOverlay(
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    DisposableEffect(Unit) {
+        onDispose {
+            toggled.forEach { (id, pressed) ->
+                if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+            }
+        }
+    }
     val keyChoices = listOf(
         KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
         KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CONTROL_LEFT,
@@ -203,6 +211,9 @@ fun OEngineTouchControlsOverlay(
                 val selected = controls.firstOrNull { it.id == selectedId }
                 androidx.compose.material3.TextButton(onClick = {
                     val reset = OEngineTouchControls.reset()
+                    toggled.forEach { (id, pressed) ->
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                    }
                     controls.clear(); controls.addAll(reset); selectedId = "jump"; toggled.clear()
                     onLayoutChanged(reset)
                 }) { androidx.compose.material3.Text("RESET") }
@@ -238,6 +249,10 @@ fun OEngineTouchControlsOverlay(
                 }) { androidx.compose.material3.Text("SIZE −") }
                 androidx.compose.material3.TextButton(onClick = {
                     if (controls.size > 1) {
+                        if (toggled[selectedId] == true) {
+                            controls.firstOrNull { it.id == selectedId }?.let { onKey(it.keyCode, false) }
+                            toggled.remove(selectedId)
+                        }
                         val updated = OEngineTouchControls.remove(controls.toList(), selectedId)
                         controls.clear(); controls.addAll(updated); selectedId = updated.first().id
                         onLayoutChanged(updated)
