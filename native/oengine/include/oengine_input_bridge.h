@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define OENGINE_INPUT_MAX_RESET_RELEASES 1024u
+
 /* Keep field order and integer values aligned with OEngineInputDevice/Action.
  * DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 are O Engine values;
  * oengine_input_dispatch converts digital actions to GLFW PRESS=1, RELEASE=0, REPEAT=2.
@@ -27,6 +29,7 @@ size_t oengine_input_drain(OEngineNativeInputEvent *output, size_t capacity);
 /*
  * Optional callback dispatcher for a native GLFW backend. Call only from the game's
  * event-poll thread. Callback pointers must be the active HotSpot GLFW callbacks.
+ * Use capacity >= OENGINE_INPUT_MAX_RESET_RELEASES to guarantee overflow releases fit.
  * Touch/gamepad events are preserved through platform_event for backend-specific handling.
  */
 typedef void (*OEngineGlfwKeyCallback)(void *window, int32_t key, int32_t scancode, int32_t action, int32_t mods);
