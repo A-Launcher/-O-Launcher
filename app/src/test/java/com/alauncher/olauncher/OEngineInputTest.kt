@@ -183,7 +183,7 @@ class OEngineInputTest {
 
     @Test fun gameInputForwarderTracksAndReleasesSurfaceControls() {
         val sent = mutableListOf<OEngineInputEvent>()
-        val forwarder = OEngineGameInputForwarder { batch -> sent.addAll(batch); true }
+        val forwarder = OEngineGameInputForwarder(sendBatch = { batch -> sent.addAll(batch); true })
         val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f, scanCode = 42)
         val up = down.copy(action = OEngineInputAction.UP, value = 0f)
         assertTrue(forwarder.forward(listOf(down, down)))
@@ -199,7 +199,7 @@ class OEngineInputTest {
 
     @Test fun gameInputForwarderSplitsLargeReleaseBatchesForBinderLimit() {
         val batches = mutableListOf<Int>()
-        val forwarder = OEngineGameInputForwarder { batch -> batches += batch.size; true }
+        val forwarder = OEngineGameInputForwarder(sendBatch = { batch -> batches += batch.size; true })
         val downs = (0 until 300).map { code ->
             OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, code, value = 1f)
         }
@@ -213,9 +213,9 @@ class OEngineInputTest {
     @Test fun gameInputForwarderRetainsFailedBatchesAndPreservesReleaseOrder() {
         val sent = mutableListOf<List<OEngineInputEvent>>()
         var allowSend = false
-        val forwarder = OEngineGameInputForwarder { batch ->
+        val forwarder = OEngineGameInputForwarder(sendBatch = { batch ->
             if (allowSend) { sent += batch; true } else false
-        }
+        })
         val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f)
         val up = down.copy(action = OEngineInputAction.UP, value = 0f)
         assertFalse(forwarder.forward(listOf(down)))
