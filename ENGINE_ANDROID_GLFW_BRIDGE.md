@@ -126,7 +126,7 @@ The queue instead exposes a plain C ABI in `native/oengine/include/oengine_input
 - `oengine_input_reset_pending()` — reports whether digital transition overflow requires reset
 - `oengine_input_clear_session()` — clears a dead session
 
-The Android JNI batch method writes into this same Rust queue. Rust host tests cover FIFO motion coalescing, bounded overflow, release recovery, unmatched/duplicate transitions, and ensuring reset does not discard releases when the consumer's output buffer is too small. The native queue is now the intended production handoff; the actual GLFW poll loop has not been wired to it yet. Bulk text events are currently rejected by the native batch API; per-key Unicode codepoint metadata is supported.
+The Android JNI batch method writes into this same Rust queue. Rust host tests cover FIFO motion coalescing, bounded overflow, release recovery, unmatched/duplicate transitions, and ensuring reset does not discard releases when the consumer's output buffer is too small. The native queue is now the intended production handoff; the actual GLFW poll loop has not been wired to it yet. Bulk text events are currently rejected by the native batch API; per-key Unicode codepoint and modifier metadata are supported.
 
 
 ## SurfaceView-to-native input transport
@@ -138,7 +138,7 @@ This closes the Android frontend and process-transport gap. It does **not** yet 
 
 ## GLFW callback dispatch ABI
 
-A native callback dispatcher now sits directly on the Rust queue. `oengine_input_dispatch(window, callbacks, capacity)` drains a bounded batch, releases the queue mutex, then invokes callback pointers on the calling thread. The callback table mirrors the standard GLFW callback signatures for key, character, cursor position, mouse button, and scroll. It explicitly converts O Engine DOWN/UP/REPEAT values (0/1/2) to GLFW PRESS/RELEASE/REPEAT values (1/0/2), rather than forwarding the internal enum unchanged. Touch and gamepad events are preserved through a separate raw platform-event callback instead of being misrepresented as mouse buttons. Overflow recovery releases are delivered through the same key/mouse callback paths.
+A native callback dispatcher now sits directly on the Rust queue. `oengine_input_dispatch(window, callbacks, capacity)` drains a bounded batch, releases the queue mutex, then invokes callback pointers on the calling thread. The callback table mirrors the standard GLFW callback signatures for key (including Android physical scancode), character, character-with-modifiers, cursor position, mouse button, and scroll. It explicitly converts O Engine DOWN/UP/REPEAT values (0/1/2) to GLFW PRESS/RELEASE/REPEAT values (1/0/2), rather than forwarding the internal enum unchanged. Touch and gamepad events are preserved through a separate raw platform-event callback instead of being misrepresented as mouse buttons. Overflow recovery releases are delivered through the same key/mouse callback paths.
 
 The callback pointers must be obtained from the active embedded HotSpot GLFW implementation. Never pass ART method pointers or call Kotlin through HotSpot's `JNIEnv`. The dispatcher is now test-covered, Android APK CI checks that its C symbol is exported for every shipped ABI, and native host CI compiles the public C header with strict warnings. No packaged GLFW implementation calls it yet.
 
@@ -152,3 +152,8 @@ This confirms the shape of the callback boundary that O Engine's new C table can
 ### Keyboard scancode ABI correction
 
 The Android input model already carried Android's physical `scanCode`, but the JNI native entry point's parameter list had fallen out of sync with Kotlin: Kotlin passed the scancode array while Rust omitted it. This shifted the subsequent JNI array arguments. The JNI signature now accepts the scancode array in the exact Kotlin argument position, validates its length, copies it, and stores it in the C event structure. GLFW key dispatch now passes that physical scancode instead of hard-coded zero. The C structure appends the field to preserve all existing field offsets; ABI layout tests assert the new 48-byte structure and field offsets, and callback tests assert the scancode value.
+
+
+## Physical keyboard fidelity
+
+The Android key adapter now preserves `KeyEvent.scanCode` separately from the GLFW logical key value. That value crosses the Messenger arrays and JNI boundary into the native event struct, then reaches the GLFW key callback's scancode parameter. Unicode input is dispatched through both the regular character callback and the character-with-modifiers callback when those callbacks are registered. This avoids substituting the GLFW key value for the hardware scancode and retains modifier state for text callbacks.
