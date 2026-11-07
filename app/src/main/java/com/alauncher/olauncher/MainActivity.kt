@@ -898,7 +898,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     val shortcuts = listOf(
         "Home" to root,
         "Internal Storage" to root,
-        "Downloads" to File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: root, ""),
+        "Downloads" to File(root, "downloads").apply { mkdirs() },
         "Minecraft" to root,
         "Screenshots" to File(root, "screenshots"),
         "Backups" to File(root, "backups"),
@@ -938,14 +938,14 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                 Icon(Icons.Filled.ArrowBack, contentDescription = null); Text("BACK")
                             }
                             OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null) {
-                                Icon(Icons.Filled.ArrowUpward, contentDescription = null); Text("UP")
+                                Text("↑", fontSize = 18.sp, fontWeight = FontWeight.Bold); Text("UP")
                             }
                             Spacer(Modifier.weight(1f))
                             Button(onClick = { newName = ""; showCreate = true }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
                                 Icon(Icons.Filled.CreateNewFolder, contentDescription = null); Text("NEW FOLDER", fontSize = 10.sp)
                             }
                             Button(onClick = { newName = ""; showNewFile = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE8C8), contentColor = Ink)) {
-                                Icon(Icons.Filled.NoteAdd, contentDescription = null); Text("NEW FILE", fontSize = 10.sp)
+                                Icon(Icons.Filled.Description, contentDescription = null); Text("NEW FILE", fontSize = 10.sp)
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
