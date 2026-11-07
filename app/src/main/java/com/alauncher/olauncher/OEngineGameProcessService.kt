@@ -125,18 +125,19 @@ class OEngineGameProcessService : Service() {
         var queuedWindow = false
         try {
             @Suppress("DEPRECATION")
-            surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
+            val incomingSurface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
                 ?: throw IllegalArgumentException("Game Surface IPC payload is missing.")
-            require(surface.isValid) { "The replacement Android Surface is invalid." }
+            surface = incomingSurface
+            require(incomingSurface.isValid) { "The replacement Android Surface is invalid." }
             val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
             val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
             val egl = eglBootstrap ?: throw IllegalStateException("LTW EGL session is not initialized.")
-            candidateWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
+            candidateWindow = OEngineJvmNativeBridge.acquireNativeWindow(incomingSurface, width, height)
             egl.queueWindow(candidateWindow, width, height)
             queuedWindow = true
             candidateWindow = 0L // Ownership transferred to Rust's pending-surface queue.
-            OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
-            surface.release()
+            OEngineAndroidGlfwBootstrap.surfaceCreated(incomingSurface)
+            incomingSurface.release()
             surface = null
             reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
             reply.data.putString(KEY_PROBE_STATUS, "game_surface_change_queued")
