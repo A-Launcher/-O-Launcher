@@ -2,8 +2,6 @@ package com.alauncher.olauncher
 
 import java.io.File
 import java.security.MessageDigest
-import org.json.JSONArray
-import org.json.JSONObject
 
 data class OEngineAndroidGlfwInstallResult(
     val abi: String,
@@ -72,24 +70,12 @@ object OEngineAndroidGlfwArtifactInstaller {
         }
 
         val manifest = File(destination, "oengine-android-glfw-manifest.json")
-        val json = JSONObject().apply {
-            put("schemaVersion", 1)
-            put("abi", abi)
-            put("backend", "MojoLauncher Android GLFW platform port")
-            put("notice", "Platform backend staged only; LWJGL org.lwjgl.glfw JNI/runtime adapter is not yet connected.")
-            put("libraries", JSONArray().apply {
-                installed.forEach { file ->
-                    put(JSONObject().apply {
-                        put("name", file.name)
-                        put("size", file.length())
-                        put("sha256", hashes.getValue(file.name))
-                        put("elfCompatibility", "ANDROID_COMPATIBILITY_UNVERIFIED")
-                    })
-                }
-            })
+        val manifestLibraries = installed.joinToString(",") { file ->
+            """{"name":"${jsonEscape(file.name)}","size":${file.length()},"sha256":"${hashes.getValue(file.name)}","elfCompatibility":"ANDROID_COMPATIBILITY_UNVERIFIED"}"""
         }
+        val manifestContent = """{"schemaVersion":1,"abi":"${jsonEscape(abi)}","backend":"MojoLauncher Android GLFW platform port","notice":"Platform backend staged only; LWJGL org.lwjgl.glfw JNI/runtime adapter is not yet connected.","libraries":[${manifestLibraries}]}"""
         val temporaryManifest = File(destination, manifest.name + ".part")
-        temporaryManifest.writeText(json.toString(2))
+        temporaryManifest.writeText(manifestContent)
         if (manifest.exists() && !manifest.delete()) {
             temporaryManifest.delete()
             throw IllegalStateException("Could not replace Android GLFW manifest.")
@@ -99,6 +85,19 @@ object OEngineAndroidGlfwArtifactInstaller {
             temporaryManifest.delete()
         }
         return OEngineAndroidGlfwInstallResult(abi, destination, installed, hashes, manifest)
+    }
+
+    private fun jsonEscape(value: String): String = buildString {
+        value.forEach { character ->
+            when (character) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> if (character.code < 0x20) append("\\u%04x".format(character.code)) else append(character)
+            }
+        }
     }
 
     private fun sha256(file: File): String {
