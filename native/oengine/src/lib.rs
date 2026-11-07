@@ -29,6 +29,7 @@ static HOTSPOT_CREATOR_THREAD: OnceLock<Mutex<Option<ThreadId>>> = OnceLock::new
 static RENDERER_LIBRARIES: OnceLock<Mutex<Vec<(CString, usize)>>> = OnceLock::new();
 static RENDERER_LOAD_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static RENDERER_HOOK_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
+static ANDROID_LIBRARY: OnceLock<usize> = OnceLock::new();
 
 type OEngineNativeWindowFromSurface = unsafe extern "system" fn(*mut RawJNIEnv, jobject) -> *mut c_void;
 type OEngineNativeWindowSetBuffersGeometry = unsafe extern "C" fn(*mut c_void, i32, i32, i32) -> i32;
