@@ -1,5 +1,6 @@
 package com.alauncher.olauncher
 
+import android.content.Context
 import android.view.Surface
 import git.artdeell.dnbootstrap.glfw.GLFW
 import java.io.File
@@ -14,7 +15,7 @@ internal object OEngineAndroidGlfwBootstrap {
     @Volatile private var surfaceIsAttached: Boolean = false
 
     @Synchronized
-    fun initialize(library: File) {
+    fun initialize(context: Context, library: File) {
         val canonical = library.canonicalFile
         require(canonical.name == "libglfw.so" && canonical.isFile && canonical.length() > 0L) {
             "Mojo Android GLFW library is missing or empty."
@@ -28,7 +29,7 @@ internal object OEngineAndroidGlfwBootstrap {
             "Android GLFW cannot satisfy the selected LWJGL native ABI: " +
                 abi.status + ": " + abi.detail
         }
-        GLFW.initializeOnce()
+        GLFW.initializeOnce(context)
         loadedPath = path
     }
 
