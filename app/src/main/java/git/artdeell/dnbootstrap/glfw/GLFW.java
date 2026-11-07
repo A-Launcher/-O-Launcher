@@ -3,6 +3,7 @@ package git.artdeell.dnbootstrap.glfw;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.view.Surface;
 import android.view.PointerIcon;
 import android.view.View;
@@ -25,6 +26,7 @@ public final class GLFW {
     private static volatile double cursorX;
     private static volatile double cursorY;
     private static volatile View hostView;
+    private static volatile GLFWCursor activeCursor;
 
     public static synchronized void initializeOnce(Context context) {
         if (context != null) applicationContext = context.getApplicationContext();
@@ -40,12 +42,11 @@ public final class GLFW {
         if (view == null) return;
         view.post(() -> {
             if (hostView != view || Build.VERSION.SDK_INT < 26) return;
+            applyCursor(view, grabbing);
             if (grabbing) {
-                view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_NULL));
                 if (view.hasWindowFocus()) view.requestPointerCapture();
             } else {
                 view.releasePointerCapture();
-                view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_DEFAULT));
             }
         });
     }
@@ -56,7 +57,7 @@ public final class GLFW {
         if (view != null && Build.VERSION.SDK_INT >= 26 && cursorGrabbed) {
             view.post(() -> {
                 if (hostView == view && view.hasWindowFocus()) {
-                    view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_NULL));
+                    applyCursor(view, true);
                     view.requestPointerCapture();
                 }
             });
@@ -68,7 +69,7 @@ public final class GLFW {
         hostView = null;
         if (Build.VERSION.SDK_INT >= 26) {
             view.releasePointerCapture();
-            view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_DEFAULT));
+            applyCursor(view, false);
         }
     }
 
@@ -78,11 +79,44 @@ public final class GLFW {
     }
 
     public static GLFWCursor loadCursor(ByteBuffer image, int width, int height, int xhot, int yhot) {
-        // Android's pointer-icon adapter is not available until a host View is attached.
-        return null;
+        if (image == null || width <= 0 || height <= 0) return null;
+        long byteCount = (long) width * (long) height * 4L;
+        if (byteCount > Integer.MAX_VALUE || image.remaining() < byteCount) return null;
+        Bitmap bitmap = null;
+        try {
+            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            ByteBuffer pixels = image.duplicate();
+            pixels.limit(pixels.position() + (int) byteCount);
+            bitmap.copyPixelsFromBuffer(pixels);
+            int hotX = Math.max(0, Math.min(width - 1, xhot));
+            int hotY = Math.max(0, Math.min(height - 1, yhot));
+            return new GLFWCursor(PointerIcon.create(bitmap, hotX, hotY));
+        } catch (RuntimeException | OutOfMemoryError ignored) {
+            if (bitmap != null) bitmap.recycle();
+            return null;
+        }
     }
 
-    public static void useCursor(GLFWCursor cursor) {}
+    public static void useCursor(GLFWCursor cursor) {
+        activeCursor = cursor;
+        View view = hostView;
+        if (view != null) view.post(() -> {
+            if (hostView == view) applyCursor(view, cursorGrabbed);
+        });
+    }
+
+    private static void applyCursor(View view, boolean grabbed) {
+        if (Build.VERSION.SDK_INT < 24) return;
+        PointerIcon icon;
+        if (grabbed) {
+            icon = PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_NULL);
+        } else if (activeCursor != null) {
+            icon = activeCursor.getPointerIcon();
+        } else {
+            icon = PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_DEFAULT);
+        }
+        view.setPointerIcon(icon);
+    }
 
     public static String getClipboardString() {
         Context context = applicationContext;
