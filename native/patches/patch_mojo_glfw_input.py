@@ -6,11 +6,31 @@ source = Path("native/upstream/mojo-glfw/src/android_window.c")
 text = source.read_text(encoding="utf-8")
 
 include = '#include "internal.h"\n'
-replacement = include + '#include "oengine_input_bridge.h"\n#include <dlfcn.h>\n'
+replacement = include + '#include "oengine_input_bridge.h"\n#include <dlfcn.h>\n#include <stdatomic.h>\n'
 if "oengine_input_bridge.h" not in text:
     if include not in text:
         raise SystemExit("Pinned Mojo GLFW android_window.c include anchor changed")
     text = text.replace(include, replacement, 1)
+
+owner_anchor = "static _GLFWwindow *surfaceOwner = NULL;\n"
+if "static _Atomic int oengine_glfw_ready" not in text:
+    if owner_anchor not in text:
+        raise SystemExit("Pinned Mojo GLFW surface-owner anchor changed")
+    text = text.replace(owner_anchor, owner_anchor + "static _Atomic int oengine_glfw_ready = 0;\n", 1)
+
+# Publish readiness only after GLFW owns a real game window; use atomics because
+# the wake function is called from the independent Android input Binder thread.
+owner_assignment = "        _glfw.android.focusedWindow = surfaceOwner = window;\n"
+if "atomic_store(&oengine_glfw_ready, 1);" not in text:
+    if owner_assignment not in text:
+        raise SystemExit("Pinned Mojo GLFW window-owner assignment changed")
+    text = text.replace(owner_assignment, owner_assignment + "        atomic_store(&oengine_glfw_ready, 1);\n", 1)
+
+destroy_anchor = "    if (_glfw.android.focusedWindow == window)\n        _glfw.android.focusedWindow = NULL;\n"
+if "atomic_store(&oengine_glfw_ready, 0);" not in text:
+    if destroy_anchor not in text:
+        raise SystemExit("Pinned Mojo GLFW window-destroy anchor changed")
+    text = text.replace(destroy_anchor, destroy_anchor + "    if (surfaceOwner == window) {\n        surfaceOwner = NULL;\n        atomic_store(&oengine_glfw_ready, 0);\n    }\n", 1)
 
 anchor = "void _glfwPollEventsAndroid(void)\n{\n"
 bridge = r'''
