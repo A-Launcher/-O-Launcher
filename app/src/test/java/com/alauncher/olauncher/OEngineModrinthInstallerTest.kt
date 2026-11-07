@@ -8,7 +8,33 @@ class OEngineModrinthInstallerTest {
   assertEquals("mods",OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.MOD).name)
   assertEquals("resourcepacks",OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.RESOURCE_PACK).name)
   assertEquals("shaderpacks",OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.SHADER).name)
-  assertEquals("datapacks",OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.DATA_PACK).name)
+  try {
+   OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.DATA_PACK)
+   fail("data pack install must require a world")
+  } catch(_:IllegalArgumentException) {}
+ }
+ @Test fun dataPackTargetUsesSelectedWorld() {
+  val root=java.nio.file.Files.createTempDirectory("oengine-target-world").toFile()
+  try {
+   val world=File(root,"saves/Survival").apply { mkdirs() }
+   File(world,"level.dat").writeText("world")
+   assertEquals(File(world,"datapacks").path,OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.DATA_PACK,"Survival").path)
+  } finally { root.deleteRecursively() }
+ }
+ @Test fun rejectsMissingOrUnsafeDataPackWorlds() {
+  val root=java.nio.file.Files.createTempDirectory("oengine-target-invalid-world").toFile()
+  try {
+   try { OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.DATA_PACK,"Missing"); fail("missing world accepted") }
+   catch(_:IllegalArgumentException) {}
+   val outside=java.nio.file.Files.createTempDirectory("oengine-target-outside").toFile()
+   try {
+    File(outside,"level.dat").writeText("world")
+    File(root,"saves").mkdirs()
+    java.nio.file.Files.createSymbolicLink(File(root,"saves/Linked").toPath(),outside.toPath())
+    try { OEngineModrinthInstaller.targetDirectory(root,OEngineModrinthCatalog.ProjectType.DATA_PACK,"Linked"); fail("linked world accepted") }
+    catch(_:IllegalArgumentException) {}
+   } finally { outside.deleteRecursively() }
+  } finally { root.deleteRecursively() }
  }
  @Test fun rejectsUnsafeNames() {
   listOf("../evil.jar","/tmp/evil.jar","..","bad:name.jar").forEach { try { OEngineModrinthInstaller.safeFilename(it);fail("accepted "+it) } catch(_:IllegalArgumentException){} }
