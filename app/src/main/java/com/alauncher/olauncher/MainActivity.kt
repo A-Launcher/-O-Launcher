@@ -1948,6 +1948,13 @@ private fun InstallationsDestination(images: LauncherImages) {
         }
     }
     LaunchedEffect(selectedLoader, selectedVersion) {
+        val profileLoader = profilePreferences.getString("loader_profile_loader.$selectedProfile", null)
+        val profileMinecraft = profilePreferences.getString("loader_profile_mc.$selectedProfile", null)
+        if (installedLoaderProfileId != null &&
+            (profileLoader != selectedLoader || profileMinecraft != selectedVersion)) {
+            installedLoaderProfileId = null
+            profilePreferences.edit().remove("loader_profile.$selectedProfile").apply()
+        }
         val loader = when (selectedLoader) {
             "Fabric" -> OEngineModLoader.FABRIC
             "Quilt" -> OEngineModLoader.QUILT
@@ -2828,7 +2835,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text("Choose the mod platform for this game profile.", color = Muted, fontSize = 12.sp)
                     }
                     Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(10.dp)) {
-                        Text("5 LOADERS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Text("6 LOADERS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -2850,6 +2857,32 @@ private fun InstallationsDestination(images: LauncherImages) {
                         selectedLoader = "OptiFine"
                         profilePreferences.edit().putString("loader.$selectedProfile", "OptiFine").apply()
                     }, Modifier.weight(1f))
+                }
+                Surface(
+                    onClick = {
+                        selectedLoader = "Vanilla"
+                        installedLoaderProfileId = null
+                        profilePreferences.edit().remove("loader_profile.$selectedProfile")
+                            .remove("loader_profile_loader.$selectedProfile")
+                            .remove("loader_profile_mc.$selectedProfile")
+                            .putString("loader.$selectedProfile", "Vanilla").apply()
+                        preparedLaunchPlan = null
+                    },
+                    color = if (selectedLoader == "Vanilla") Color(0xFFFFE8B3) else Color(0xFFFFF2DF),
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedLoader == "Vanilla") Gold else Border),
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                ) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("V", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Ink)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("Vanilla Minecraft", fontWeight = FontWeight.Bold, color = Ink)
+                            Text("Official unmodified game", fontSize = 10.sp, color = Muted)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (selectedLoader == "Vanilla") Text("SELECTED", fontSize = 9.sp, color = Color(0xFF9B6A35), fontWeight = FontWeight.Black)
+                    }
                 }
                 LoaderOptionCard("Quilt", "Community mod platform", R.drawable.loader_fabric, selectedLoader == "Quilt", {
                     selectedLoader = "Quilt"
@@ -2904,6 +2937,8 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 profilePreferences.edit()
                                                     .putString("loader_profile.$selectedProfile", result.profileId)
                                                     .putString("loader_version.$selectedProfile", version)
+                                                    .putString("loader_profile_loader.$selectedProfile", selectedLoader)
+                                                    .putString("loader_profile_mc.$selectedProfile", release.id)
                                                     .apply()
                                                 preparedLaunchPlan = null
                                                 loaderInstallStatus = "Installed $selectedLoader $version • ${result.librariesInstalled} libraries • ${result.bytesDownloaded / 1024} KB downloaded. Profile metadata saved."
