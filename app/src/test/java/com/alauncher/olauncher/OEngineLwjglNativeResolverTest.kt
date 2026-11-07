@@ -48,7 +48,7 @@ class OEngineLwjglNativeResolverTest {
             assertTrue(resolution.ndlopenSignaturePresent)
             assertTrue(resolution.glfwModulePresent)
             assertTrue(resolution.glfwJavaClassPresent)
-            assertFalse(resolution.androidGlfwNativeProviderIntegrated)
+            assertFalse(resolution.androidGlfwLibraryConfigured)
             assertTrue(resolution.blockers.any { it.contains("staged libglfw.so path") })
             assertTrue(resolution.warnings.any { it.contains("register its retained-renderer ndlopen hook") })
         } finally { root.deleteRecursively() }
@@ -68,7 +68,7 @@ class OEngineLwjglNativeResolverTest {
             }
             val result = OEngineLwjglNativeResolver.resolve(listOf(core, glfw), native)
 
-            assertTrue(result.androidGlfwNativeProviderIntegrated)
+            assertTrue(result.androidGlfwLibraryConfigured)
             assertFalse(result.blockers.any { it.contains("staged libglfw.so path") })
             assertTrue(result.warnings.any { it.contains("EGL/window lifecycle") })
         } finally { root.deleteRecursively() }
