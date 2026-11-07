@@ -61,7 +61,8 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
                 action = OEngineInputAction.UP,
                 code = control.code,
                 timestampNanos = timestampNanos,
-                modifiers = down.modifiers
+                modifiers = down.modifiers,
+                scanCode = down.scanCode
             )
         }
         matching.forEach { pressed.remove(it.key) }
