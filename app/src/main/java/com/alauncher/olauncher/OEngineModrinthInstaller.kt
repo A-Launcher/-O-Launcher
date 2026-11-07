@@ -30,7 +30,8 @@ object OEngineModrinthInstaller {
   return name
  }
  fun parseVersions(body:String):List<ProjectVersion> {
-  val array=JSONArray(body)
+  val trimmed = body.trimStart()
+  val array = if (trimmed.startsWith("{")) JSONArray().put(JSONObject(body)) else JSONArray(body)
   return buildList {
    for(i in 0 until array.length()) {
     val item=array.optJSONObject(i) ?: continue
@@ -70,7 +71,9 @@ object OEngineModrinthInstaller {
  }
  suspend fun install(projectId:String,versionId:String,type:OEngineModrinthCatalog.ProjectType,gameRoot:File,onProgress:(Long,Long)->Unit={_,_->}):InstallResult = withContext(Dispatchers.IO) {
   require(projectId.matches(Regex("[A-Za-z0-9_-]{1,64}")) && versionId.matches(Regex("[A-Za-z0-9_-]{1,80}")))
-  val version=parseVersions(request("https://api.modrinth.com/v2/version/"+versionId)).firstOrNull { it.id==versionId } ?: error("Invalid Modrinth version metadata.")
+  val metadata = request("https://api.modrinth.com/v2/version/"+versionId)
+  require(JSONObject(metadata).optString("project_id") == projectId) { "This version does not belong to the selected Modrinth project." }
+  val version=parseVersions(metadata).firstOrNull { it.id==versionId } ?: error("Invalid Modrinth version metadata.")
   val file=version.files.firstOrNull { it.primary } ?: version.files.first()
   require(file.size in 1..(512L*1024L*1024L)) { "File exceeds 512 MiB or has invalid size." }
   val root=gameRoot.canonicalFile
@@ -82,8 +85,18 @@ object OEngineModrinthInstaller {
   val temp=File(folder,destination.name+".oengine-part")
   temp.delete()
   download(file,temp,onProgress)
-  if(destination.exists() && !destination.delete()) { temp.delete(); error("Could not replace existing file.") }
-  if(!temp.renameTo(destination)) { temp.copyTo(destination,overwrite=true); temp.delete() }
+  val backup = File(folder, destination.name + ".oengine-backup")
+  backup.delete()
+  if (destination.exists() && !destination.renameTo(backup)) {
+   temp.delete()
+   error("Could not safely stage the existing file for replacement.")
+  }
+  if (!temp.renameTo(destination)) {
+   if (backup.exists()) backup.renameTo(destination)
+   temp.delete()
+   error("Could not atomically move the verified download into place.")
+  }
+  backup.delete()
   InstallResult(projectId,version.id,file.filename,destination,destination.length(),version.dependencies.filter { it.type=="required" })
  }
  private fun download(file:VersionFile,destination:File,onProgress:(Long,Long)->Unit) {
