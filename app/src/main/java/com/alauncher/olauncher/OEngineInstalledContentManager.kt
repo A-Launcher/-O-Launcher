@@ -21,6 +21,16 @@ object OEngineInstalledContentManager {
         val worldName: String? = null
     )
 
+    fun worldNames(gameRoot: File): List<String> {
+        val root = gameRoot.canonicalFile
+        val saves = File(root, "saves")
+        if (Files.isSymbolicLink(saves.toPath()) || !saves.isDirectory || saves.canonicalFile.parentFile != root) return emptyList()
+        return saves.listFiles().orEmpty().filter { world ->
+            !Files.isSymbolicLink(world.toPath()) && world.isDirectory &&
+                world.canonicalFile.parentFile == saves.canonicalFile && File(world, "level.dat").isFile
+        }.map { it.name }.sortedBy { it.lowercase() }
+    }
+
     fun list(gameRoot: File): List<Entry> {
         val root = gameRoot.canonicalFile
         val standardEntries = Kind.values()
