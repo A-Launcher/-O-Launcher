@@ -99,6 +99,24 @@ object OEngineAndroidInputAdapter {
                     timestampNanos = timestamp
                 )
             }
+            MotionEvent.ACTION_CANCEL -> if (device == OEngineInputDevice.TOUCH) {
+                for (index in 0 until event.pointerCount) {
+                    output += OEngineInputEvent(
+                        OEngineInputDevice.TOUCH, OEngineInputAction.UP,
+                        event.getPointerId(index), event.getX(index), event.getY(index),
+                        value = 0f, timestampNanos = timestamp
+                    )
+                }
+            }
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP -> if (isMouse) {
+                val down = event.actionMasked == MotionEvent.ACTION_DOWN
+                output += OEngineInputEvent(
+                    OEngineInputDevice.MOUSE,
+                    if (down) OEngineInputAction.DOWN else OEngineInputAction.UP,
+                    0, event.x, event.y, value = if (down) 1f else 0f,
+                    timestampNanos = timestamp
+                )
+            }
             MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> if (isMouse) {
                 val button = OEngineGlfwKeyMapper.mouseButton(event.actionButton) ?: return output
                 val down = event.actionMasked == MotionEvent.ACTION_BUTTON_PRESS
