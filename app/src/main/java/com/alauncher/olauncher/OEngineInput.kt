@@ -2,7 +2,7 @@ package com.alauncher.olauncher
 
 /** Platform-neutral input contracts; Android adapters and the game bridge are separate layers. */
 enum class OEngineInputDevice { TOUCH, KEYBOARD, MOUSE, GAMEPAD }
-enum class OEngineInputAction { DOWN, UP, MOVE, SCROLL, TEXT }
+enum class OEngineInputAction { DOWN, UP, REPEAT, MOVE, SCROLL, TEXT }
 
 data class OEngineInputEvent(
     val device: OEngineInputDevice,
@@ -12,10 +12,14 @@ data class OEngineInputEvent(
     val y: Float = 0f,
     val value: Float = 0f,
     val text: String? = null,
-    val timestampNanos: Long = 0L
+    val timestampNanos: Long = 0L,
+    val modifiers: Int = 0,
+    val codepoint: Int = 0
 ) {
     init {
         require(x.isFinite() && y.isFinite() && value.isFinite())
+        require(modifiers >= 0)
+        require(codepoint in 0..0x10FFFF && codepoint !in 0xD800..0xDFFF)
         require(action != OEngineInputAction.TEXT || device == OEngineInputDevice.KEYBOARD)
         require(action != OEngineInputAction.SCROLL || device == OEngineInputDevice.MOUSE)
         require(action != OEngineInputAction.TEXT || !text.isNullOrEmpty())
