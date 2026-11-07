@@ -1854,7 +1854,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
                                     Text(entry.name, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(entry.kind.name.replace('_', ' ') + " • " + OEngineInstalledContentManager.formatSize(entry.sizeBytes), color = Muted, fontSize = 9.sp)
+                                    Text(entry.kind.name.replace('_', ' ') + (entry.worldName?.let { " • $it" } ?: "") + " • " + OEngineInstalledContentManager.formatSize(entry.sizeBytes), color = Muted, fontSize = 9.sp)
                                 }
                                 TextButton(onClick = { removingContent = entry }) { Text("REMOVE", color = Color(0xFFB34A38), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
                             }
