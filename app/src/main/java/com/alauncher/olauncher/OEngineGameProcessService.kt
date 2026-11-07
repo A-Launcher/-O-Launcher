@@ -38,6 +38,7 @@ class OEngineGameProcessService : Service() {
                 val devices = data.getIntArray(KEY_INPUT_DEVICE) ?: error("Missing input device array.")
                 val actions = data.getIntArray(KEY_INPUT_ACTION) ?: error("Missing input action array.")
                 val codes = data.getIntArray(KEY_INPUT_CODE) ?: error("Missing input code array.")
+                val scanCodes = data.getIntArray(KEY_INPUT_SCAN_CODE) ?: error("Missing input scancode array.")
                 val xs = data.getFloatArray(KEY_INPUT_X) ?: error("Missing input X array.")
                 val ys = data.getFloatArray(KEY_INPUT_Y) ?: error("Missing input Y array.")
                 val values = data.getFloatArray(KEY_INPUT_VALUE) ?: error("Missing input value array.")
@@ -46,7 +47,7 @@ class OEngineGameProcessService : Service() {
                 val codepoints = data.getIntArray(KEY_INPUT_CODEPOINT) ?: error("Missing input codepoint array.")
                 val texts = data.getStringArray(KEY_INPUT_TEXT)
                 val count = devices.size
-                require(count in 1..MAX_INPUT_BATCH && listOf(actions.size, codes.size, xs.size, ys.size,
+                require(count in 1..MAX_INPUT_BATCH && listOf(actions.size, codes.size, scanCodes.size, xs.size, ys.size,
                     values.size, times.size, modifiers.size, codepoints.size).all { it == count } &&
                     (texts == null || texts.size == count)) { "Input batch arrays have inconsistent lengths or exceed the batch limit." }
                 val events = ArrayList<OEngineInputEvent>(count)
@@ -56,7 +57,7 @@ class OEngineGameProcessService : Service() {
                     val action = OEngineInputAction.values().getOrNull(actions[index])
                         ?: error("Input batch contains an unknown action.")
                     events += OEngineInputEvent(
-                        device = device, action = action, code = codes[index],
+                        device = device, action = action, code = codes[index], scanCode = scanCodes[index],
                         x = xs[index], y = ys[index], value = values[index],
                         timestampNanos = times[index], modifiers = modifiers[index],
                         codepoint = codepoints[index], text = texts?.get(index)
@@ -445,6 +446,7 @@ class OEngineGameProcessService : Service() {
         const val KEY_INPUT_DEVICE = "oengine.input_device"
         const val KEY_INPUT_ACTION = "oengine.input_action"
         const val KEY_INPUT_CODE = "oengine.input_code"
+        const val KEY_INPUT_SCAN_CODE = "oengine.input_scan_code"
         const val KEY_INPUT_X = "oengine.input_x"
         const val KEY_INPUT_Y = "oengine.input_y"
         const val KEY_INPUT_VALUE = "oengine.input_value"
