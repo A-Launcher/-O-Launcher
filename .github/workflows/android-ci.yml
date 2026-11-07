@@ -245,6 +245,7 @@ jobs:
           unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
           unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
+          unzip -l "$apk" | grep -q "assets/forge_installer.jar"
           echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
 
       - name: Upload debug APK
