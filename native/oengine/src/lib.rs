@@ -48,6 +48,7 @@ pub struct OEngineNativeInputEvent {
     pub timestamp_nanos: i64,
     pub modifiers: i32,
     pub codepoint: u32,
+    pub scan_code: i32,
 }
 
 #[derive(Default)]
@@ -191,7 +192,7 @@ unsafe fn dispatch_native_input_event(
         1 => { // KEYBOARD: translate O Engine transition values to GLFW action values.
             if let Some(action) = glfw_action_from_oengine(event.action) {
                 if let Some(callback) = callbacks.key {
-                    callback(window, event.code, 0, action, event.modifiers);
+                    callback(window, event.code, event.scan_code, action, event.modifiers);
                 }
                 if action != 0 && event.codepoint != 0 {
                     if let Some(callback) = callbacks.character {
@@ -288,10 +289,11 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     times_raw: jlongArray,
     modifiers_raw: jintArray,
     codepoints_raw: jintArray,
+    scan_codes_raw: jintArray,
 ) -> jint {
     if raw_env.is_null() || devices_raw.is_null() || actions_raw.is_null() ||
         codes_raw.is_null() || xs_raw.is_null() || ys_raw.is_null() || values_raw.is_null() ||
-        times_raw.is_null() || modifiers_raw.is_null() || codepoints_raw.is_null() {
+        times_raw.is_null() || modifiers_raw.is_null() || codepoints_raw.is_null() || scan_codes_raw.is_null() {
         return -1;
     }
     let mut env = match JNIEnv::from_raw(raw_env) { Ok(value) => value, Err(_) => return -1 };
@@ -304,11 +306,13 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     let times = JLongArray::from_raw(times_raw);
     let modifiers = JIntArray::from_raw(modifiers_raw);
     let codepoints = JIntArray::from_raw(codepoints_raw);
+    let scan_codes = JIntArray::from_raw(scan_codes_raw);
     let count = match env.get_array_length(&devices) { Ok(value) if (1..=128).contains(&value) => value as usize, _ => return -1 };
     let arrays_match = [
         env.get_array_length(&actions), env.get_array_length(&codes),
         env.get_array_length(&xs), env.get_array_length(&ys), env.get_array_length(&values),
         env.get_array_length(&times), env.get_array_length(&modifiers), env.get_array_length(&codepoints),
+        env.get_array_length(&scan_codes),
     ].into_iter().all(|length| length.map(|value| value as usize == count).unwrap_or(false));
     if !arrays_match { return -1; }
     let mut d = vec![0; count];
@@ -320,6 +324,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     let mut t = vec![0; count];
     let mut m = vec![0; count];
     let mut cp = vec![0; count];
+    let mut sc = vec![0; count];
     if env.get_int_array_region(&devices, 0, &mut d).is_err() ||
         env.get_int_array_region(&actions, 0, &mut a).is_err() ||
         env.get_int_array_region(&codes, 0, &mut c).is_err() ||
@@ -328,7 +333,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         env.get_float_array_region(&values, 0, &mut v).is_err() ||
         env.get_long_array_region(&times, 0, &mut t).is_err() ||
         env.get_int_array_region(&modifiers, 0, &mut m).is_err() ||
-        env.get_int_array_region(&codepoints, 0, &mut cp).is_err() {
+        env.get_int_array_region(&codepoints, 0, &mut cp).is_err() ||
+        env.get_int_array_region(&scan_codes, 0, &mut sc).is_err() {
         return -1;
     }
     let mut parsed = Vec::with_capacity(count);
@@ -343,6 +349,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             device: d[index], action: a[index], code: c[index],
             x: x[index], y: y[index], value: v[index],
             timestamp_nanos: t[index], modifiers: m[index], codepoint: cp[index] as u32,
+            scan_code: sc[index],
         });
     }
     let Ok(mut queue) = native_input_queue().lock() else { return -1; };
