@@ -220,5 +220,37 @@ if "Could not acquire ANativeWindow from Android Surface" not in text:
         raise SystemExit("Pinned Mojo nativeSurfaceCreated ownership anchor changed")
     text = text.replace(surface_create_anchor, surface_create_replacement, 1)
 
+# Surface callbacks must wake a GLFW thread blocked in glfwWaitEvents.
+# nativeSurfaceDestroyed waits for surfaceInUse to clear, so the game thread must
+# be woken before that wait begins; the patched LTW surface manager then switches
+# to the tracked pbuffer and broadcasts nw_egl_cond.
+surface_update_anchor = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceUpdated(JNIEnv *env, jclass clazz) {
+    surfaceUpdated = true;
+}'''
+surface_update_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceUpdated(JNIEnv *env, jclass clazz) {
+    surfaceUpdated = true;
+    input_event_t wake = {0};
+    wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
+    android_send_event(&wake);
+}'''
+if "input_event_t wake = {0};" not in text:
+    if surface_update_anchor not in text:
+        raise SystemExit("Pinned Mojo nativeSurfaceUpdated wake anchor changed")
+    text = text.replace(surface_update_anchor, surface_update_replacement, 1)
+
+surface_destroy_anchor = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
+                                                                           jclass clazz) {
+    surfaceDestroyed = true;'''
+surface_destroy_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
+                                                                           jclass clazz) {
+    surfaceDestroyed = true;
+    input_event_t wake = {0};
+    wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
+    android_send_event(&wake);'''
+if "surfaceDestroyed = true;\n    input_event_t wake" not in text:
+    if surface_destroy_anchor not in text:
+        raise SystemExit("Pinned Mojo nativeSurfaceDestroyed wake anchor changed")
+    text = text.replace(surface_destroy_anchor, surface_destroy_replacement, 1)
+
 source.write_text(text, encoding="utf-8")
 print("Patched pinned Mojo Android GLFW poll/wait paths for O Engine keyboard, mouse and primary-touch input.")
