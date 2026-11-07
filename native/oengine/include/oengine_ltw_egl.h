@@ -39,6 +39,10 @@ uint32_t oengine_ltw_egl_share_info(
 /* Active-session convenience entry point for the game-thread GLFW adapter. */
 uint32_t oengine_ltw_egl_active_share_info(OEngineLtwEglShareInfo* output);
 
+/* Queue from Binder threads; process only from the LTW owner/GLFW event thread. */
+uint32_t oengine_ltw_egl_queue_window(void* window, int32_t width, int32_t height);
+uint32_t oengine_ltw_egl_process_pending_window(void);
+
 #ifdef __cplusplus
 }
 #endif
