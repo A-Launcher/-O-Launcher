@@ -540,6 +540,7 @@ class OEngineGameProcessClient(
             data.putIntArray(OEngineGameProcessService.KEY_INPUT_DEVICE, events.map { it.device.ordinal }.toIntArray())
             data.putIntArray(OEngineGameProcessService.KEY_INPUT_ACTION, events.map { it.action.ordinal }.toIntArray())
             data.putIntArray(OEngineGameProcessService.KEY_INPUT_CODE, events.map { it.code }.toIntArray())
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_SCAN_CODE, events.map { it.scanCode }.toIntArray())
             data.putFloatArray(OEngineGameProcessService.KEY_INPUT_X, events.map { it.x }.toFloatArray())
             data.putFloatArray(OEngineGameProcessService.KEY_INPUT_Y, events.map { it.y }.toFloatArray())
             data.putFloatArray(OEngineGameProcessService.KEY_INPUT_VALUE, events.map { it.value }.toFloatArray())
