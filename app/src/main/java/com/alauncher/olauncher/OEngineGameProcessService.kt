@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
 import android.os.Process
+import android.view.Surface
 import android.system.Os
 import java.io.File
 
@@ -34,6 +35,42 @@ class OEngineGameProcessService : Service() {
         workerThread = thread
         Messenger(Handler(thread.looper) { message ->
             when (message.what) {
+                MSG_ATTACH_GAME_SURFACE -> {
+                    val reply = Message.obtain(null, MSG_GAME_SURFACE_RESULT)
+                    var receivedSurface: Surface? = null
+                    try {
+                        @Suppress("DEPRECATION")
+                        val surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
+                            ?: throw IllegalArgumentException("Game Surface IPC payload is missing.")
+                        receivedSurface = surface
+                        val egl = eglBootstrap ?: throw IllegalStateException("Persistent EGL is not initialized yet.")
+                        val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
+                        val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
+                        egl.attachWindow(surface, width, height)
+                        receivedSurface = null
+                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "EGL window surface current • " + width + "x" + height)
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
+                        reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
+                        reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached to the persistent EGL context.")
+                    } catch (error: Throwable) {
+                        receivedSurface?.release()
+                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACH_FAILED", error.message ?: error.javaClass.simpleName, error)
+                        reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+                        reply.data.putString(KEY_PROBE_STATUS, "game_surface_error")
+                        reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
+                    }
+                    runCatching { message.replyTo?.send(reply) }
+                    true
+                }
+                MSG_DETACH_GAME_SURFACE -> {
+                    try {
+                        eglBootstrap?.detachWindow()
+                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACHED", "EGL returned to its pbuffer surface")
+                    } catch (error: Throwable) {
+                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_FAILED", error.message ?: error.javaClass.simpleName, error)
+                    }
+                    true
+                }
                 MSG_HEALTH_CHECK -> {
                     OEngineSessionLog.append(this, "IPC_HEALTH", "Health check received")
                     val reply = Message.obtain(null, MSG_HEALTH_CHECK_RESULT).apply {
@@ -309,6 +346,9 @@ class OEngineGameProcessService : Service() {
 
     companion object {
         const val MSG_HEALTH_CHECK = 1
+        const val MSG_ATTACH_GAME_SURFACE = 14
+        const val MSG_GAME_SURFACE_RESULT = 15
+        const val MSG_DETACH_GAME_SURFACE = 16
         const val MSG_HEALTH_CHECK_RESULT = 2
         const val MSG_PROBE_JVM_LIBRARY = 3
         const val MSG_PROBE_JVM_LIBRARY_RESULT = 4
@@ -341,5 +381,8 @@ class OEngineGameProcessService : Service() {
         const val KEY_PID = "oengine.pid"
         const val KEY_PROCESS = "oengine.process"
         const val KEY_PHASE = "oengine.phase"
+        const val KEY_GAME_SURFACE = "oengine.game_surface"
+        const val KEY_SURFACE_WIDTH = "oengine.surface_width"
+        const val KEY_SURFACE_HEIGHT = "oengine.surface_height"
     }
 }
