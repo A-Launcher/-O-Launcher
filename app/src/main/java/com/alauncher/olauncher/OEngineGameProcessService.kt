@@ -150,7 +150,7 @@ class OEngineGameProcessService : Service() {
                         data.putString(KEY_PROCESS, packageName + ":game")
                         data.putString(KEY_PHASE, "process_ready")
                     }
-                        data.putBinder(KEY_INPUT_MESSENGER, inputMessenger.binder)
+                    reply.data.putBinder(KEY_INPUT_MESSENGER, inputMessenger.binder)
 
                     runCatching { message.replyTo?.send(reply) }
                     true
