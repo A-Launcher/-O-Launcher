@@ -30,6 +30,7 @@ class OEngineGameProcessService : Service() {
     @Volatile private var rendererLibraryName: String? = null
     @Volatile private var rendererHookInstalled = false
     @Volatile private var eglBootstrap: OEngineEglBootstrap? = null
+    @Volatile private var nativeWindowHandle: Long = 0L
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -38,6 +39,7 @@ class OEngineGameProcessService : Service() {
                 MSG_ATTACH_GAME_SURFACE -> {
                     val reply = Message.obtain(null, MSG_GAME_SURFACE_RESULT)
                     var receivedSurface: Surface? = null
+                    var candidateNativeWindow = 0L
                     try {
                         @Suppress("DEPRECATION")
                         val surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
@@ -46,13 +48,19 @@ class OEngineGameProcessService : Service() {
                         val egl = eglBootstrap ?: throw IllegalStateException("Persistent EGL is not initialized yet.")
                         val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
                         val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
+                        candidateNativeWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
                         egl.attachWindow(surface, width, height)
+                        val previousNativeWindow = nativeWindowHandle
+                        nativeWindowHandle = candidateNativeWindow
+                        candidateNativeWindow = 0L
+                        if (previousNativeWindow != 0L) OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow)
                         receivedSurface = null
-                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "EGL window surface current • " + width + "x" + height)
+                        OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
                         reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached to the persistent EGL context.")
                     } catch (error: Throwable) {
+                        if (candidateNativeWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateNativeWindow) }
                         receivedSurface?.release()
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACH_FAILED", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
@@ -65,7 +73,10 @@ class OEngineGameProcessService : Service() {
                 MSG_DETACH_GAME_SURFACE -> {
                     try {
                         eglBootstrap?.detachWindow()
-                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACHED", "EGL returned to its pbuffer surface")
+                        val previousNativeWindow = nativeWindowHandle
+                        nativeWindowHandle = 0L
+                        if (previousNativeWindow != 0L) OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow)
+                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACHED", "EGL returned to pbuffer; ANativeWindow reference released")
                     } catch (error: Throwable) {
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_FAILED", error.message ?: error.javaClass.simpleName, error)
                     }
