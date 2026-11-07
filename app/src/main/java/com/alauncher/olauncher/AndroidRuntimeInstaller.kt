@@ -136,8 +136,8 @@ object AndroidRuntimeInstaller {
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
                         val entry = tar.nextTarEntry ?: break
-                        extracted++
-                        if (extracted > MAX_ARCHIVE_ENTRIES) {
+                        entriesSeen++
+                        if (entriesSeen > MAX_ARCHIVE_ENTRIES) {
                             throw IllegalStateException("Runtime archive contains too many entries.")
                         }
                         if (entry.size < 0L || entry.size > MAX_EXTRACTED_BYTES - extractedBytes) {
@@ -176,7 +176,7 @@ object AndroidRuntimeInstaller {
                                 if ((mode and 73) != 0) target.setExecutable(true, false)
                                 if ((mode and 292) != 0) target.setReadable(true, false)
                                 if ((mode and 146) != 0) target.setWritable(true, true)
-                                if (extracted % 250 == 0) onProgress("Extracting Java runtime… " + extracted + " entries")
+                                if (entriesSeen % 250 == 0) onProgress("Extracting Java runtime… " + extracted + " files")
                             }
                             entry.isLink -> throw IllegalStateException("Runtime archive contains an unsupported hard link: " + name)
                         }
