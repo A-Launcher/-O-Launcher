@@ -23,6 +23,11 @@ internal object OEngineAndroidGlfwBootstrap {
         if (loadedPath == path) return
         check(loadedPath == null) { "A different Android GLFW library is already loaded in this process." }
         System.load(path)
+        val abi = OEngineJvmNativeBridge.verifyAndroidGlfwLibrary(path)
+        check(abi.successful) {
+            "Android GLFW cannot satisfy the selected LWJGL native ABI: " +
+                abi.status + ": " + abi.detail
+        }
         GLFW.initializeOnce()
         loadedPath = path
     }
