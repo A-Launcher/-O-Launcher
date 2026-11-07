@@ -55,6 +55,7 @@ object OEngineJvmBootstrapPlanner {
         "-Dorg.lwjgl.vulkan.libname",
         "-Dorg.lwjgl.spvc.libname",
         "-Dorg.lwjgl.opengl.libname",
+        "-Dorg.lwjgl.glfw.libname",
         "-XX:ActiveProcessorCount"
     )
 
@@ -69,7 +70,8 @@ object OEngineJvmBootstrapPlanner {
         androidRelease: String = "unknown",
         timezoneId: String = "UTC",
         availableProcessors: Int = 1,
-        rendererLibraryAlias: String? = null
+        rendererLibraryAlias: String? = null,
+        androidGlfwLibrary: File? = null
     ): OEngineJvmBootstrapPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -134,6 +136,13 @@ object OEngineJvmBootstrapPlanner {
                 "-Dorg.lwjgl.vulkan.libname" to "libvulkan.so",
                 "-Dorg.lwjgl.spvc.libname" to "spirv-cross-c-shared"
         )
+        androidGlfwLibrary?.let { supplied ->
+            val glfwLibrary = supplied.canonicalFile
+            require(glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L) {
+                "Android GLFW must be an existing non-empty libglfw.so file."
+            }
+            ownedVmProperties["-Dorg.lwjgl.glfw.libname"] = glfwLibrary.absolutePath
+        }
         rendererLibraryAlias?.let { alias ->
             require(alias.matches(Regex("""lib[A-Za-z0-9_-]+\.so"""))) {
                 "Renderer library alias must be a shared-library filename such as libGLMojo.so."
