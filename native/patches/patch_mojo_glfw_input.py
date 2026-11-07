@@ -61,6 +61,12 @@ static void oengine_glfw_platform(void* window, int32_t device, int32_t action,
         _glfwInputMouseClick(target, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, mods);
 }
 
+/* Wake GLFW's native wait-event condition after Rust accepts a new batch. */
+void oengine_wake_input(void) {
+    if (_glfw.initialized)
+        glfwPostEmptyEvent();
+}
+
 static void oengine_drain_input_events(void) {
     static OEngineInputDispatchFn dispatch = NULL;
     static void* native_handle = NULL;
