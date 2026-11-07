@@ -2605,7 +2605,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                         )
                                         preparedLaunchPlan = authenticatedPlan
                                         withTimeout(15_000L) {
-                                            kotlinx.coroutines.flow.snapshotFlow { gameSurfaceReady }.first { it }
+                                            snapshotFlow { gameSurfaceReady }.first { it }
                                         }
                                         val sent = gameProcessClient?.invokeMain(
                                             authenticatedPlan.mainClass,
