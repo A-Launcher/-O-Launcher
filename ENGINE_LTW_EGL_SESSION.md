@@ -16,17 +16,16 @@ Pojav demonstrates that Android Surface ownership, ANativeWindow references, EGL
 2. Rust resolves host EGL entry points from Android `libEGL.so` and LTW's exported `eglCreateContext`, `eglMakeCurrent`, and `eglDestroyContext` wrappers from the retained renderer handle.
 3. The context is created and first made current through LTW. This registers it in LTW's per-context compatibility map.
 4. The session creates a pbuffer for initialization, then creates and binds a window surface from the retained `ANativeWindow` reference when Android supplies the game Surface.
-5. Window replacement/resize, detach, swap, context destruction, and native library lifetime are handled by one thread-confined native session.
-6. Kotlin owns the Android IPC and lifecycle; Rust owns EGL and the LTW context-wrapper calls.
+5. Initial window attach, replacement/resize, detach, swap, context destruction, and native library lifetime are handled by one thread-confined native session. Later Surface events enter through a Rust queue and are applied only on the LTW/GLFW owner thread.
+6. Kotlin owns Android IPC and Surface callbacks; Rust owns native-window references, queued Surface transitions, EGL surfaces, and LTW context-wrapper calls.
 
 ## Explicit remaining work
 
 This is not yet a complete Android GLFW implementation. The following still need to be implemented and tested:
 
-- Android GLFW window creation/destruction and monitor/window-size callbacks.
-- Keyboard, mouse, touch, text, and gamepad event delivery into LWJGL callbacks.
-- Wiring Minecraft's actual GLFW swap loop to the native EGL presentation path.
-- Physical-device rendering tests, including surface recreation and app pause/resume.
+- Full Android GLFW window/monitor behavior and cursor/clipboard/gamepad callbacks.
+- End-to-end confirmation that Minecraft's downloaded LWJGL Java bindings call the packaged Mojo native functions as expected.
+- Physical-device rendering tests, including surface recreation, resize, detach/reattach, app pause/resume, and frame presentation.
 - A successful end-to-end Minecraft launch.
 
 No Pojav or Mojo launcher source files were copied into O Engine for this milestone. Their LGPL-3.0 licensing and the pinned LTW LGPL-3.0 obligations remain documented in `ENGINE_UPSTREAM_COMPONENTS.md`.
@@ -39,3 +38,14 @@ The Rust engine now exports `oengine_ltw_egl_share_info(session, output)`, decla
 This is an integration seam, not a second EGL session and not a renderer by itself. It exists so the Android GLFW port can create any additional context through LTW's wrappers and share the tracked resource group, rather than calling Android EGL directly and leaving LTW's context map unaware. Rust layout tests and an Android CI C-header compile check pin the 10-pointer ABI; APK symbol verification requires the exported function for every supported ABI.
 
 **New integration step:** `native/patches/patch_mojo_glfw_egl.py` now patches the pinned Mojo GLFW EGL backend to resolve `oengine_ltw_egl_active_share_info` from `liboengine_native.so`. It reuses the existing LTW display/config/context/window surface, routes make-current and swap through LTW's function pointers, and avoids destroying or terminating LTW-owned EGL objects. The Android CI workflow applies this patch after building the Rust library and checks that the active-share export is present in the APK. This is source-level integration awaiting CI confirmation and physical-device validation; it is not yet proof of a Minecraft frame.
+
+
+## Live Surface ingress and GLFW-thread application
+
+After Minecraft main is dispatched, the JVM owner HandlerThread is no longer available to process Binder messages. O Engine therefore exposes a second Messenger backed by `OEngineSurfaceIngress`. It accepts Surface attach/detach events while Minecraft is running, acquires an ANativeWindow reference, and places the transition in Rust's pending queue without making any EGL calls on the Binder thread.
+
+The pinned Mojo Android GLFW event-poll adapter calls `oengine_ltw_egl_process_pending_window()` on the GLFW/LTW owner thread. Rust applies the event there: it switches to the tracked pbuffer, destroys the previous window surface, creates and binds the replacement through the LTW EGL entry points, updates the GL viewport, and releases superseded native-window references. Detach switches to pbuffer and releases the active ANativeWindow. Queue replacement and session teardown also release references that have not yet been applied.
+
+Mojo's Android-specific `_glfwManageEglSurfaceAndroid` is patched to borrow the current LTW pbuffer/window surface and use the LTW `eglMakeCurrent` wrapper. It no longer creates or destroys a second EGL surface. Android Surface create/update/destroy callbacks push empty GLFW events to wake a thread in `glfwWaitEvents`; the GLFW poll adapter applies surface-mode changes and signals Mojo's `nw_egl_cond` so `nativeSurfaceDestroyed` can complete. The service sends a second wake after enqueueing detach so Rust can release the LTW window reference.
+
+This is source-level integration. Android CI must validate the patched upstream sources and packaged ABIs, and physical-device testing is still required to prove the actual Minecraft/LWJGL event loop and rendered frames.
