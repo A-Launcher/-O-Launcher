@@ -28,12 +28,15 @@ internal class OEngineEglBootstrap private constructor(
     private var closed = false
     private var windowSurface: EGLSurface = EGL14.EGL_NO_SURFACE
     private var window: Surface? = null
+    private var windowWidth = 0
+    private var windowHeight = 0
 
     fun attachWindow(surface: Surface, width: Int, height: Int) {
         check(Thread.currentThread().id == ownerThreadId) {
             "EGL window surface must be attached on its creating game-process thread."
         }
         check(!closed) { "EGL bootstrap has already been closed." }
+        require(width > 0 && height > 0) { "Android game Surface dimensions must be positive." }
         require(surface.isValid) { "Android game Surface is not valid." }
         detachWindow()
         val created = EGL14.eglCreateWindowSurface(
@@ -49,6 +52,9 @@ internal class OEngineEglBootstrap private constructor(
         }
         windowSurface = created
         window = surface
+        windowWidth = width
+        windowHeight = height
+        GLES20.glViewport(0, 0, windowWidth, windowHeight)
     }
 
     fun detachWindow() {
@@ -58,13 +64,18 @@ internal class OEngineEglBootstrap private constructor(
         if (windowSurface == EGL14.EGL_NO_SURFACE) {
             window?.release()
             window = null
+            windowWidth = 0
+            windowHeight = 0
             return
         }
         EGL14.eglMakeCurrent(display, pbuffer, pbuffer, context)
         EGL14.eglDestroySurface(display, windowSurface)
         windowSurface = EGL14.EGL_NO_SURFACE
+        GLES20.glViewport(0, 0, 1, 1)
         window?.release()
         window = null
+        windowWidth = 0
+        windowHeight = 0
     }
 
     fun close() {
