@@ -52,7 +52,7 @@ pub struct OEngineNativeInputEvent {
     pub reserved: i32,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct OEngineNativeInputQueue {
     events: VecDeque<OEngineNativeInputEvent>,
     pressed: Vec<OEngineNativeInputEvent>,
