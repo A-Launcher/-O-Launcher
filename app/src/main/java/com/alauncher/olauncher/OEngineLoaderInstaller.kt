@@ -120,33 +120,89 @@ object OEngineLoaderInstaller {
                 onProgress(index + 1, entries.size, "Verified $name")
                 continue
             }
-            bytes += downloadVerified(address, target, sha, size)
+            bytes += downloadVerified(address, target, libraryRoot, sha, size)
             installed++
             onProgress(index + 1, entries.size, "Installed $name")
         }
         InstallResult(loader, game, selectedLoader, profileId, metadataFile, installed, bytes)
     }
 
-    private fun downloadVerified(address: String, target: File, expectedSha1: String, expectedSize: Long): Long {
+    private const val MAX_PROFILE_BYTES = 8L * 1024L * 1024L
+    private const val MAX_LIBRARY_BYTES = 512L * 1024L * 1024L
+
+    /** Follow redirects manually so HTTPS cannot be downgraded by a Maven redirect. */
+    private fun openHttps(address: String, accept: String): HttpURLConnection {
+        var current = URL(address)
+        require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
+            "Loader downloads must use a valid HTTPS URL."
+        }
+        repeat(6) { hop ->
+            val connection = (current.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 45_000
+                instanceFollowRedirects = false
+                requestMethod = "GET"
+                setRequestProperty("User-Agent", "O-Launcher/0.1.0")
+                setRequestProperty("Accept", accept)
+            }
+            val status = try { connection.responseCode } catch (failure: Exception) {
+                connection.disconnect()
+                throw failure
+            }
+            if (status !in 300..399) return connection
+            val location = connection.getHeaderField("Location")
+            connection.disconnect()
+            require(hop < 5 && !location.isNullOrBlank()) {
+                "Loader server redirected too many times or omitted its destination."
+            }
+            current = URL(current, location)
+            require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
+                "Loader redirect must remain on a valid HTTPS URL."
+            }
+        }
+        error("Loader server redirected too many times.")
+    }
+
+    private fun downloadVerified(
+        address: String,
+        target: File,
+        libraryRoot: File,
+        expectedSha1: String,
+        expectedSize: Long
+    ): Long {
+        require(expectedSize <= MAX_LIBRARY_BYTES) { "Loader library exceeds the 512 MiB safety limit." }
         val parent = target.parentFile ?: error("Invalid loader library path.")
         if (!parent.exists() && !parent.mkdirs()) error("Could not create loader library directory.")
-        val temporary = File(parent, target.name + ".part")
+        val canonicalRoot = libraryRoot.canonicalFile.toPath()
+        val canonicalParent = parent.canonicalFile.toPath()
+        require(canonicalParent.startsWith(canonicalRoot)) { "Loader library path escapes the libraries directory." }
+        val safeTarget = File(canonicalParent.toFile(), target.name)
+        require(!safeTarget.isDirectory) { "A loader library file cannot replace a directory." }
+        val temporary = File(canonicalParent.toFile(), target.name + ".part")
         temporary.delete()
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 45_000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "O-Launcher/0.1.0")
-        }
+        val connection = openHttps(address, "application/java-archive, application/octet-stream, */*")
         try {
-            connection.connect()
-            if (connection.responseCode !in 200..299) error("Loader library download failed (HTTP ${connection.responseCode}).")
-            connection.inputStream.use { input ->
-                temporary.outputStream().buffered().use { output -> input.copyTo(output, 64 * 1024) }
+            require(connection.responseCode in 200..299) {
+                "Loader library download failed (HTTP ${connection.responseCode})."
             }
-        } catch (error: Exception) {
+            connection.inputStream.use { input ->
+                temporary.outputStream().buffered().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var count = 0L
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        count += n
+                        require(count <= MAX_LIBRARY_BYTES && (expectedSize <= 0 || count <= expectedSize)) {
+                            "Loader library download exceeded its declared size or safety limit."
+                        }
+                        output.write(buffer, 0, n)
+                    }
+                }
+            }
+        } catch (failure: Exception) {
             temporary.delete()
-            throw error
+            throw failure
         } finally {
             connection.disconnect()
         }
@@ -159,33 +215,44 @@ object OEngineLoaderInstaller {
             temporary.delete()
             error("Loader library SHA-1 verification failed: ${target.name}")
         }
-        if (target.exists() && !target.delete()) {
+        require(parent.canonicalFile.toPath().startsWith(canonicalRoot)) {
             temporary.delete()
-            error("Could not replace loader library: ${target.name}")
+            "Loader library destination changed during download."
         }
-        if (!temporary.renameTo(target)) {
-            temporary.copyTo(target, overwrite = true)
+        if (safeTarget.exists() && !safeTarget.delete()) {
+            temporary.delete()
+            error("Could not replace loader library: ${safeTarget.name}")
+        }
+        if (!temporary.renameTo(safeTarget)) {
+            temporary.copyTo(safeTarget, overwrite = true)
             temporary.delete()
         }
-        return target.length()
+        return safeTarget.length()
     }
 
     private fun requestText(address: String): String {
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 15_000
-            readTimeout = 30_000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "O-Launcher/0.1.0")
-            setRequestProperty("Accept", "application/json")
-        }
+        val connection = openHttps(address, "application/json, application/xml, text/xml")
         try {
-            if (connection.responseCode !in 200..299) error("Loader profile request failed (HTTP ${connection.responseCode}).")
-            return connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            require(connection.responseCode in 200..299) {
+                "Loader profile request failed (HTTP ${connection.responseCode})."
+            }
+            val output = StringBuilder()
+            connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                val buffer = CharArray(8192)
+                var total = 0
+                while (true) {
+                    val count = reader.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= MAX_PROFILE_BYTES) { "Loader profile metadata is too large." }
+                    output.append(buffer, 0, count)
+                }
+            }
+            return output.toString()
         } finally {
             connection.disconnect()
         }
     }
-
     private fun sha1(file: File): String {
         val digest = MessageDigest.getInstance("SHA-1")
         file.inputStream().buffered().use { input ->
