@@ -94,8 +94,12 @@ object OEngineModrinthPackImporter {
             }
 
             var copied = 0
-            copied += copyOverrides(zip, "overrides/", root)
-            copied += copyOverrides(zip, "client-overrides/", root)
+            var overrideBytes = 0L
+            val firstOverrides = copyOverrides(zip, "overrides/", root, overrideBytes)
+            copied += firstOverrides.first
+            overrideBytes = firstOverrides.second
+            val clientOverrides = copyOverrides(zip, "client-overrides/", root, overrideBytes)
+            copied += clientOverrides.first
             return Result(name, versionId, minecraft, loaders, downloaded, copied, skipped)
         }
     }
@@ -106,8 +110,9 @@ object OEngineModrinthPackImporter {
         return destination
     }
 
-    private fun copyOverrides(zip: ZipFile, prefix: String, root: File): Int {
+    private fun copyOverrides(zip: ZipFile, prefix: String, root: File, initialBytes: Long): Pair<Int, Long> {
         var copied = 0
+        var totalBytes = initialBytes
         val entries = zip.entries()
         while (entries.hasMoreElements()) {
             val entry = entries.nextElement()
@@ -124,7 +129,8 @@ object OEngineModrinthPackImporter {
                         val n = input.read(buffer)
                         if (n < 0) break
                         count += n
-                        require(count <= MAX_FILE) { "Override file is too large." }
+                        totalBytes += n
+                        require(count <= MAX_FILE && totalBytes <= MAX_TOTAL) { "Modpack overrides exceed the extraction safety limit." }
                         output.write(buffer, 0, n)
                     }
                 }
@@ -132,7 +138,7 @@ object OEngineModrinthPackImporter {
             moveIntoPlace(temp, destination)
             copied++
         }
-        return copied
+        return copied to totalBytes
     }
 
     private fun downloadVerified(address: String, destination: File, expectedSize: Long, sha1: String, sha512: String) {
