@@ -72,8 +72,15 @@ object OEngineAndroidInputAdapter {
                         )
                     }
                 } else if (isMouse) {
+                    // Captured-pointer events report relative deltas on Android 8+.
+                    // Feeding event.x/event.y here would turn camera motion into
+                    // absolute coordinates and make mouse-look unusable.
+                    val relative = android.os.Build.VERSION.SDK_INT >= 26 &&
+                        source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE
+                    val mouseX = if (relative) event.getAxisValue(MotionEvent.AXIS_RELATIVE_X) else event.x
+                    val mouseY = if (relative) event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y) else event.y
                     output += OEngineInputEvent(
-                        OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, event.x, event.y,
+                        OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, mouseX, mouseY,
                         timestampNanos = timestamp
                     )
                 } else {
