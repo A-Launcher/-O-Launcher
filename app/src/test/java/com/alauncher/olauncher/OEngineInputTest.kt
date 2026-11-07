@@ -155,6 +155,29 @@ class OEngineInputTest {
     }
 
 
+    @Test fun focusLossNeutralizesActiveGamepadAxesAndHat() {
+        val tracker = OEngineInputStateTracker()
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 0, value = 0.8f))
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 4, value = 1f))
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 6, x = -1f))
+        val releases = tracker.releaseAll(500L)
+        assertEquals(listOf(6, 4, 0), releases.map { it.code })
+        assertTrue(releases.all { it.device == OEngineInputDevice.GAMEPAD &&
+            it.action == OEngineInputAction.MOVE && it.timestampNanos == 500L })
+        assertTrue(releases.all { it.x == 0f && it.y == 0f && it.value == 0f })
+    }
+
+    @Test fun gamepadDeviceReleaseNeutralizesOnlyItsAnalogAxes() {
+        val tracker = OEngineInputStateTracker()
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.GAMEPAD, OEngineInputAction.MOVE, 1, value = -0.6f))
+        tracker.accept(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, x = 2f))
+        val releases = tracker.releaseDevice(OEngineInputDevice.GAMEPAD, 600L)
+        assertEquals(1, releases.size)
+        assertEquals(1, releases.single().code)
+        assertEquals(600L, releases.single().timestampNanos)
+        assertEquals(0, tracker.releaseAll().size)
+    }
+
     @Test fun focusLossSynthesizesUpsInReversePressOrder() {
         val tracker = OEngineInputStateTracker()
         assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, scanCode = 42)))
