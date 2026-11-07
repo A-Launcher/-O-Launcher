@@ -23,6 +23,19 @@ upstream component is subject to its own dependencies and third-party license;
 the MojoLauncher repository's top-level LGPL license does not replace those
 component licenses.
 
+## MojoLauncher Forge/OptiFine installer agent
+
+O Launcher builds the Java installer agent from the unmodified
+`forge_installer/` module in the pinned MojoLauncher source submodule at
+`third_party/MojoLauncher` (commit
+`1b8d90424c1cb791321d45f60ac62c54f4b013fa`). The resulting
+`forge_installer.jar` is packaged as an application asset for the Java
+installer runtime. The agent source is covered by MojoLauncher's LGPL-3.0
+license; its shaded `org.json` dependency retains its own license notices.
+The agent is not yet invoked by O Engine: Forge/NeoForge installation is not
+considered complete until the Java/AWT installer runtime, progress/error
+handling, and post-install profile discovery are connected.
+
 ## LTW
 
 O Launcher packages the native LTW OpenGL compatibility library from the upstream
