@@ -1314,6 +1314,29 @@ mod native_input_dispatch_tests {
     }
 
     #[test]
+    fn key_release_does_not_emit_text_and_repeat_uses_glfw_repeat() {
+        let _serial = DISPATCH_TEST_LOCK.lock().unwrap();
+        let trace = TRACE.get_or_init(|| Mutex::new(Vec::new()));
+        trace.lock().unwrap().clear();
+        let callbacks = OEngineNativeInputCallbacks {
+            key: Some(key), character: Some(character), character_mods: Some(character_mods),
+            ..Default::default()
+        };
+        unsafe {
+            dispatch_native_input_event(ptr::null_mut(), &callbacks, OEngineNativeInputEvent {
+                device: 1, action: 1, code: 87, scan_code: 42, codepoint: 119, ..Default::default()
+            });
+            dispatch_native_input_event(ptr::null_mut(), &callbacks, OEngineNativeInputEvent {
+                device: 1, action: 2, code: 87, scan_code: 42, codepoint: 119, ..Default::default()
+            });
+        }
+        assert_eq!(*trace.lock().unwrap(), vec![
+            (1, 87, 42), (7, 0, 0),
+            (1, 87, 42), (7, 2, 0), (2, 119, 0), (7, 119, 0)
+        ]);
+    }
+
+    #[test]
     fn oengine_transition_values_are_translated_to_glfw_actions() {
         assert_eq!(glfw_action_from_oengine(0), Some(1)); // PRESS
         assert_eq!(glfw_action_from_oengine(1), Some(0)); // RELEASE
