@@ -1554,6 +1554,7 @@ struct OEngineLtwEglSession {
     egl_terminate: OEngineEglTerminate,
     egl_get_error: OEngineEglGetError,
     egl_swap_buffers: OEngineEglSwapBuffers,
+    ltw_create_context: OEngineLtwCreateContext,
     ltw_destroy_context: OEngineLtwDestroyContext,
     ltw_make_current: OEngineLtwMakeCurrent,
     gl_viewport: Option<OEngineGlViewport>,
@@ -1732,7 +1733,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             egl_library, gles_library, display, config, context, pbuffer,
             window_surface: ptr::null_mut(), egl_destroy_surface: destroy_surface,
             egl_terminate: terminate, egl_get_error: get_error, egl_swap_buffers: swap_buffers,
-            ltw_destroy_context: ltw_destroy, ltw_make_current,
+            ltw_create_context: ltw_create, ltw_destroy_context: ltw_destroy, ltw_make_current,
             gl_viewport: if viewport.is_null() { None } else { Some(std::mem::transmute_copy(&viewport)) },
             owner_thread: std::thread::current().id(), version, renderer,
         })
