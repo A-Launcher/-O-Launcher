@@ -1,6 +1,7 @@
 package com.alauncher.olauncher
 
 import java.io.File
+import java.nio.file.Files
 
 /** Safe inventory and removal for content installed into one isolated game instance. */
 object OEngineInstalledContentManager {
@@ -16,38 +17,83 @@ object OEngineInstalledContentManager {
         val kind: Kind,
         val file: File,
         val sizeBytes: Long,
-        val modifiedAt: Long
+        val modifiedAt: Long,
+        val worldName: String? = null
     )
 
     fun list(gameRoot: File): List<Entry> {
         val root = gameRoot.canonicalFile
-        return Kind.values().flatMap { kind ->
-            val directory = File(root, kind.directory).canonicalFile
-            if (!directory.toPath().startsWith(root.toPath()) || !directory.isDirectory) {
-                emptyList()
-            } else {
-                directory.listFiles()
-                    .orEmpty()
-                    .filter { file ->
-                        file.isFile &&
-                            !java.nio.file.Files.isSymbolicLink(file.toPath()) &&
-                            file.canonicalFile.parentFile == directory &&
-                            !file.name.endsWith(".oengine-part") &&
-                            file.extension.lowercase() in kind.extensions
-                    }
-                    .map { file ->
-                        Entry(file.name, kind, file, file.length(), file.lastModified())
-                    }
+        val standardEntries = Kind.values()
+            .filter { it != Kind.DATA_PACK }
+            .flatMap { kind -> listDirectory(root, File(root, kind.directory), kind) }
+        val saves = File(root, "saves")
+        val worldEntries = if (
+            !Files.isSymbolicLink(saves.toPath()) &&
+            saves.isDirectory &&
+            saves.canonicalFile.parentFile == root
+        ) {
+            saves.listFiles().orEmpty().filter { world ->
+                !Files.isSymbolicLink(world.toPath()) &&
+                    world.isDirectory &&
+                    world.canonicalFile.parentFile == saves.canonicalFile
+            }.flatMap { world ->
+                listDirectory(
+                    root,
+                    File(world, Kind.DATA_PACK.directory),
+                    Kind.DATA_PACK,
+                    world.name
+                )
             }
-        }.sortedWith(compareBy<Entry> { it.kind.ordinal }.thenBy { it.name.lowercase() })
+        } else emptyList()
+
+        return (standardEntries + worldEntries)
+            .sortedWith(compareBy<Entry> { it.kind.ordinal }.thenBy { it.worldName.orEmpty().lowercase() }.thenBy { it.name.lowercase() })
+    }
+
+    private fun listDirectory(
+        root: File,
+        candidate: File,
+        kind: Kind,
+        worldName: String? = null
+    ): List<Entry> {
+        val directory = runCatching { candidate.canonicalFile }.getOrNull() ?: return emptyList()
+        if (
+            Files.isSymbolicLink(candidate.toPath()) ||
+            !directory.toPath().startsWith(root.toPath()) ||
+            !directory.isDirectory
+        ) return emptyList()
+
+        return directory.listFiles().orEmpty()
+            .filter { file ->
+                file.isFile &&
+                    !Files.isSymbolicLink(file.toPath()) &&
+                    file.canonicalFile.parentFile == directory &&
+                    !file.name.endsWith(".oengine-part") &&
+                    file.extension.lowercase() in kind.extensions
+            }
+            .map { file ->
+                Entry(file.name, kind, file, file.length(), file.lastModified(), worldName)
+            }
     }
 
     fun remove(gameRoot: File, entry: Entry): Boolean {
         val root = gameRoot.canonicalFile
-        val expectedDirectory = File(root, entry.kind.directory).canonicalFile
+        val expectedDirectory = when (entry.kind) {
+            Kind.DATA_PACK -> {
+                val worldName = requireNotNull(entry.worldName) { "A world must be selected for this data pack." }
+                require(worldName.isNotBlank() && worldName != "." && worldName != ".." &&
+                    !worldName.contains("/") && !worldName.contains("\\"))
+                File(root, "saves/$worldName/datapacks").canonicalFile
+            }
+            else -> File(root, entry.kind.directory).canonicalFile
+        }
         val target = entry.file.canonicalFile
         require(expectedDirectory.toPath().startsWith(root.toPath()))
-        require(target.parentFile == expectedDirectory && target.isFile) {
+        require(
+            !Files.isSymbolicLink(entry.file.toPath()) &&
+                target.parentFile == expectedDirectory &&
+                target.isFile
+        ) {
             "The selected content file is no longer inside this instance."
         }
         return target.delete()
