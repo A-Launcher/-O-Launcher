@@ -113,6 +113,7 @@ class OEngineGameProcessService : Service() {
                         val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
                         candidateNativeWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
                         egl.attachWindow(candidateNativeWindow, width, height)
+                        OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
                         // EGL now owns this Surface reference. Transfer ownership before releasing
                         // the previous ANativeWindow so a cleanup error cannot release the live Surface.
                         receivedSurface = null
@@ -145,6 +146,7 @@ class OEngineGameProcessService : Service() {
                 }
                 MSG_DETACH_GAME_SURFACE -> {
                     try {
+                        OEngineAndroidGlfwBootstrap.surfaceDestroyed()
                         eglBootstrap?.detachWindow()
                         val previousNativeWindow = nativeWindowHandle
                         nativeWindowHandle = 0L
@@ -211,6 +213,7 @@ class OEngineGameProcessService : Service() {
                             abi = androidAbi
                         )
                         androidGlfwLibraryFile = androidGlfw.libraries.single { it.name == "libglfw.so" }.canonicalFile
+                        OEngineAndroidGlfwBootstrap.initialize(androidGlfwLibraryFile!!)
                         OEngineSessionLog.append(
                             this,
                             "ANDROID_GLFW_ARTIFACTS_STAGED",
