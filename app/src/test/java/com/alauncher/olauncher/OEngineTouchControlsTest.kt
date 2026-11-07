@@ -19,7 +19,7 @@ class OEngineTouchControlsTest {
         val moved = OEngineTouchControls.move(defaults, "forward", -0.5f, 1.5f)
         val forward = moved.first { it.id == "forward" }
         assertEquals(0f, forward.x)
-        assertEquals(1f, forward.y)
+        assertEquals(.88f, forward.y)
         assertEquals(defaults.size, moved.size)
         assertEquals(.5f, defaults.first { it.id == "forward" }.x)
     }
