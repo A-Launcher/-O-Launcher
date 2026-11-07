@@ -11,6 +11,7 @@ import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
 import android.os.IBinder
+import android.view.Surface
 import java.util.concurrent.atomic.AtomicBoolean
 import java.io.File
 
@@ -448,6 +449,36 @@ class OEngineGameProcessClient(
             if (mainStartedDelivered.compareAndSet(false, true) && mainResponseDelivered.compareAndSet(false, true)) {
                 onJvmMain(Result.failure(error))
             }
+            false
+        }
+    }
+
+    /** Passes an Android window surface to the persistent EGL context in :game. */
+    fun attachGameSurface(surface: Surface, width: Int, height: Int): Boolean {
+        val target = serviceMessenger
+        if (closed.get() || target == null || !surface.isValid) return false
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_ATTACH_GAME_SURFACE).apply {
+            data.putParcelable(OEngineGameProcessService.KEY_GAME_SURFACE, surface)
+            data.putInt(OEngineGameProcessService.KEY_SURFACE_WIDTH, width.coerceAtLeast(1))
+            data.putInt(OEngineGameProcessService.KEY_SURFACE_HEIGHT, height.coerceAtLeast(1))
+            replyTo = replyMessenger
+        }
+        return try {
+            target.send(request)
+            true
+        } catch (_: RemoteException) {
+            false
+        }
+    }
+
+    /** Releases the EGL window surface and returns to the bootstrap pbuffer. */
+    fun detachGameSurface(): Boolean {
+        val target = serviceMessenger
+        if (closed.get() || target == null) return false
+        return try {
+            target.send(Message.obtain(null, OEngineGameProcessService.MSG_DETACH_GAME_SURFACE))
+            true
+        } catch (_: RemoteException) {
             false
         }
     }
