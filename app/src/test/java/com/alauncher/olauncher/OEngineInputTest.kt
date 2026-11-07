@@ -115,6 +115,9 @@ class OEngineInputTest {
         assertEquals(12, OEngineAndroidGamepadMapper.buttonIndex(20)) // D-pad down
         assertEquals(13, OEngineAndroidGamepadMapper.buttonIndex(21)) // D-pad left
         assertNull(OEngineAndroidGamepadMapper.buttonIndex(110)) // GUIDE has no Mojo slot
+        assertEquals(4, OEngineAndroidGamepadMapper.triggerAxisIndex(104)) // L2
+        assertEquals(5, OEngineAndroidGamepadMapper.triggerAxisIndex(105)) // R2
+        assertNull(OEngineAndroidGamepadMapper.triggerAxisIndex(96))
     }
 
     @Test fun androidKeysMapToGlfwKeyNamespace() {
