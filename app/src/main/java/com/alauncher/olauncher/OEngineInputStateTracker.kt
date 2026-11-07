@@ -9,6 +9,7 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
     private val maxPressedControls = maxPressedControls
     private data class Control(val device: OEngineInputDevice, val code: Int)
     private val pressed = LinkedHashMap<Control, OEngineInputEvent>()
+    private val activeGamepadAxes = LinkedHashMap<Control, OEngineInputEvent>()
 
     val pressedCount: Int get() = pressed.size
     @Synchronized fun isPressed(device: OEngineInputDevice, code: Int): Boolean =
@@ -18,6 +19,13 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
     @Synchronized
     fun accept(event: OEngineInputEvent): OEngineInputEvent? {
         val control = Control(event.device, event.code)
+        if (event.device == OEngineInputDevice.GAMEPAD &&
+            event.action == OEngineInputAction.MOVE && event.code in 0..6) {
+            val neutral = if (event.code == 6) event.x == 0f && event.y == 0f
+                else event.value == 0f
+            if (neutral) activeGamepadAxes.remove(control) else activeGamepadAxes[control] = event
+            return event
+        }
         return when (event.action) {
             OEngineInputAction.DOWN -> {
                 if (pressed.containsKey(control) || pressed.size >= maxPressedControls) null
@@ -48,10 +56,14 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
             )
         }
         pressed.clear()
-        return releases
+        val neutralAxes = activeGamepadAxes.keys.toList().asReversed().map { control ->
+            neutralGamepadAxis(control.code, timestampNanos)
+        }
+        activeGamepadAxes.clear()
+        return releases + neutralAxes
     }
 
-    /** Releases only controls belonging to a disconnected Android input device class. */
+    /** Releases only controls and analog axes belonging to one device class. */
     @Synchronized
     fun releaseDevice(device: OEngineInputDevice, timestampNanos: Long = 0L): List<OEngineInputEvent> {
         val matching = pressed.entries.filter { it.key.device == device }.asReversed()
@@ -66,6 +78,16 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
             )
         }
         matching.forEach { pressed.remove(it.key) }
-        return releases
+        val axes = activeGamepadAxes.keys.filter { it.device == device }.asReversed()
+            .map { neutralGamepadAxis(it.code, timestampNanos) }
+        activeGamepadAxes.keys.removeAll { it.device == device }
+        return releases + axes
     }
+
+    private fun neutralGamepadAxis(code: Int, timestampNanos: Long) = OEngineInputEvent(
+        device = OEngineInputDevice.GAMEPAD,
+        action = OEngineInputAction.MOVE,
+        code = code,
+        timestampNanos = timestampNanos
+    )
 }
