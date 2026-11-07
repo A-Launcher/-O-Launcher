@@ -1419,48 +1419,132 @@ private fun AccountDestination(images: LauncherImages) {
 }
 @Composable
 private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
-    val categories = listOf("All", "Mods", "Resource Packs", "Data Packs", "Shaders", "Maps", "Worlds", "More")
+    val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
+    var projects by remember { mutableStateOf<List<OEngineModrinthCatalog.Project>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var totalHits by remember { mutableIntStateOf(0) }
+    var offset by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
-    BoxWithConstraints(Modifier.fillMaxWidth().height(availableHeight)) {
-        val contentHeight = this.maxHeight
-        val scale = (contentHeight / 700.dp).coerceIn(0.72f, 1.12f)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp * scale)) {
-        DestinationHero(images, "Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
-        Row(Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
-            Box(Modifier.weight(1f)) {
-                if (search.isEmpty()) Text("Search for mods, worlds, and more...", color = Muted, fontSize = 12.sp)
-                BasicTextField(value = search, onValueChange = { search = it }, singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 12.sp))
-            }
-            Icon(Icons.Filled.ExpandMore, contentDescription = "Filters", tint = Ink, modifier = Modifier.size(20.dp))
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            categories.forEach { category ->
-                val selected = selectedCategory == category
-                Surface(onClick = { selectedCategory = category }, color = if (selected) Color(0xFF704329) else Panel, shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)) {
-                    Text(category, Modifier.padding(horizontal = 15.dp, vertical = 9.dp), color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
-                }
-            }
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(if (search.isBlank()) "Featured $selectedCategory" else "Search results", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Ink)
-                Text("CurseForge community content", color = Muted, fontSize = 11.sp)
-            }
-            Text("VIEW ALL  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        }
-        Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().height(contentHeight * 0.25f)) {
-            Column(Modifier.fillMaxSize().padding(18.dp * scale), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
-                Spacer(Modifier.height(8.dp))
-                Text("CurseForge connection pending", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ink)
-                Text("Your API application is under review. Live projects, creators, ratings and downloads will appear here as soon as the key is configured.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+    fun loadProjects(reset: Boolean = true) {
+        if (loading) return
+        loading = true
+        error = null
+        scope.launch {
+            try {
+                val nextOffset = if (reset) 0 else offset + 20
+                val page = OEngineModrinthCatalog.search(
+                    query = search,
+                    type = OEngineModrinthCatalog.ProjectType.fromLabel(selectedCategory),
+                    offset = nextOffset,
+                    limit = 20
+                )
+                projects = if (reset) page.hits else projects + page.hits
+                totalHits = page.totalHits
+                offset = nextOffset
+            } catch (failure: Exception) {
+                error = failure.message ?: "Could not load community projects."
+            } finally {
+                loading = false
             }
         }
     }
+
+    LaunchedEffect(Unit) { loadProjects() }
+
+    BoxWithConstraints(Modifier.fillMaxWidth().height(availableHeight)) {
+        val contentHeight = maxHeight
+        val scale = (contentHeight / 700.dp).coerceIn(0.72f, 1.12f)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp * scale)
+        ) {
+            DestinationHero(images, "Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
+            Row(
+                Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
+                Box(Modifier.weight(1f)) {
+                    if (search.isEmpty()) Text("Search Modrinth projects...", color = Muted, fontSize = 12.sp)
+                    BasicTextField(
+                        value = search,
+                        onValueChange = { search = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 12.sp)
+                    )
+                }
+                TextButton(onClick = { loadProjects() }, enabled = !loading) { Text("SEARCH", color = Ink, fontWeight = FontWeight.Bold) }
+            }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                categories.forEach { category ->
+                    val selected = selectedCategory == category
+                    Surface(
+                        onClick = { selectedCategory = category; loadProjects() },
+                        color = if (selected) Color(0xFF704329) else Panel,
+                        shape = RoundedCornerShape(30.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)
+                    ) {
+                        Text(category, Modifier.padding(horizontal = 15.dp, vertical = 9.dp), color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (search.isBlank()) "Popular $selectedCategory" else "Search results", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Ink)
+                    Text("Powered by the public Modrinth API • $totalHits projects", color = Muted, fontSize = 11.sp)
+                }
+                if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = Gold, strokeWidth = 2.dp)
+            }
+            error?.let { message ->
+                Surface(color = Color(0xFFFFE5DF), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Text(message, Modifier.padding(14.dp), color = Color(0xFF8A2F20), fontSize = 12.sp)
+                }
+                TextButton(onClick = { loadProjects() }) { Text("RETRY") }
+            }
+            if (projects.isEmpty() && !loading && error == null) {
+                Surface(color = Panel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
+                        Text("No projects found", color = Ink, fontWeight = FontWeight.Bold)
+                        Text("Try another search or category.", color = Muted, fontSize = 11.sp)
+                    }
+                }
+            }
+            projects.forEach { project ->
+                Surface(
+                    color = Panel,
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(project.title, Modifier.weight(1f), color = Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(project.projectType.label.uppercase(), color = Color(0xFF8B5731), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text("by ${project.author}", color = Muted, fontSize = 10.sp)
+                        Text(project.description, color = Ink, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
+                        Text("${project.downloads} downloads  •  ${project.follows} followers", color = Muted, fontSize = 10.sp)
+                        TextButton(onClick = {
+                            val url = "https://modrinth.com/${project.projectType.apiValue.ifBlank { "mod" }}/${project.slug}"
+                            runCatching { contextStartActivity(url) }
+                        }) { Text("OPEN PROJECT  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            if (projects.size < totalHits) {
+                Button(onClick = { loadProjects(reset = false) }, enabled = !loading, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
+                    Text(if (loading) "LOADING…" else "LOAD MORE PROJECTS")
+                }
+            }
+            Text("Project discovery is live. Safe, version-aware installation will be connected to each instance's selected mod loader before downloads are enabled.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
         }
+    }
 }
 
 @Composable
