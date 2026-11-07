@@ -13,6 +13,7 @@ import android.os.RemoteException
 import android.os.IBinder
 import android.view.Surface
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.io.File
 
 /** Result of the isolated game-process IPC handshake. */
@@ -51,6 +52,8 @@ class OEngineGameProcessClient(
     private val mainResponseDelivered = AtomicBoolean(false)
     private val mainRunningDelivered = AtomicBoolean(false)
     private val mainInvocationAttempted = AtomicBoolean(false)
+    private val surfaceRequestId = AtomicLong(0L)
+    private val surfaceRequestPending = AtomicBoolean(false)
     private val probeRequestPending = AtomicBoolean(false)
     private val createRequestPending = AtomicBoolean(false)
     private val rendererPreloadRequestPending = AtomicBoolean(false)
@@ -58,6 +61,11 @@ class OEngineGameProcessClient(
     private val mainRequestPending = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
+    private val surfaceTimeoutRunnable = Runnable {
+        if (surfaceRequestPending.compareAndSet(true, false)) {
+            onGameSurface(Result.failure(IllegalStateException("The game process did not attach the Android Surface within 10 seconds.")))
+        }
+    }
     private val mainStartTimeoutRunnable = Runnable {
         if (mainStartedDelivered.compareAndSet(false, true)) {
             mainResponseDelivered.set(true)
@@ -153,7 +161,12 @@ class OEngineGameProcessClient(
         when (message.what) {
             OEngineGameProcessService.MSG_GAME_SURFACE_RESULT -> {
                 val data = message.data
-                val result = OEngineJvmLibraryProbe(
+                if (data.getLong(OEngineGameProcessService.KEY_SURFACE_REQUEST_ID) != surfaceRequestId.get()) {
+                    true
+                } else {
+                    timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+                    surfaceRequestPending.set(false)
+                    val result = OEngineJvmLibraryProbe(
                     successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
                     status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
                     detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
@@ -163,8 +176,9 @@ class OEngineGameProcessClient(
                     if (result.successful) "IPC_GAME_SURFACE_ATTACHED" else "IPC_GAME_SURFACE_FAILED",
                     result.status + " • " + result.detail
                 )
-                onGameSurface(Result.success(result))
-                true
+                    onGameSurface(Result.success(result))
+                    true
+                }
             }
             OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
                 val data = message.data
@@ -473,16 +487,24 @@ class OEngineGameProcessClient(
     fun attachGameSurface(surface: Surface, width: Int, height: Int): Boolean {
         val target = serviceMessenger
         if (closed.get() || target == null || !surface.isValid) return false
+        val requestId = surfaceRequestId.incrementAndGet()
+        surfaceRequestPending.set(true)
+        timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
         val request = Message.obtain(null, OEngineGameProcessService.MSG_ATTACH_GAME_SURFACE).apply {
             data.putParcelable(OEngineGameProcessService.KEY_GAME_SURFACE, surface)
             data.putInt(OEngineGameProcessService.KEY_SURFACE_WIDTH, width.coerceAtLeast(1))
             data.putInt(OEngineGameProcessService.KEY_SURFACE_HEIGHT, height.coerceAtLeast(1))
+            data.putLong(OEngineGameProcessService.KEY_SURFACE_REQUEST_ID, requestId)
             replyTo = replyMessenger
         }
         return try {
             target.send(request)
+            timeoutHandler.postDelayed(surfaceTimeoutRunnable, 10_000L)
             true
-        } catch (_: RemoteException) {
+        } catch (error: RemoteException) {
+            surfaceRequestPending.set(false)
+            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+            onGameSurface(Result.failure(error))
             false
         }
     }
@@ -491,6 +513,9 @@ class OEngineGameProcessClient(
     fun detachGameSurface(): Boolean {
         val target = serviceMessenger
         if (closed.get() || target == null) return false
+        surfaceRequestId.incrementAndGet()
+        surfaceRequestPending.set(false)
+        timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
         return try {
             target.send(Message.obtain(null, OEngineGameProcessService.MSG_DETACH_GAME_SURFACE))
             true
