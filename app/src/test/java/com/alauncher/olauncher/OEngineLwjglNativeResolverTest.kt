@@ -40,11 +40,16 @@ class OEngineLwjglNativeResolverTest {
         try {
             val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
                 "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass())
-            val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
+            val glfw = jar(root, "org/lwjgl/lwjgl-glfw/3.3.3/lwjgl-glfw-3.3.3.jar",
+                "org/lwjgl/glfw/GLFW.class" to byteArrayOf(1, 2, 3))
+            val resolution = OEngineLwjglNativeResolver.resolve(listOf(core, glfw))
 
             assertEquals(OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX, resolution.loaderSurface)
             assertTrue(resolution.ndlopenSignaturePresent)
-            assertTrue(resolution.blockers.isEmpty())
+            assertTrue(resolution.glfwModulePresent)
+            assertTrue(resolution.glfwJavaClassPresent)
+            assertFalse(resolution.androidGlfwNativeProviderIntegrated)
+            assertTrue(resolution.blockers.any { it.contains("Java/JNI provider is not yet adapted") })
             assertTrue(resolution.warnings.any { it.contains("register its retained-renderer ndlopen hook") })
         } finally { root.deleteRecursively() }
     }
@@ -61,6 +66,19 @@ class OEngineLwjglNativeResolverTest {
 
             assertEquals(OEngineLwjglGeneration.UNKNOWN, result.generation)
             assertTrue(result.blockers.any { it.contains("mixes LWJGL major generations") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun blocksLwjgl3WhenGlfwModuleIsMissing() {
+        val root = Files.createTempDirectory("oengine-lwjgl3-no-glfw").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass())
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core))
+            assertFalse(result.glfwModulePresent)
+            assertFalse(result.glfwJavaClassPresent)
+            assertTrue(result.blockers.any { it.contains("missing the lwjgl-glfw module") })
         } finally { root.deleteRecursively() }
     }
 
