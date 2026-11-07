@@ -83,7 +83,19 @@ object OEngineInstalledContentManager {
                 val worldName = requireNotNull(entry.worldName) { "A world must be selected for this data pack." }
                 require(worldName.isNotBlank() && worldName != "." && worldName != ".." &&
                     !worldName.contains("/") && !worldName.contains("\\"))
-                File(root, "saves/$worldName/datapacks").canonicalFile
+                val saves = File(root, "saves")
+                val world = File(saves, worldName)
+                val dataPacks = File(world, "datapacks")
+                require(
+                    !Files.isSymbolicLink(saves.toPath()) &&
+                        saves.isDirectory &&
+                        saves.canonicalFile.parentFile == root &&
+                        !Files.isSymbolicLink(world.toPath()) &&
+                        world.isDirectory &&
+                        world.canonicalFile.parentFile == saves.canonicalFile &&
+                        !Files.isSymbolicLink(dataPacks.toPath())
+                ) { "The selected world folder is no longer safe." }
+                dataPacks.canonicalFile
             }
             else -> File(root, entry.kind.directory).canonicalFile
         }
