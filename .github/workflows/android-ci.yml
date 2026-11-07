@@ -194,6 +194,37 @@ jobs:
               missing_ltw = expected_abis - set(ltw_entries)
               if missing_ltw:
                   raise SystemExit(f"Pinned LTW renderer missing ABIs from APK: {sorted(missing_ltw)}")
+              for abi in sorted(expected_abis):
+                  for library in ("libglfw.so", "libmojoexec.so", "liblinkerhook.so"):
+                      path = f"lib/{abi}/{library}"
+                      if path not in archive.namelist() or archive.getinfo(path).file_size < 64:
+                          raise SystemExit(f"{abi}: packaged Android GLFW dependency missing or empty: {library}")
+                  print(f"{abi}: verified Android GLFW, MojoExec and linker-hook libraries")
+              if "lib/arm64-v8a/libfopenhook.so" not in archive.namelist():
+                  raise SystemExit("arm64-v8a: MojoExec fopenhook dependency is missing")
+              glfw_symbols = {
+                  "glfwInit",
+                  "glfwPollEvents",
+                  "glfwCreateWindow",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_initialize",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceCreated",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",
+              }
+              for abi in sorted(expected_abis):
+                  path = f"lib/{abi}/libglfw.so"
+                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
+                      native.write(archive.read(path))
+                      native.flush()
+                      output = subprocess.check_output(
+                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
+                          text=True
+                      )
+                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
+                      absent = glfw_symbols - exported
+                      if absent:
+                          raise SystemExit(f"{abi}: Android GLFW exports missing: {sorted(absent)}")
+                      print(f"{abi}: verified Android GLFW entry points: {sorted(glfw_symbols)}")
               for abi, name in sorted(ltw_entries.items()):
                   if archive.getinfo(name).file_size < 64:
                       raise SystemExit(f"{abi}: packaged LTW native library is unexpectedly small")
