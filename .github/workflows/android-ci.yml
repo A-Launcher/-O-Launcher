@@ -322,7 +322,6 @@ jobs:
                       exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
                       required_lwjgl_jni = {
                           "Java_org_lwjgl_system_JNI_invokePB__JJ",
-                          "Java_org_lwjgl_system_JNI_invokeC__J",
                           "Java_org_lwjgl_system_MemoryAccessJNI_getPointerSize",
                           "Java_org_lwjgl_system_MemoryAccessJNI_malloc",
                           "Java_org_lwjgl_system_MemoryAccessJNI_calloc",
