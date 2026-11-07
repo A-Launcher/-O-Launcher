@@ -35,6 +35,11 @@ object MinecraftAuth {
                     "The selected skin is not a valid PNG file."
                 }
             }
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeFile(skinFile.absolutePath, bounds)
+            require(bounds.outWidth == 64 && bounds.outHeight == 64) {
+                "Minecraft Java skins must be a 64 × 64 PNG image."
+            }
             val boundary = "OLauncherSkin" + java.util.UUID.randomUUID().toString().replace("-", "")
             val connection = (URL("https://api.minecraftservices.com/minecraft/profile/skins")
                 .openConnection() as HttpURLConnection).apply {
