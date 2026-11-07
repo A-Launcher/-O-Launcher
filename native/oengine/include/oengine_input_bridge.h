@@ -35,11 +35,12 @@ size_t oengine_input_drain(OEngineNativeInputEvent *output, size_t capacity);
  */
 typedef void (*OEngineGlfwKeyCallback)(void *window, int32_t key, int32_t scancode, int32_t action, int32_t mods);
 typedef void (*OEngineGlfwCharCallback)(void *window, uint32_t codepoint);
+typedef void (*OEngineGlfwCharModsCallback)(void *window, uint32_t codepoint, int32_t mods);
 typedef void (*OEngineGlfwCursorPosCallback)(void *window, double x, double y);
 typedef void (*OEngineGlfwMouseButtonCallback)(void *window, int32_t button, int32_t action, int32_t mods);
 typedef void (*OEngineGlfwScrollCallback)(void *window, double x, double y);
 typedef void (*OEnginePlatformInputCallback)(
-    void *window, int32_t device, int32_t action, int32_t code,
+    void *window, int32_t device, int32_t action, int32_t code, int32_t scan_code,
     float x, float y, float value, int64_t timestamp_nanos,
     int32_t modifiers, uint32_t codepoint
 );
@@ -47,6 +48,7 @@ typedef void (*OEnginePlatformInputCallback)(
 typedef struct OEngineNativeInputCallbacks {
     OEngineGlfwKeyCallback key;
     OEngineGlfwCharCallback character;
+    OEngineGlfwCharModsCallback character_mods;
     OEngineGlfwCursorPosCallback cursor_position;
     OEngineGlfwMouseButtonCallback mouse_button;
     OEngineGlfwScrollCallback scroll;
