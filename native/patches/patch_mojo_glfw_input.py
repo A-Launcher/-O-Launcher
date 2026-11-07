@@ -246,10 +246,25 @@ if "input_event_t wake = {0};" not in text:
         raise SystemExit("Pinned Mojo nativeSurfaceUpdated wake anchor changed")
     text = text.replace(surface_update_anchor, surface_update_replacement, 1)
 
-surface_destroy_anchor = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
+surface_destroy_anchor = '''JNIEXPORT void JNICALL
+Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
                                                                            jclass clazz) {
-    surfaceDestroyed = true;'''
-surface_destroy_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
+    surfaceDestroyed = true;
+    if(!ownedByVulkan && surfaceInUse) {
+        pthread_mutex_lock(&nw_egl_mutex);
+        pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
+        LOGI("Unhalted after window destruction");
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+        pthread_mutex_unlock(&nw_egl_mutex);
+    }else {
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+    }
+
+}'''
+surface_destroy_replacement = '''JNIEXPORT void JNICALL
+Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
                                                                            jclass clazz) {
     surfaceDestroyed = true;
     input_event_t wake = {0};
@@ -257,9 +272,8 @@ surface_destroy_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeS
     android_send_event(&wake);
     if (!ownedByVulkan) {
         pthread_mutex_lock(&nw_egl_mutex);
-        /* Check the predicate while holding the same mutex used by the waiter.
-           A while-loop avoids a lost wake if GLFW switches to pbuffer just
-           before this thread enters pthread_cond_wait. */
+        /* Test the predicate under the condition mutex to avoid a lost wake
+           if the GLFW thread switches to pbuffer before this waiter sleeps. */
         while (surfaceInUse)
             pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
         if (nativeWindow) {
@@ -267,20 +281,18 @@ surface_destroy_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeS
             nativeWindow = NULL;
         }
         pthread_mutex_unlock(&nw_egl_mutex);
-    } else {
-        if (nativeWindow) {
-            ANativeWindow_release(nativeWindow);
-            nativeWindow = NULL;
-        }
+    } else if (nativeWindow) {
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
     }
 }'''
-if "surfaceDestroyed = true;\n    input_event_t wake" not in text:
+if "while (surfaceInUse)" not in text:
     if surface_destroy_anchor not in text:
-        raise SystemExit("Pinned Mojo nativeSurfaceDestroyed wake anchor changed")
+        raise SystemExit("Pinned Mojo nativeSurfaceDestroyed full function anchor changed")
     text = text.replace(surface_destroy_anchor, surface_destroy_replacement, 1)
-
 if "while (surfaceInUse)" not in text or "pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);" not in text:
     raise SystemExit("Android Surface destroy waiter must use a mutex-protected predicate loop")
+
 
 source.write_text(text, encoding="utf-8")
 print("Patched pinned Mojo Android GLFW poll/wait paths for O Engine keyboard, mouse and primary-touch input.")
