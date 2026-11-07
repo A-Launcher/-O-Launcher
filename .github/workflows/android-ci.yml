@@ -321,8 +321,19 @@ jobs:
                       )
                       exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
                       required_lwjgl_jni = {
+                          "Java_org_lwjgl_system_JNI_invokePB__JJ",
+                          "Java_org_lwjgl_system_JNI_invokeC__J",
                           "Java_org_lwjgl_system_MemoryAccessJNI_getPointerSize",
                           "Java_org_lwjgl_system_MemoryAccessJNI_malloc",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_calloc",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_realloc",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_free",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_aligned_1alloc",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_aligned_1free",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_ngetByte",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_ngetAddress",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_nputByte",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_nputAddress",
                           "Java_org_lwjgl_system_MemoryUtil_memGlobalRefToObject",
                           "Java_org_lwjgl_system_SharedLibraryUtil_getLibraryPath",
                           "Java_org_lwjgl_system_ThreadLocalUtil_getThreadJNIEnv",
