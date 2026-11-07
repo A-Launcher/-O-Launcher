@@ -22,6 +22,16 @@ class OEngineInstalledContentManagerTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun ignoresFoldersThatAreNotMinecraftWorlds() {
+        val root = Files.createTempDirectory("oengine-not-world").toFile()
+        try {
+            File(root, "saves/FolderOnly/datapacks/fake.zip").apply { parentFile.mkdirs(); writeText("fake") }
+            val entries = OEngineInstalledContentManager.list(root)
+            assertTrue(entries.none { it.kind == OEngineInstalledContentManager.Kind.DATA_PACK })
+            assertTrue(OEngineInstalledContentManager.worldNames(root).isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun listsDataPacksInsideEachWorld() {
         val root = Files.createTempDirectory("oengine-world-packs").toFile()
         try {
