@@ -1530,6 +1530,11 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
+    var marketplaceSource by remember { mutableStateOf("Modrinth") }
+    var curseForgeProjects by remember { mutableStateOf<List<OEngineCurseForgeCatalog.Project>>(emptyList()) }
+    var curseForgeKey by remember { mutableStateOf(OEngineCurseForgeKeyStore.get(context).orEmpty()) }
+    var curseForgeKeyInput by remember { mutableStateOf("") }
+    var curseForgeKeyStatus by remember { mutableStateOf<String?>(null) }
     var projects by remember { mutableStateOf<List<OEngineModrinthCatalog.Project>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1632,20 +1637,19 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
         scope.launch {
             try {
                 val nextOffset = if (reset) 0 else offset + 20
-                val page = OEngineModrinthCatalog.search(
-                    query = search,
-                    type = typeOverride,
-                    offset = nextOffset,
-                    limit = 20
-                )
-                projects = if (reset) page.hits else projects + page.hits
-                totalHits = page.totalHits
+                if (marketplaceSource == "CurseForge") {
+                    val page = OEngineCurseForgeCatalog.search(curseForgeKey, search, selectedCategory, nextOffset, 20)
+                    curseForgeProjects = if (reset) page.projects else curseForgeProjects + page.projects
+                    totalHits = page.totalCount
+                } else {
+                    val page = OEngineModrinthCatalog.search(query = search, type = typeOverride, offset = nextOffset, limit = 20)
+                    projects = if (reset) page.hits else projects + page.hits
+                    totalHits = page.totalHits
+                }
                 offset = nextOffset
             } catch (failure: Exception) {
                 error = failure.message ?: "Could not load community projects."
-            } finally {
-                loading = false
-            }
+            } finally { loading = false }
         }
     }
 
@@ -1659,6 +1663,55 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             verticalArrangement = Arrangement.spacedBy(14.dp * scale)
         ) {
             DestinationHero(images, "Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                listOf("Modrinth", "CurseForge").forEach { source ->
+                    val selected = marketplaceSource == source
+                    Surface(onClick = {
+                        if (!loading && marketplaceSource != source) {
+                            marketplaceSource = source
+                            error = null
+                            offset = 0
+                            loadProjects(reset = true)
+                        }
+                    }, modifier = Modifier.weight(1f), color = if (selected) Color(0xFF704329) else Panel,
+                        shape = RoundedCornerShape(12.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                        Text(source, Modifier.padding(vertical = 11.dp), textAlign = TextAlign.Center,
+                            color = if (selected) Color.White else Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (marketplaceSource == "CurseForge") {
+                Surface(color = Panel, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(if (curseForgeKey.isBlank()) "CURSEFORGE API KEY REQUIRED" else "CURSEFORGE API KEY SAVED ON THIS DEVICE",
+                            color = Ink, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        BasicTextField(value = curseForgeKeyInput, onValueChange = { curseForgeKeyInput = it },
+                            modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(9.dp)).padding(10.dp),
+                            singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 11.sp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Button(onClick = {
+                                runCatching { OEngineCurseForgeKeyStore.save(context, curseForgeKeyInput) }
+                                    .onSuccess {
+                                        curseForgeKey = OEngineCurseForgeKeyStore.get(context).orEmpty()
+                                        curseForgeKeyInput = ""
+                                        curseForgeKeyStatus = "API key encrypted and saved on this device."
+                                        loadProjects(reset = true)
+                                    }.onFailure { curseForgeKeyStatus = it.message ?: "Could not save API key." }
+                            }, enabled = curseForgeKeyInput.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("SAVE API KEY") }
+                            if (curseForgeKey.isNotBlank()) TextButton(onClick = {
+                                OEngineCurseForgeKeyStore.clear(context)
+                                curseForgeKey = ""
+                                curseForgeKeyInput = ""
+                                curseForgeKeyStatus = "Saved API key removed from this device."
+                                curseForgeProjects = emptyList()
+                            }) { Text("REMOVE", color = Color(0xFF8A2F20)) }
+                        }
+                        curseForgeKeyStatus?.let { Text(it, color = Muted, fontSize = 10.sp) }
+                        Text("Your key is encrypted with Android Keystore and is never committed to GitHub.", color = Muted, fontSize = 9.sp)
+                    }
+                }
+            }
             Row(
                 Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1666,7 +1719,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             ) {
                 Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
                 Box(Modifier.weight(1f)) {
-                    if (search.isEmpty()) Text("Search Modrinth projects...", color = Muted, fontSize = 12.sp)
+                    if (search.isEmpty()) Text("Search $marketplaceSource projects...", color = Muted, fontSize = 12.sp)
                     BasicTextField(
                         value = search,
                         onValueChange = { search = it },
@@ -1692,7 +1745,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(if (search.isBlank()) "Popular $selectedCategory" else "Search results", fontSize = 20.sp, fontWeight = FontWeight.Black, color = Ink)
-                    Text("Powered by the public Modrinth API • $totalHits projects", color = Muted, fontSize = 11.sp)
+                    Text("$marketplaceSource • $totalHits projects", color = Muted, fontSize = 11.sp)
                 }
                 if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = Gold, strokeWidth = 2.dp)
             }
@@ -1702,7 +1755,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 }
                 TextButton(onClick = { loadProjects() }) { Text("RETRY") }
             }
-            if (projects.isEmpty() && !loading && error == null) {
+            if ((if (marketplaceSource == "Modrinth") projects.isEmpty() else curseForgeProjects.isEmpty()) && !loading && error == null) {
                 Surface(color = Panel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Filled.Storefront, contentDescription = null, tint = Color(0xFF9A6A48), modifier = Modifier.size(31.dp))
@@ -1711,7 +1764,31 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     }
                 }
             }
-            projects.forEach { project ->
+            if (marketplaceSource == "CurseForge") {
+                curseForgeProjects.forEach { project ->
+                    Surface(color = Panel, shape = RoundedCornerShape(16.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Border.copy(alpha = .8f)),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(project.name, Modifier.weight(1f), color = Ink, fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("CURSEFORGE", color = Color(0xFF8B5731), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                            }
+                            Text("by " + project.authors.joinToString().ifBlank { "Unknown creator" }, color = Muted, fontSize = 10.sp)
+                            Text(project.summary, color = Ink, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
+                            Text(project.downloads.toString() + " downloads", color = Muted, fontSize = 10.sp)
+                            Text("Latest: " + project.latestFiles.joinToString().ifBlank { "Open project for available files" },
+                                color = Muted, fontSize = 9.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            TextButton(onClick = {
+                                project.websiteUrl?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } }
+                            }, enabled = project.websiteUrl != null) {
+                                Text("OPEN CURSEFORGE PROJECT  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            } else projects.forEach { project ->
                 Surface(
                     color = Panel,
                     shape = RoundedCornerShape(16.dp),
@@ -1740,7 +1817,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                     }
                 }
             }
-            if (projects.size < totalHits) {
+            if ((if (marketplaceSource == "Modrinth") projects.size else curseForgeProjects.size) < totalHits) {
                 Button(onClick = { loadProjects(reset = false) }, enabled = !loading, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
                     Text(if (loading) "LOADING…" else "LOAD MORE PROJECTS")
                 }
