@@ -41,6 +41,7 @@ object MinecraftAuth {
                 requestMethod = "POST"
                 connectTimeout = 15000
                 readTimeout = 30000
+                instanceFollowRedirects = false
                 doOutput = true
                 setRequestProperty("Authorization", "Bearer $accessToken")
                 setRequestProperty("Accept", "application/json")
@@ -60,7 +61,8 @@ object MinecraftAuth {
                 }
                 val status = connection.responseCode
                 val body = (if (status in 200..299) connection.inputStream else connection.errorStream)
-                    ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                    ?.let { readBoundedResponse(it, 256 * 1024) }.orEmpty()
+                if (status in 300..399) error("Minecraft skin upload endpoint returned an unexpected redirect (HTTP $status).")
                 if (status !in 200..299) {
                     val detail = runCatching { JSONObject(body).optString("errorMessage") }.getOrNull()
                         ?.takeIf(String::isNotBlank)
@@ -153,6 +155,22 @@ object MinecraftAuth {
         MinecraftAccount(name, uuid, refresh, mc.getString("access_token"))
     }
 
+    private fun readBoundedResponse(stream: java.io.InputStream, maxBytes: Int): String {
+        stream.use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                require(total <= maxBytes) { "Authentication server response exceeded the allowed size." }
+                output.write(buffer, 0, count)
+            }
+            return output.toString(Charsets.UTF_8.name())
+        }
+    }
+
     private fun form(url: String, fields: Map<String,String>) = request(url, "POST", encode(fields), "application/x-www-form-urlencoded")
     private fun formAllowOAuthErrors(url: String, fields: Map<String,String>) = request(url, "POST", encode(fields), "application/x-www-form-urlencoded", allowOAuthErrors = true)
     private fun json(url: String, body: JSONObject) = request(url, "POST", body.toString(), "application/json")
@@ -162,6 +180,8 @@ object MinecraftAuth {
     private fun request(url: String, method: String, body: String?, type: String?, authorization: String? = null, allowOAuthErrors: Boolean = false): JSONObject {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method; connectTimeout = 15000; readTimeout = 20000
+            // Never forward credentials to a redirect target.
+            instanceFollowRedirects = false
             setRequestProperty("Accept","application/json")
             authorization?.let { setRequestProperty("Authorization",it) }
             type?.let { setRequestProperty("Content-Type",it) }
@@ -169,7 +189,8 @@ object MinecraftAuth {
         }
         try {
             val status = c.responseCode
-            val raw = (if (status in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val raw = readBoundedResponse(if (status in 200..299) c.inputStream else c.errorStream, 2 * 1024 * 1024)
+            if (status in 300..399) error("Authentication endpoint returned an unexpected redirect (HTTP $status).")
             val j = try { JSONObject(raw) } catch (_: Exception) { JSONObject().put("error_description", raw.ifBlank { "HTTP $status" }) }
             if (status !in 200..299 && !(allowOAuthErrors && j.has("error"))) {
                 error(j.optString("error_description").ifBlank { j.optString("Message").ifBlank { "Request failed (HTTP $status)." } })
