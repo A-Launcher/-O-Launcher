@@ -25,7 +25,7 @@ object OEngineCurseForgeCatalog {
             require(index >= 0 && pageSize in 1..50)
             val classId = when (category) {
                 "Mods" -> 6
-                "Modpacks" -> 447
+                "Modpacks" -> 4471
                 "Resource Packs" -> 12
                 "Worlds" -> 17
                 "Shaders" -> 6552
@@ -34,7 +34,7 @@ object OEngineCurseForgeCatalog {
             val params = mutableListOf("gameId=$MINECRAFT_GAME_ID", "index=$index", "pageSize=$pageSize", "sortField=2", "sortOrder=desc")
             if (classId != null) params += "classId=$classId"
             if (query.isNotBlank()) params += "searchFilter=" + URLEncoder.encode(query.trim(), Charsets.UTF_8.name())
-            val connection = (URL("$API/mods?${params.joinToString("&")}").openConnection() as HttpURLConnection).apply {
+            val connection = (URL("$API/mods/search?${params.joinToString("&")}").openConnection() as HttpURLConnection).apply {
                 connectTimeout = 12_000; readTimeout = 20_000; requestMethod = "GET"
                 setRequestProperty("x-api-key", apiKey)
                 setRequestProperty("Accept", "application/json")
