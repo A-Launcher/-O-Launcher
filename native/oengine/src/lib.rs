@@ -167,11 +167,12 @@ fn native_input_queue() -> &'static Mutex<OEngineNativeInputQueue> {
 pub struct OEngineNativeInputCallbacks {
     pub key: Option<unsafe extern "C" fn(*mut c_void, i32, i32, i32, i32)>,
     pub character: Option<unsafe extern "C" fn(*mut c_void, u32)>,
+    pub character_mods: Option<unsafe extern "C" fn(*mut c_void, u32, i32)>,
     pub cursor_position: Option<unsafe extern "C" fn(*mut c_void, f64, f64)>,
     pub mouse_button: Option<unsafe extern "C" fn(*mut c_void, i32, i32, i32)>,
     pub scroll: Option<unsafe extern "C" fn(*mut c_void, f64, f64)>,
     pub platform_event: Option<unsafe extern "C" fn(
-        *mut c_void, i32, i32, i32, f32, f32, f32, i64, i32, u32
+        *mut c_void, i32, i32, i32, i32, f32, f32, f32, i64, i32, u32
     )>,
 }
 
@@ -199,6 +200,9 @@ unsafe fn dispatch_native_input_event(
                     if let Some(callback) = callbacks.character {
                         callback(window, event.codepoint);
                     }
+                    if let Some(callback) = callbacks.character_mods {
+                        callback(window, event.codepoint, event.modifiers);
+                    }
                 }
             }
         }
@@ -217,8 +221,8 @@ unsafe fn dispatch_native_input_event(
         // Touch and gamepad remain backend-specific. Preserve their complete payload rather
         // than incorrectly pretending Android pointer IDs are GLFW mouse buttons.
         0 | 3 => if let Some(callback) = callbacks.platform_event {
-            callback(window, event.device, event.action, event.code, event.x, event.y,
-                event.value, event.timestamp_nanos, event.modifiers, event.codepoint);
+            callback(window, event.device, event.action, event.code, event.scan_code,
+                event.x, event.y, event.value, event.timestamp_nanos, event.modifiers, event.codepoint);
         },
         _ => {}
     }
@@ -1255,6 +1259,9 @@ mod native_input_dispatch_tests {
     unsafe extern "C" fn character(_window: *mut c_void, codepoint: u32) {
         record(2, codepoint as i64, 0);
     }
+    unsafe extern "C" fn character_mods(_window: *mut c_void, codepoint: u32, mods: i32) {
+        record(7, codepoint as i64, mods as i64);
+    }
     unsafe extern "C" fn cursor(_window: *mut c_void, x: f64, y: f64) {
         record(3, x as i64, y as i64);
     }
@@ -1265,7 +1272,7 @@ mod native_input_dispatch_tests {
         record(5, x as i64, y as i64);
     }
     unsafe extern "C" fn platform(
-        _window: *mut c_void, device: i32, action: i32, _code: i32,
+        _window: *mut c_void, device: i32, action: i32, _code: i32, _scan_code: i32,
         _x: f32, _y: f32, _value: f32, _time: i64, _mods: i32, _codepoint: u32
     ) {
         record(6, device as i64, action as i64);
@@ -1277,7 +1284,7 @@ mod native_input_dispatch_tests {
         let trace = TRACE.get_or_init(|| Mutex::new(Vec::new()));
         trace.lock().unwrap().clear();
         let callbacks = OEngineNativeInputCallbacks {
-            key: Some(key), character: Some(character), cursor_position: Some(cursor),
+            key: Some(key), character: Some(character), character_mods: Some(character_mods), cursor_position: Some(cursor),
             mouse_button: Some(mouse), scroll: Some(scroll), platform_event: Some(platform),
         };
         let window = ptr::null_mut();
@@ -1299,7 +1306,7 @@ mod native_input_dispatch_tests {
             });
         }
         assert_eq!(*trace.lock().unwrap(), vec![
-            (1, 87, 1), (2, 119, 0), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
+            (1, 87, 1), (2, 119, 0), (7, 119, 1), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
         ]);
     }
 
@@ -1321,11 +1328,11 @@ mod native_input_dispatch_tests {
             device: 1, action: 0, code: 65, codepoint: 97, ..Default::default()
         });
         let callbacks = OEngineNativeInputCallbacks {
-            key: Some(key), character: Some(character), ..Default::default()
+            key: Some(key), character: Some(character), character_mods: Some(character_mods), ..Default::default()
         };
         let count = unsafe { oengine_input_dispatch(ptr::null_mut(), &callbacks, 8) };
         assert_eq!(count, 1);
-        assert_eq!(*TRACE.get().unwrap().lock().unwrap(), vec![(1, 65, 1), (2, 97, 0)]);
+        assert_eq!(*TRACE.get().unwrap().lock().unwrap(), vec![(1, 65, 1), (2, 97, 0), (7, 97, 0)]);
         oengine_input_clear_session();
     }
 
@@ -1350,7 +1357,7 @@ mod native_input_dispatch_tests {
     fn callback_table_is_a_c_compatible_pointer_table() {
         assert_eq!(
             std::mem::size_of::<OEngineNativeInputCallbacks>(),
-            6 * std::mem::size_of::<usize>()
+            7 * std::mem::size_of::<usize>()
         );
     }
 }
