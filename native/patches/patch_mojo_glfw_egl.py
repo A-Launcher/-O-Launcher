@@ -410,7 +410,7 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
     }
     if (!target || !share.make_current)
     {
-        if (surfaceInUse && wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
+        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE && currentMode != GLFW_ANDROID_WINDOW_MODE_SURFACE) {
             pthread_mutex_lock(&nw_egl_mutex);
             surfaceInUse = false;
             pthread_cond_broadcast(&nw_egl_cond);
@@ -425,7 +425,8 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
         (OEngineAndroidMakeCurrentFn) share.make_current;
     if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
     {
-        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
+        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE &&
+            currentMode != GLFW_ANDROID_WINDOW_MODE_SURFACE) {
             pthread_mutex_lock(&nw_egl_mutex);
             surfaceInUse = false;
             pthread_cond_broadcast(&nw_egl_cond);
