@@ -1511,6 +1511,20 @@ type OEngineEglGetProcAddress = unsafe extern "C" fn(*const c_char) -> *mut c_vo
 type OEngineGlGetString = unsafe extern "C" fn(u32) -> *const u8;
 type OEngineGlViewport = unsafe extern "C" fn(i32, i32, i32, i32);
 
+#[repr(C)]
+pub struct OEngineLtwEglShareInfo {
+    pub display: *mut c_void,
+    pub config: *mut c_void,
+    pub context: *mut c_void,
+    pub pbuffer: *mut c_void,
+    pub window_surface: *mut c_void,
+    pub create_context: *mut c_void,
+    pub make_current: *mut c_void,
+    pub destroy_context: *mut c_void,
+    pub destroy_surface: *mut c_void,
+    pub swap_buffers: *mut c_void,
+}
+
 struct OEngineLtwEglSession {
     egl_library: *mut c_void,
     gles_library: *mut c_void,
@@ -1728,6 +1742,38 @@ unsafe fn with_ltw_egl_session<'a>(handle: jlong) -> Result<&'a mut OEngineLtwEg
         return Err("LTW EGL operation called from a thread other than its creating game thread.".to_owned());
     }
     Ok(session)
+}
+
+/// Expose the active LTW-tracked EGL context to a native GLFW adapter for context sharing.
+#[no_mangle]
+pub unsafe extern "C" fn oengine_ltw_egl_share_info(
+    handle: u64,
+    output: *mut OEngineLtwEglShareInfo,
+) -> u32 {
+    if output.is_null() {
+        set_ltw_egl_error("LTW EGL share-info output pointer is null.".to_owned());
+        return 0;
+    }
+    let session = match with_ltw_egl_session(handle as jlong) {
+        Ok(session) => session,
+        Err(error) => {
+            set_ltw_egl_error(error);
+            return 0;
+        }
+    };
+    *output = OEngineLtwEglShareInfo {
+        display: session.display,
+        config: session.config,
+        context: session.context,
+        pbuffer: session.pbuffer,
+        window_surface: session.window_surface,
+        create_context: session.ltw_create_context as *const () as *mut c_void,
+        make_current: session.ltw_make_current as *const () as *mut c_void,
+        destroy_context: session.ltw_destroy_context as *const () as *mut c_void,
+        destroy_surface: session.egl_destroy_surface as *const () as *mut c_void,
+        swap_buffers: session.egl_swap_buffers as *const () as *mut c_void,
+    };
+    1
 }
 
 #[no_mangle]
