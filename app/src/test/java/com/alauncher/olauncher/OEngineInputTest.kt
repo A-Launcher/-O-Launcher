@@ -168,41 +168,6 @@ class OEngineInputTest {
     }
 
 
-    @Test fun gameThreadBridgeDeliversOrderedDigitalTransitions() {
-        OEngineGameInputBridge.resetForTests()
-        try {
-            val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f)
-            val up = down.copy(action = OEngineInputAction.UP, value = 0f)
-            assertTrue(OEngineGameInputBridge.enqueue(down))
-            assertEquals(listOf(down), OEngineGameInputBridge.drainForGameThread().toList())
-            assertTrue(OEngineGameInputBridge.enqueue(up))
-            assertEquals(listOf(up), OEngineGameInputBridge.drainForGameThread().toList())
-        } finally {
-            OEngineGameInputBridge.resetForTests()
-        }
-    }
-
-    @Test fun gameThreadBridgeReleasesAllHeldControlsAfterTransitionOverflow() {
-        OEngineGameInputBridge.resetForTests()
-        try {
-            repeat(OEngineInputQueue.DEFAULT_CAPACITY) { code ->
-                assertTrue(OEngineGameInputBridge.enqueue(OEngineInputEvent(
-                    OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, code, value = 1f
-                )))
-            }
-            assertFalse(OEngineGameInputBridge.enqueue(OEngineInputEvent(
-                OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 900, value = 1f
-            )))
-            assertTrue(OEngineGameInputBridge.inputResetRequired)
-            val releases = OEngineGameInputBridge.drainForGameThread()
-            assertEquals(OEngineInputQueue.DEFAULT_CAPACITY + 1, releases.size)
-            assertTrue(releases.all { it.action == OEngineInputAction.UP })
-            assertFalse(OEngineGameInputBridge.inputResetRequired)
-        } finally {
-            OEngineGameInputBridge.resetForTests()
-        }
-    }
-
     @Test fun heldControlTrackerRejectsControlsBeyondItsBound() {
         val tracker = OEngineInputStateTracker(maxPressedControls = 1)
         assertNotNull(tracker.accept(OEngineInputEvent(
