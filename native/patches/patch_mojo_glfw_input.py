@@ -101,9 +101,15 @@ void oengine_wake_input(void) {
 static void oengine_drain_input_events(void) {
     static OEngineInputDispatchFn dispatch = NULL;
     static void* native_handle = NULL;
+    static uint32_t (*process_surface)(void) = NULL;
+    if (!native_handle)
+        native_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
+    if (native_handle && !process_surface)
+        process_surface = (uint32_t (*)(void)) dlsym(native_handle, "oengine_ltw_egl_process_pending_window");
+    /* EGL is mutated only here, on the LTW/GLFW owner thread, never on Binder. */
+    if (process_surface) process_surface();
     if (!surfaceOwner) return;
     if (!dispatch) {
-        native_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
         if (native_handle)
             dispatch = (OEngineInputDispatchFn) dlsym(native_handle, "oengine_input_dispatch");
     }
