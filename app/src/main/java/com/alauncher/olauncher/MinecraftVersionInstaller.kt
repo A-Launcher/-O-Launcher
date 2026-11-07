@@ -346,7 +346,8 @@ object MinecraftVersionInstaller {
         gameDirectory: File,
         playerName: String = "Player",
         playerUuid: String = "00000000000000000000000000000000",
-        accessToken: String = "0"
+        accessToken: String = "0",
+        loaderProfileId: String? = null
     ): LaunchPlan = withContext(Dispatchers.IO) {
         val versionDirectory = File(File(gameDirectory, "versions"), version.id)
         val metadataFile = File(versionDirectory, "${version.id}.json")
@@ -355,24 +356,43 @@ object MinecraftVersionInstaller {
             throw IllegalStateException("Download and verify the Minecraft client before preparing launch settings.")
         }
         val metadata = JSONObject(metadataFile.readText())
+        val loaderMetadata = loaderProfileId?.let { id ->
+            require(id.matches(Regex("[A-Za-z0-9._-]{1,128}"))) { "Invalid loader profile ID." }
+            val loaderFile = File(File(gameDirectory, "versions/$id"), "$id.json")
+            require(loaderFile.isFile) { "Install the selected loader profile before launching." }
+            JSONObject(loaderFile.readText()).also { profile ->
+                require(profile.optString("inheritsFrom") == version.id) {
+                    "The selected loader profile does not inherit from Minecraft ${version.id}."
+                }
+            }
+        }
+        val launchVersionId = loaderMetadata?.optString("id")?.takeIf { it.isNotBlank() } ?: version.id
         val metadataJavaMajor = metadata.optJSONObject("javaVersion")?.optInt("majorVersion")?.takeIf { it > 0 }
         val javaCompatibility = OEngineJavaCompatibility.resolve(version.id, metadataJavaMajor)
         val javaMajorVersion = javaCompatibility.runtimeJavaMajor
-        val mainClass = metadata.optString("mainClass")
+        val mainClass = loaderMetadata?.optString("mainClass")?.takeIf { it.isNotBlank() }
+            ?: metadata.optString("mainClass")
         if (mainClass.isBlank()) throw IllegalStateException("Minecraft version metadata does not contain a main class.")
         val classpath = mutableListOf<String>()
         classpath.add(clientJar.absolutePath)
-        val libraries = metadata.optJSONArray("libraries")
-        if (libraries != null) {
+        val libraryRoot = File(gameDirectory, "libraries").canonicalFile
+        for (source in listOfNotNull(metadata, loaderMetadata)) {
+            val libraries = source.optJSONArray("libraries") ?: continue
             for (i in 0 until libraries.length()) {
                 val library = libraries.optJSONObject(i) ?: continue
                 if (!isAllowedForAndroid(library.optJSONArray("rules"))) continue
-                val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
-                val relative = artifact.optString("path")
-                if (relative.isBlank()) continue
-                val file = File(File(gameDirectory, "libraries"), relative).canonicalFile
-                if (!file.toPath().startsWith(File(gameDirectory, "libraries").canonicalFile.toPath())) continue
-                if (file.isFile && file.length() > 0L) classpath.add(file.absolutePath)
+                val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact")
+                val relative = artifact?.optString("path")?.takeIf { it.isNotBlank() }
+                    ?: OEngineLoaderInstaller.mavenArtifactPath(library.optString("name"))?.takeIf {
+                        library.optString("name").isNotBlank()
+                    }
+                    ?: continue
+                val file = File(libraryRoot, relative).canonicalFile
+                if (!file.toPath().startsWith(libraryRoot.toPath())) continue
+                if (!file.isFile || file.length() == 0L) {
+                    throw IllegalStateException("Required Minecraft/loader library is missing: ${library.optString("name")}")
+                }
+                classpath.add(file.absolutePath)
             }
         }
         val assetIndex = metadata.optJSONObject("assetIndex")?.optString("id").orEmpty()
@@ -415,14 +435,14 @@ object MinecraftVersionInstaller {
                 }
             }
         }
+        val argumentSources = listOfNotNull(metadata.optJSONObject("arguments"), loaderMetadata?.optJSONObject("arguments"))
         val gameArguments = mutableListOf<String>()
-        val modernArguments = metadata.optJSONObject("arguments")
-        if (modernArguments != null) {
-            collectArguments(modernArguments.optJSONArray("game"), gameArguments)
+        if (argumentSources.isNotEmpty()) {
+            argumentSources.forEach { collectArguments(it.optJSONArray("game"), gameArguments) }
         } else {
-            val legacy = metadata.optString("minecraftArguments")
-            if (legacy.isNotBlank()) {
-                val tokens = Regex("""\"([^\"]*)\"|'([^']*)'|(\S+)""")
+            val legacyValues = listOf(metadata.optString("minecraftArguments"), loaderMetadata?.optString("minecraftArguments").orEmpty())
+            for (legacy in legacyValues.filter { it.isNotBlank() }) {
+                val tokens = Regex("""\"([^\"]*)\"|'([^']*)'|(\\S+)""")
                     .findAll(legacy)
                     .map { match ->
                         match.groups[1]?.value ?: match.groups[2]?.value ?: match.groups[3]?.value.orEmpty()
@@ -431,7 +451,7 @@ object MinecraftVersionInstaller {
             }
         }
         val jvmArguments = mutableListOf<String>()
-        collectArguments(modernArguments?.optJSONArray("jvm"), jvmArguments)
+        argumentSources.forEach { collectArguments(it.optJSONArray("jvm"), jvmArguments) }
         LaunchPlan(
             version = version.id,
             mainClass = mainClass,
@@ -444,7 +464,7 @@ object MinecraftVersionInstaller {
         )
     }
 
-    private fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
+    internal fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
         if (rules == null || rules.length() == 0) return true
         var allowed = false
         for (index in 0 until rules.length()) {
