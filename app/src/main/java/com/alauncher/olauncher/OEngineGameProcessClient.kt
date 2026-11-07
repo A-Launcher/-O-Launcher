@@ -37,6 +37,7 @@ class OEngineGameProcessClient(
     private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmMainStarted: (OEngineJvmLibraryProbe) -> Unit = {},
     private val onJvmMainRunning: (OEngineJvmLibraryProbe) -> Unit = {}
+    private val onGameSurface: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val closed = AtomicBoolean(false)
@@ -150,6 +151,21 @@ class OEngineGameProcessClient(
     }
     private val replyMessenger = Messenger(Handler(Looper.getMainLooper()) { message ->
         when (message.what) {
+            OEngineGameProcessService.MSG_GAME_SURFACE_RESULT -> {
+                val data = message.data
+                val result = OEngineJvmLibraryProbe(
+                    successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
+                    status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
+                    detail = data.getString(OEngineGameProcessService.KEY_PROBE_DETAIL).orEmpty()
+                )
+                OEngineSessionLog.append(
+                    appContext,
+                    if (result.successful) "IPC_GAME_SURFACE_ATTACHED" else "IPC_GAME_SURFACE_FAILED",
+                    result.status + " • " + result.detail
+                )
+                onGameSurface(Result.success(result))
+                true
+            }
             OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
                 val data = message.data
                 val status = OEngineGameProcessStatus(
