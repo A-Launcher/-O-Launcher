@@ -19,6 +19,7 @@ const ABI_VERSION: u32 = 1;
 struct HookConfig {
     selected_alias: CString,
     renderer_handle: usize,
+    renderer_path: CString,
 }
 
 static HOOK_CONFIG: OnceLock<RwLock<Option<HookConfig>>> = OnceLock::new();
@@ -1137,7 +1138,26 @@ unsafe extern "system" fn lwjgl_ndlopen_hook(
     if let Ok(guard) = hook_config().read() {
         if let Some(config) = guard.as_ref() {
             if is_redirect_candidate(filename.to_bytes(), config.selected_alias.as_bytes()) {
-                return config.renderer_handle as jlong;
+                // LWJGL owns the handle returned by ndlopen and may call dlclose.
+                // Duplicate the retained renderer reference so LWJGL can release
+                // its own handle without unloading the LTW library still owned by
+                // O Engine's EGL session.
+                let handle = libc::dlopen(
+                    config.renderer_path.as_ptr(),
+                    libc::RTLD_NOW | libc::RTLD_LOCAL,
+                );
+                if handle.is_null() {
+                    if let Ok(mut error) = RENDERER_HOOK_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
+                        let detail = libc::dlerror();
+                        *error = if detail.is_null() {
+                            "Could not duplicate the retained LTW handle for LWJGL.".to_owned()
+                        } else {
+                            format!("Could not duplicate the retained LTW handle for LWJGL: {}", CStr::from_ptr(detail).to_string_lossy())
+                        };
+                    }
+                    return 0;
+                }
+                return handle as jlong;
             }
         }
     }
@@ -1266,6 +1286,15 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Ok(value) => value,
         Err(_) => { set_error("Renderer alias contains an invalid NUL byte."); return 0; },
     };
+    let renderer_path = RENDERER_LIBRARIES.get()
+        .and_then(|state| state.lock().ok())
+        .and_then(|libraries| libraries.iter()
+            .find(|(_, handle)| *handle == renderer_handle as usize)
+            .map(|(path, _)| path.clone()));
+    let Some(renderer_path) = renderer_path else {
+        set_error("The retained renderer path could not be matched to its native handle.");
+        return 0;
+    };
 
     let creator = HOTSPOT_CREATOR_THREAD.get()
         .and_then(|state| state.lock().ok())
@@ -1392,7 +1421,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         Err(_) => { set_error("Renderer hook state lock is poisoned."); return 0; },
     };
     if let Some(existing) = guard.as_ref() {
-        if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize {
+        if existing.selected_alias != alias || existing.renderer_handle != renderer_handle as usize ||
+            existing.renderer_path != renderer_path {
             set_error("A different renderer hook is already installed in this process.");
             return 0;
         }
@@ -1414,6 +1444,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         *guard = Some(HookConfig {
             selected_alias: alias,
             renderer_handle: renderer_handle as usize,
+            renderer_path,
         });
     }
     drop(guard);
