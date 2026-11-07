@@ -44,4 +44,21 @@ class OEngineLoaderVersionCatalogTest {
         assertNotNull(OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE))
         assertNull(OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.FABRIC))
     }
+    @Test fun forgeMavenCatalogIncludesAllMinecraftScopedVersionsAndMarksRecommended() {
+        val versions = OEngineLoaderVersionCatalog.parseForgeMaven(
+            "1.20.1",
+            "<metadata><versioning><versions>" +
+                "<version>1.20.1-47.1.0</version>" +
+                "<version>1.20.1-47.2.0</version>" +
+                "<version>1.20.2-48.0.0</version>" +
+                "</versions></versioning></metadata>",
+            """{"promos":{"1.20.1-recommended":"47.1.0"}}"""
+        )
+        assertEquals(listOf("47.1.0", "47.2.0"), versions.map { it.version }.sorted())
+        assertEquals("47.1.0", versions.single { it.stable }.version)
+        assertTrue(versions.all { it.loader == OEngineModLoader.FORGE })
+        assertTrue(versions.all { it.installerUrl!!.contains("/1.20.1-") })
+    }
+
 }
+
