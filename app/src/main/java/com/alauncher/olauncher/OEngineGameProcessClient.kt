@@ -178,7 +178,7 @@ class OEngineGameProcessClient(
                     if (result.successful) "IPC_GAME_SURFACE_ATTACHED" else "IPC_GAME_SURFACE_FAILED",
                     result.status + " • " + result.detail
                 )
-                    onGameSurface(Result.success(result))
+                    onGameSurface(if (result.successful) Result.success(result) else Result.failure(IllegalStateException(result.detail.ifBlank { result.status })))
                     true
                 }
             }
