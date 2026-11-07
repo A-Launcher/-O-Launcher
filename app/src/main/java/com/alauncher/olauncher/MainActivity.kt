@@ -1871,6 +1871,15 @@ private fun InstallationsDestination(images: LauncherImages) {
     var selectedLoader by remember(context) {
         mutableStateOf(profilePreferences.getString("loader.$selectedProfile", "Vanilla") ?: "Vanilla")
     }
+    var loaderVersions by remember { mutableStateOf<List<OEngineLoaderVersionCatalog.LoaderVersion>>(emptyList()) }
+    var selectedLoaderVersion by remember { mutableStateOf<String?>(null) }
+    var loaderVersionsLoading by remember { mutableStateOf(false) }
+    var installingLoader by remember { mutableStateOf(false) }
+    var loaderInstallStatus by remember { mutableStateOf("Select a loader and Minecraft version to discover compatible releases.") }
+    var installedLoaderProfileId by remember(context, selectedProfile) {
+        mutableStateOf(profilePreferences.getString("loader_profile.$selectedProfile", null))
+    }
+    var loaderVersionMenu by remember { mutableStateOf(false) }
     var versions by remember { mutableStateOf<List<MinecraftRelease>>(emptyList()) }
     var selectedRelease by remember { mutableStateOf<MinecraftRelease?>(null) }
     var latestReleaseId by remember { mutableStateOf<String?>(null) }
@@ -1938,6 +1947,40 @@ private fun InstallationsDestination(images: LauncherImages) {
             versionsLoading = false
         }
     }
+    LaunchedEffect(selectedLoader, selectedVersion) {
+        val loader = when (selectedLoader) {
+            "Fabric" -> OEngineModLoader.FABRIC
+            "Quilt" -> OEngineModLoader.QUILT
+            "Forge" -> OEngineModLoader.FORGE
+            "NeoForge" -> OEngineModLoader.NEOFORGE
+            "OptiFine" -> OEngineModLoader.OPTIFINE
+            else -> OEngineModLoader.VANILLA
+        }
+        if (loader == OEngineModLoader.VANILLA || selectedVersion == "Loading…" || selectedVersion == "Unavailable") {
+            loaderVersions = emptyList()
+            selectedLoaderVersion = null
+            return@LaunchedEffect
+        }
+        loaderVersionsLoading = true
+        loaderInstallStatus = "Loading official $selectedLoader versions for Minecraft $selectedVersion…"
+        try {
+            loaderVersions = OEngineLoaderVersionCatalog.fetch(loader, selectedVersion)
+            selectedLoaderVersion = profilePreferences.getString("loader_version.$selectedProfile", null)
+                ?.takeIf { saved -> loaderVersions.any { it.version == saved } }
+                ?: loaderVersions.firstOrNull()?.version
+            loaderInstallStatus = if (loaderVersions.isEmpty()) {
+                if (loader == OEngineModLoader.OPTIFINE) "OptiFine uses its official manual installer flow."
+                else "No compatible $selectedLoader releases were returned for Minecraft $selectedVersion."
+            } else "Found ${loaderVersions.size} compatible $selectedLoader releases."
+        } catch (error: Exception) {
+            loaderVersions = emptyList()
+            selectedLoaderVersion = null
+            loaderInstallStatus = error.message ?: "Could not load $selectedLoader versions."
+        } finally {
+            loaderVersionsLoading = false
+        }
+    }
+
     var showCreateProfile by remember { mutableStateOf(false) }
     var profileName by remember { mutableStateOf("") }
     val profiles = remember(context) {
@@ -1961,6 +2004,7 @@ private fun InstallationsDestination(images: LauncherImages) {
             profilePreferences.edit().putString("version.$name", release.id).apply()
         }
         selectedLoader = profilePreferences.getString("loader.$name", "Vanilla") ?: "Vanilla"
+        installedLoaderProfileId = profilePreferences.getString("loader_profile.$name", null)
         profilePreferences.edit().putString("selected_profile", name).apply()
         preparedLaunchPlan = null
         launchPlanStatus = "Selected profile: $name"
@@ -2716,7 +2760,8 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             instance.root,
                                             account.name,
                                             account.uuid,
-                                            account.accessToken
+                                            account.accessToken,
+                                            installedLoaderProfileId
                                         )
                                         preparedLaunchPlan = authenticatedPlan
                                         withTimeout(15_000L) {
@@ -2783,7 +2828,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                         Text("Choose the mod platform for this game profile.", color = Muted, fontSize = 12.sp)
                     }
                     Surface(color = Color(0xFFFFE5A5), shape = RoundedCornerShape(10.dp)) {
-                        Text("4 LOADERS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Text("5 LOADERS", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 9.sp, fontWeight = FontWeight.Black)
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -2806,7 +2851,97 @@ private fun InstallationsDestination(images: LauncherImages) {
                         profilePreferences.edit().putString("loader.$selectedProfile", "OptiFine").apply()
                     }, Modifier.weight(1f))
                 }
-                Text("Selected: $selectedLoader  •  Selection is visual for now; loader downloads and installation are not connected yet.", color = Muted, fontSize = 11.sp)
+                LoaderOptionCard("Quilt", "Community mod platform", R.drawable.loader_fabric, selectedLoader == "Quilt", {
+                    selectedLoader = "Quilt"
+                    installedLoaderProfileId = null
+                    profilePreferences.edit().remove("loader_profile.$selectedProfile").putString("loader.$selectedProfile", "Quilt").apply()
+                }, Modifier.fillMaxWidth().height(92.dp))
+                if (selectedLoader != "Vanilla") {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box {
+                            OutlinedButton(onClick = { loaderVersionMenu = true }, enabled = !loaderVersionsLoading && loaderVersions.isNotEmpty()) {
+                                Text(selectedLoaderVersion ?: if (loaderVersionsLoading) "Loading versions…" else "No compatible versions")
+                            }
+                            DropdownMenu(expanded = loaderVersionMenu, onDismissRequest = { loaderVersionMenu = false }) {
+                                loaderVersions.forEach { item ->
+                                    DropdownMenuItem(
+                                        text = { Text(item.version + if (item.stable) "  •  Recommended" else "") },
+                                        onClick = {
+                                            selectedLoaderVersion = item.version
+                                            profilePreferences.edit().putString("loader_version.$selectedProfile", item.version).apply()
+                                            loaderVersionMenu = false
+                                            installedLoaderProfileId = null
+                                            profilePreferences.edit().remove("loader_profile.$selectedProfile").apply()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                val release = selectedRelease
+                                val version = selectedLoaderVersion
+                                if (release == null || version == null) {
+                                    loaderInstallStatus = "Choose a Minecraft version and a compatible loader release first."
+                                } else {
+                                    scope.launch {
+                                        installingLoader = true
+                                        try {
+                                            val loader = when (selectedLoader) {
+                                                "Fabric" -> OEngineModLoader.FABRIC
+                                                "Quilt" -> OEngineModLoader.QUILT
+                                                "Forge" -> OEngineModLoader.FORGE
+                                                "NeoForge" -> OEngineModLoader.NEOFORGE
+                                                else -> OEngineModLoader.OPTIFINE
+                                            }
+                                            if (loader == OEngineModLoader.FABRIC || loader == OEngineModLoader.QUILT) {
+                                                val result = OEngineLoaderInstaller.install(
+                                                    loader, release.id, version, activeInstance.root
+                                                ) { done, total, label ->
+                                                    loaderInstallStatus = "$label ($done/$total)"
+                                                }
+                                                installedLoaderProfileId = result.profileId
+                                                profilePreferences.edit()
+                                                    .putString("loader_profile.$selectedProfile", result.profileId)
+                                                    .putString("loader_version.$selectedProfile", version)
+                                                    .apply()
+                                                preparedLaunchPlan = null
+                                                loaderInstallStatus = "Installed $selectedLoader $version • ${result.librariesInstalled} libraries • ${result.bytesDownloaded / 1024} KB downloaded. Profile metadata saved."
+                                            } else {
+                                                val staged = OEngineInstallerJarStager.stage(
+                                                    loader, release.id, version, activeInstance.root
+                                                ) { received, total ->
+                                                    loaderInstallStatus = if (total > 0) {
+                                                        "Downloading $selectedLoader installer: ${received * 100 / total}%"
+                                                    } else "Downloading $selectedLoader installer: ${received / 1024} KB"
+                                                }
+                                                loaderInstallStatus = "$selectedLoader installer downloaded and SHA-1 verified (${staged.bytes / 1024} KB). Mojo installer-agent execution is the next integration step; this is not installed yet."
+                                            }
+                                        } catch (error: Exception) {
+                                            loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
+                                        } finally {
+                                            installingLoader = false
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !loaderVersionsLoading && !installingLoader && selectedLoaderVersion != null &&
+                                selectedLoader != "OptiFine",
+                            colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                        ) {
+                            Text(if (installingLoader) "WORKING…" else "INSTALL LOADER")
+                        }
+                    }
+                    Text(loaderInstallStatus, color = Muted, fontSize = 11.sp)
+                    if (installedLoaderProfileId != null) {
+                        Text("Installed profile: $installedLoaderProfileId", color = Color(0xFF38764B), fontSize = 11.sp)
+                    }
+                    if (selectedLoader == "OptiFine") {
+                        Text("Official installer: ${OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE)}", color = Muted, fontSize = 10.sp)
+                    }
+                } else {
+                    Text("Vanilla Minecraft profile selected.", color = Muted, fontSize = 11.sp)
+                }
                 if (selectedLoader == "OptiFine") {
                     Text("OptiFine compatibility depends on the Minecraft version; many releases use Forge.", color = Muted, fontSize = 10.sp)
                 }
