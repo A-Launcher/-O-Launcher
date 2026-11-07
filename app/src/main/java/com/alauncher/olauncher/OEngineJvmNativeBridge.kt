@@ -1,6 +1,7 @@
 package com.alauncher.olauncher
 
 import java.io.File
+import android.view.Surface
 
 /** Result of a JVM linker or creation smoke test executed in the isolated game process. */
 data class OEngineJvmLibraryProbe(
@@ -32,6 +33,26 @@ object OEngineJvmNativeBridge {
     private external fun nativeInstallLwjglHook(targetClassName: String, selectedAlias: String, rendererHandle: Long): Boolean
 
     private external fun nativeRendererHookError(): String
+
+    private external fun nativeAcquireWindow(surface: Surface, width: Int, height: Int): Long
+
+    private external fun nativeReleaseWindow(handle: Long)
+
+    /** Acquire a native Android window reference for the future GLFW/EGL bridge. */
+    internal fun acquireNativeWindow(surface: Surface, width: Int, height: Int): Long {
+        require(surface.isValid && width > 0 && height > 0) { "Native game window requires a valid Surface and positive dimensions." }
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        return nativeAcquireWindow(surface, width, height).also {
+            check(it != 0L) { "ANativeWindow_fromSurface or native buffer geometry setup failed." }
+        }
+    }
+
+    /** Release exactly one reference returned by acquireNativeWindow. */
+    internal fun releaseNativeWindow(handle: Long) {
+        if (handle == 0L) return
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        nativeReleaseWindow(handle)
+    }
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
         require(plan.structurallyReady) {
