@@ -620,6 +620,7 @@ class OEngineGameProcessClient(
             surfaceRequestId.incrementAndGet()
             serviceMessenger = null
             inputMessenger = null
+            surfaceMessenger = null
             OEngineSessionLog.append(appContext, "IPC_CLIENT_CLOSED", "Game-process client closed")
             runCatching { appContext.unbindService(connection) }
         }
