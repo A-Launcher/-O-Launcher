@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Checkout pinned LTW source
         uses: actions/checkout@v4
@@ -81,6 +83,33 @@ jobs:
         run: |
           set -euo pipefail
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o ../../app/src/main/jniLibs build --release
+
+      - name: Build pinned Android GLFW backend for all Android ABIs
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            build_dir="$RUNNER_TEMP/oengine-glfw-$abi"
+            cmake -S native/android-glfw -B "$build_dir" \
+              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="$abi" -DANDROID_PLATFORM=26 \
+              -DGLFW_BUILD_ANDROID=ON -DBUILD_SHARED_LIBS=ON \
+              -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF \
+              -DGLFW_BUILD_DOCS=OFF -DGLFW_INSTALL=OFF
+            cmake --build "$build_dir" --parallel 2
+            destination="app/src/main/jniLibs/$abi"
+            mkdir -p "$destination"
+            for library in libglfw.so libmojoexec.so liblinkerhook.so; do
+              source="$(find "$build_dir" -type f -name "$library" -print -quit)"
+              test -n "$source" && test -s "$source"
+              cp "$source" "$destination/$library"
+            done
+            if [ "$abi" = "arm64-v8a" ]; then
+              source="$(find "$build_dir" -type f -name libfopenhook.so -print -quit)"
+              test -n "$source" && test -s "$source"
+              cp "$source" "$destination/libfopenhook.so"
+            fi
+            echo "Built Android GLFW + MojoExec for $abi"
+          done
 
       - name: Build and package pinned LTW release AAR
         working-directory: .third_party/LTW
