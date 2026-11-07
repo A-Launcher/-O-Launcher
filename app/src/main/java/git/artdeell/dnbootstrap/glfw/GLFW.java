@@ -81,6 +81,20 @@ public final class GLFW {
         }
     }
 
+    /** Reacquires pointer capture after Android automatically releases it on focus loss. */
+    public static void onHostWindowFocusChanged(View view, boolean hasFocus) {
+        if (hostView != view) return;
+        view.post(() -> {
+            if (hostView != view || Build.VERSION.SDK_INT < 26) return;
+            if (hasFocus && cursorGrabbed) {
+                applyCursor(view, true);
+                view.requestPointerCapture();
+            } else if (!cursorGrabbed) {
+                applyCursor(view, false);
+            }
+        });
+    }
+
     public static void receiveCursorPos(double x, double y) {
         cursorX = x;
         cursorY = y;
