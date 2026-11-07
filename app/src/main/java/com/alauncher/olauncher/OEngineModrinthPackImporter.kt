@@ -95,7 +95,8 @@ object OEngineModrinthPackImporter {
             }
 
             var copied = 0
-            var overrideBytes = 0L
+            // The 2 GiB cap applies to the complete imported pack, not each source separately.
+            var overrideBytes = expectedTotal
             val firstOverrides = copyOverrides(zip, "overrides/", root, overrideBytes)
             copied += firstOverrides.first
             overrideBytes = firstOverrides.second
@@ -148,21 +149,26 @@ object OEngineModrinthPackImporter {
             require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
             verifySafeDestination(root, destination)
             val temp = File(destination.parentFile, destination.name + ".oengine-part")
-            zip.getInputStream(entry).use { input ->
-                temp.outputStream().buffered().use { output ->
-                    val buffer = ByteArray(32768)
-                    var count = 0L
-                    while (true) {
-                        val n = input.read(buffer)
-                        if (n < 0) break
-                        count += n
-                        totalBytes += n
-                        require(count <= MAX_FILE && totalBytes <= MAX_TOTAL) { "Modpack overrides exceed the extraction safety limit." }
-                        output.write(buffer, 0, n)
+            try {
+                zip.getInputStream(entry).use { input ->
+                    temp.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(32768)
+                        var count = 0L
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            count += n
+                            totalBytes += n
+                            require(count <= MAX_FILE && totalBytes <= MAX_TOTAL) { "Modpack overrides exceed the extraction safety limit." }
+                            output.write(buffer, 0, n)
+                        }
                     }
                 }
+                moveIntoPlace(temp, destination)
+            } catch (failure: Exception) {
+                temp.delete()
+                throw failure
             }
-            moveIntoPlace(temp, destination)
             copied++
         }
         return copied to totalBytes
