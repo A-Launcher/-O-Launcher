@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.22.1)
 project(OEngineAndroidGlfw LANGUAGES C)
 
 # Build the pinned MojoLauncher Android platform port of GLFW 3.5.
-# This is a separate platform backend artifact; it is not yet the Minecraft
-# LWJGL JNI library and must not be described as a working game event pump.
+# This builds the Android GLFW C API consumed by LWJGL's function-pointer table.
+# O Engine performs a runtime export/version gate before HotSpot binds this library;
+# the build alone does not prove Minecraft's renderer or event loop works.
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(GLFW_LIBRARY_TYPE SHARED CACHE STRING "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
