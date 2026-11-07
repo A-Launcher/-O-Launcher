@@ -136,13 +136,14 @@ class OEngineInputTest {
 
     @Test fun focusLossSynthesizesUpsInReversePressOrder() {
         val tracker = OEngineInputStateTracker()
-        assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87)))
+        assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, scanCode = 42)))
         assertNotNull(tracker.accept(OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.DOWN, 0)))
         assertEquals(2, tracker.pressedCount)
         val releases = tracker.releaseAll(123L)
         assertEquals(listOf(OEngineInputDevice.MOUSE, OEngineInputDevice.KEYBOARD),
             releases.map { it.device })
         assertTrue(releases.all { it.action == OEngineInputAction.UP && it.timestampNanos == 123L })
+        assertEquals(42, releases.last().scanCode)
         assertEquals(0, tracker.pressedCount)
     }
 
