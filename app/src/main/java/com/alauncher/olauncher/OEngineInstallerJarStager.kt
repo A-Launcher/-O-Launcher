@@ -139,7 +139,7 @@ object OEngineInstallerJarStager {
         val connection = openHttps(address, "text/plain")
         try {
             if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("Official installer checksum request failed (HTTP ${connection.responseCode})."
+                throw IllegalStateException("Official installer checksum request failed (HTTP ${connection.responseCode}).")
             }
             val output = StringBuilder()
             connection.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
