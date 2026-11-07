@@ -326,6 +326,123 @@ if "oengine_init_uses_ltw)" not in text:
         raise SystemExit("EGL initialize call anchor changed")
     text = text.replace(initialize_anchor, initialize_replacement, 1)
 
+
+# Mojo's Android platform has its own surface-mode switcher in android_window.c.
+# Replace that path too: otherwise it would create/destroy a second EGLSurface
+# even though egl_context.c has been taught to borrow O Engine's LTW context.
+android_source = Path("native/upstream/mojo-glfw/src/android_window.c")
+android_text = android_source.read_text(encoding="utf-8")
+android_include = '#include "internal.h"\n'
+android_include_replacement = android_include + '#include "oengine_ltw_egl.h"\n#include <dlfcn.h>\n'
+if "oengine_ltw_egl.h" not in android_text:
+    if android_include not in android_text:
+        raise SystemExit("Pinned Mojo android_window.c include anchor changed")
+    android_text = android_text.replace(android_include, android_include_replacement, 1)
+
+android_helper = r'''
+typedef uint32_t (*OEngineAndroidActiveShareInfoFn)(OEngineLtwEglShareInfo*);
+static void* oengine_android_ltw_handle = NULL;
+static OEngineAndroidActiveShareInfoFn oengine_android_ltw_share_info_fn = NULL;
+
+static GLFWbool oengine_android_get_ltw_share_info(OEngineLtwEglShareInfo* info)
+{
+    if (!oengine_android_ltw_share_info_fn)
+    {
+        if (!oengine_android_ltw_handle)
+            oengine_android_ltw_handle = dlopen("liboengine_native.so", RTLD_NOW | RTLD_LOCAL);
+        if (oengine_android_ltw_handle)
+            oengine_android_ltw_share_info_fn = (OEngineAndroidActiveShareInfoFn)
+                dlsym(oengine_android_ltw_handle, "oengine_ltw_egl_active_share_info");
+    }
+    return oengine_android_ltw_share_info_fn && info &&
+        oengine_android_ltw_share_info_fn(info) == 1;
+}
+'''
+if "oengine_android_get_ltw_share_info" not in android_text:
+    android_anchor = "static struct ANativeWindow* nativeWindow = NULL;\n"
+    if android_anchor not in android_text:
+        raise SystemExit("Pinned Mojo Android native-window global anchor changed")
+    android_text = android_text.replace(android_anchor, android_anchor + android_helper, 1)
+
+manage_anchor = '''// Select a new EGLSurface
+EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
+'''
+manage_end = '''// Check if the surface has been changed before attempting to swap buffers
+'''
+start = android_text.find(manage_anchor)
+end = android_text.find(manage_end, start)
+if start < 0 or end < 0:
+    raise SystemExit("Pinned Mojo Android EGL surface manager anchor changed")
+manage_replacement = r'''// Select the LTW-owned EGLSurface; O Engine owns all EGL object lifetimes.
+EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
+    OEngineLtwEglShareInfo share = {0};
+    if (!oengine_android_get_ltw_share_info(&share))
+    {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL session is unavailable");
+        return EGL_NO_SURFACE;
+    }
+
+    int wantedMode = (window != surfaceOwner || surfaceDestroyed)
+        ? GLFW_ANDROID_WINDOW_MODE_PBUFFER
+        : GLFW_ANDROID_WINDOW_MODE_SURFACE;
+    int currentMode = window->android.mode;
+    EGLSurface target = wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE
+        ? (EGLSurface) share.window_surface
+        : (EGLSurface) share.pbuffer;
+
+    /* A Surface event can replace the EGLSurface without changing GLFW's mode. */
+    if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE && !target)
+    {
+        wantedMode = GLFW_ANDROID_WINDOW_MODE_PBUFFER;
+        target = (EGLSurface) share.pbuffer;
+    }
+    if (!target || !share.make_current)
+    {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL has no usable window/pbuffer surface");
+        return EGL_NO_SURFACE;
+    }
+
+    typedef EGLBoolean (*OEngineAndroidMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
+    OEngineAndroidMakeCurrentFn make_current =
+        (OEngineAndroidMakeCurrentFn) share.make_current;
+    if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
+    {
+        _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW eglMakeCurrent failed for Android surface mode");
+        return EGL_NO_SURFACE;
+    }
+
+    if (currentMode == GLFW_ANDROID_WINDOW_MODE_SURFACE &&
+        wantedMode != GLFW_ANDROID_WINDOW_MODE_SURFACE)
+    {
+        pthread_mutex_lock(&nw_egl_mutex);
+        pthread_cond_broadcast(&nw_egl_cond);
+        pthread_mutex_unlock(&nw_egl_mutex);
+        surfaceInUse = false;
+    }
+
+    if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE)
+    {
+        if (nativeWindow && surfaceUpdated)
+            updateNativeWindowDimensions(window);
+        surfaceInUse = true;
+    }
+
+    window->android.mode = wantedMode;
+    window->context.egl.surface = target;
+    return target;
+}
+
+'''
+android_text = android_text[:start] + manage_replacement + android_text[end:]
+
+if "eglCreateWindowSurface(display, config, nativeWindow" in android_text[android_text.find(manage_replacement[:50]):]:
+    raise SystemExit("Android EGL surface manager still creates its own native window surface")
+if "eglDestroySurface(_glfw.egl.display, oldSurface)" in android_text[android_text.find(manage_replacement[:50]):]:
+    raise SystemExit("Android EGL surface manager still destroys LTW-owned surfaces")
+if "oengine_android_get_ltw_share_info(&share)" not in android_text:
+    raise SystemExit("Android GLFW surface manager is not using LTW share-info")
+android_source.write_text(android_text, encoding="utf-8")
+
 required = [
     "oengine_get_ltw_share_info",
     "window->context.egl.handle = (EGLContext) oengine_ltw_share.context;",
