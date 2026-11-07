@@ -1416,6 +1416,46 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             renderer_handle: renderer_handle as usize,
         });
     }
+    drop(guard);
+
+    // Initialize LWJGL's OpenGL module before Minecraft main. This loads
+    // liblwjgl_opengl.so and, unless the user explicitly requested deferred GL
+    // initialization, resolves libGLMojo.so through the just-installed ndlopen
+    // hook. It catches missing native modules and a broken renderer alias early,
+    // while the LTW bootstrap pbuffer is current.
+    let gl_name = match env.new_string("org.lwjgl.opengl.GL") {
+        Ok(value) => value,
+        Err(error) => {
+            set_error(&format!("Cannot create LWJGL OpenGL probe class name: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    match env.call_static_method(
+        "java/lang/Class",
+        "forName",
+        "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;",
+        &[
+            JValue::Object(&JObject::from(gl_name)),
+            JValue::Bool(1),
+            JValue::Object(&loader),
+        ],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(class) if !class.is_null() => {}
+            _ => {
+                set_error("HotSpot returned a null LWJGL OpenGL class during native preflight.");
+                return 0;
+            }
+        },
+        Err(error) => {
+            set_error(&format!(
+                "LWJGL OpenGL native module or LTW driver initialization failed: {error}"
+            ));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    }
     set_error("");
     1
 }
