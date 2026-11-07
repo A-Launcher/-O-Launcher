@@ -1129,7 +1129,7 @@ unsafe extern "system" fn lwjgl_ndlopen_hook(
     _env: *mut RawJNIEnv,
     _class: jni::sys::jclass,
     filename_ptr: jlong,
-    mode: jint,
+    _mode: jint,
 ) -> jlong {
     if filename_ptr == 0 {
         return 0;
