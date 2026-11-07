@@ -325,6 +325,11 @@ private fun OEngineTouchJoystick(
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var knobY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var activeKeys by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(setOf<Int>()) }
+    DisposableEffect(Unit) {
+        onDispose {
+            activeKeys.forEach { onKey(it, false) }
+        }
+    }
 
     fun updateKeys(x: Float, y: Float, threshold: Float) {
         val next = buildSet {
