@@ -1253,8 +1253,9 @@ mod native_input_dispatch_tests {
         TRACE.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap().push((kind, first, second));
     }
 
-    unsafe extern "C" fn key(_window: *mut c_void, code: i32, _scan: i32, action: i32, _mods: i32) {
-        record(1, code as i64, action as i64);
+    unsafe extern "C" fn key(_window: *mut c_void, code: i32, scan: i32, action: i32, mods: i32) {
+        record(1, code as i64, scan as i64);
+        record(7, action as i64, mods as i64);
     }
     unsafe extern "C" fn character(_window: *mut c_void, codepoint: u32) {
         record(2, codepoint as i64, 0);
