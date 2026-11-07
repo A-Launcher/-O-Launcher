@@ -22,4 +22,10 @@ class OEngineModrinthInstallerTest {
   val body="""[{"id":"ver_123","files":[{"filename":"bad.jar","url":"http://x/a.jar","size":1,"hashes":{}},{"filename":"good.jar","url":"https://x/a.jar","size":1,"hashes":{"sha1":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}]}]"""
   assertEquals(listOf("good.jar"),OEngineModrinthInstaller.parseVersions(body).single().files.map { it.filename })
  }
+
+ @Test fun parsesSingleVersionEndpointObject() {
+  val body="""{"id":"v1","project_id":"p1","name":"Release","version_number":"1.0","game_versions":["1.20.1"],"loaders":["fabric"],"files":[{"filename":"mod.jar","url":"https://cdn.example/mod.jar","size":12,"primary":true,"hashes":{"sha1":"0123456789012345678901234567890123456789"}}],"dependencies":[]}"""
+  val parsed=OEngineModrinthInstaller.parseVersions(body)
+  assertEquals(1,parsed.size);assertEquals("v1",parsed.single().id);assertEquals("mod.jar",parsed.single().files.single().filename)
+ }
 }
