@@ -39,6 +39,8 @@ bridge = r'''
  * The Rust queue is reached by symbol lookup so libglfw remains a separate
  * shared object and does not acquire a link-time dependency on O Engine.
  */
+extern EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window);
+
 typedef size_t (*OEngineInputDispatchFn)(
     void*, const OEngineNativeInputCallbacks*, size_t
 );
@@ -108,6 +110,10 @@ static void oengine_drain_input_events(void) {
         process_surface = (uint32_t (*)(void)) dlsym(native_handle, "oengine_ltw_egl_process_pending_window");
     /* EGL is mutated only here, on the LTW/GLFW owner thread, never on Binder. */
     if (process_surface) process_surface();
+    /* Surface destruction can block the ART callback until surfaceInUse clears.
+       Apply the tracked pbuffer/window transition here to release that waiter. */
+    if (surfaceOwner && (surfaceDestroyed || surfaceUpdated))
+        _glfwManageEglSurfaceAndroid(surfaceOwner);
     if (!surfaceOwner) return;
     if (!dispatch) {
         if (native_handle)
@@ -161,6 +167,8 @@ text = text.replace(
     1,
 )
 
+if "_glfwManageEglSurfaceAndroid(surfaceOwner)" not in text:
+    raise SystemExit("GLFW event thread does not switch LTW surface modes to release Surface waiters")
 if "oengine_ltw_egl_process_pending_window" not in text or "process_surface()" not in text:
     raise SystemExit("GLFW event thread does not apply queued LTW Surface transitions")
 if "oengine_wake_input" not in text or "glfwPostEmptyEvent();" not in text:
