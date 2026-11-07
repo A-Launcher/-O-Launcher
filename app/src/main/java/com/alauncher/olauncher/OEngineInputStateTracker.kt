@@ -4,7 +4,9 @@ package com.alauncher.olauncher
  * Tracks digital controls that are currently down and synthesizes releases when Android
  * focus/surface ownership is lost. Call on the same serialized input-ingress thread.
  */
-class OEngineInputStateTracker {
+class OEngineInputStateTracker(maxPressedControls: Int = 512) {
+    init { require(maxPressedControls >= 1) }
+    private val maxPressedControls = maxPressedControls
     private data class Control(val device: OEngineInputDevice, val code: Int)
     private val pressed = LinkedHashMap<Control, OEngineInputEvent>()
 
@@ -16,7 +18,7 @@ class OEngineInputStateTracker {
         val control = Control(event.device, event.code)
         return when (event.action) {
             OEngineInputAction.DOWN -> {
-                if (pressed.containsKey(control)) null
+                if (pressed.containsKey(control) || pressed.size >= maxPressedControls) null
                 else {
                     pressed[control] = event
                     event
