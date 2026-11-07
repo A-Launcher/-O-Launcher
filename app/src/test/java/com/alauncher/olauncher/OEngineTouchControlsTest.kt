@@ -84,6 +84,22 @@ class OEngineTouchControlsTest {
         assertEquals(controls, OEngineTouchControls.decode(OEngineTouchControls.encode(controls)))
     }
 
+    @Test fun decodingRejectsMoreThanFortyEightControlsBeforeBuildingLayout() {
+        val items = (1..49).joinToString(",") { """{"id":"c$it","label":"C","keyCode":1,"x":0.1,"y":0.1}""" }
+        val json = """{"format":"oengine-touch-layout","version":1,"controls":[$items]}"""
+        try {
+            OEngineTouchControls.decode(json)
+            fail("Layouts with more than 48 controls must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
+    @Test fun decodingRejectsOversizedClipboardPayload() {
+        try {
+            OEngineTouchControls.decode(" ".repeat(16_385))
+            fail("Oversized layouts must be rejected before JSON parsing.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun controlDimensionsAndCoordinatesAreValidated() {
         try {
             OEngineTouchControl("bad", "BAD", KeyEvent.KEYCODE_A, 1.5f, .5f)
