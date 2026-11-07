@@ -49,3 +49,16 @@ The pinned Mojo Android GLFW event-poll adapter calls `oengine_ltw_egl_process_p
 Mojo's Android-specific `_glfwManageEglSurfaceAndroid` is patched to borrow the current LTW pbuffer/window surface and use the LTW `eglMakeCurrent` wrapper. It no longer creates or destroys a second EGL surface. Android Surface create/update/destroy callbacks push empty GLFW events to wake a thread in `glfwWaitEvents`; the GLFW poll adapter applies surface-mode changes and signals Mojo's `nw_egl_cond` so `nativeSurfaceDestroyed` can complete. The service sends a second wake after enqueueing detach so Rust can release the LTW window reference.
 
 This is source-level integration. Android CI must validate the patched upstream sources and packaged ABIs, and physical-device testing is still required to prove the actual Minecraft/LWJGL event loop and rendered frames.
+
+
+## Current render-bootstrap checkpoint (2026-11-07)
+
+The Android runtime prerequisites have advanced beyond the earlier historical checkpoints above:
+
+- The APK now packages ABI-matched Android `liblwjgl.so` and `liblwjgl_opengl.so` (plus optional NanoVG/STB/TinyFD modules) from the pinned PojavLauncher source commit. CI verifies the upstream Git blob SHA for every library and ABI. The game process checks that the required core/OpenGL modules exist before HotSpot creation.
+- O Engine now declares and calls the exact MojoExec JNI `prepareEgl` and `setNativeLibraryDir` APIs before GLFW initialization. This sets Mojo's EGL handle and forces its Android context configuration to GLES 3; loading `libglfw.so` alone did not do that.
+- Before Minecraft main, the HotSpot hook preflight initializes `MemoryAccessJNI`, checks the native pointer width, initializes LWJGL's OpenGL module/renderer alias, then calls `GLFW.glfwGetVersionString()` through the generated LWJGL 3.3.3 function table. A failed core native load, OpenGL module load, LTW alias redirect, or GLFW C-library load now blocks launch with a diagnostic instead of being mistaken for a ready renderer.
+- The `ndlopen` alias hook now opens a second reference to the retained LTW path for LWJGL. LWJGL may safely call `dlclose` on its own handle without unloading the renderer reference owned by the EGL session.
+- Mojo's Surface condition mutexes are statically initialized for callbacks before `glfwInit` and after `glfwTerminate`. The Surface manager reserves `surfaceInUse` under the same mutex as the destroy waiter, consumes resize notifications atomically, and wakes waiters after a successful switch to pbuffer.
+
+These checks prove more of the JNI/library bootstrap, not a displayed Minecraft frame. The remaining decisive runtime steps are `glfwInit`, `glfwCreateWindow`, making the LTW context current through GLFW, creating LWJGL GL capabilities, drawing/swapping a frame, and validating Surface recreation on a physical Android device. The earlier bullet list under "Explicit remaining work" is a historical snapshot and should be read together with this checkpoint.
