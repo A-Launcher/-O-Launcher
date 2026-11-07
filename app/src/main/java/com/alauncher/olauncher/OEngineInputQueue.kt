@@ -27,13 +27,19 @@ class OEngineInputQueue(capacity: Int = DEFAULT_CAPACITY) {
             event.action == OEngineInputAction.SCROLL
 
         if (event.action == OEngineInputAction.MOVE) {
-            val previous = events.lastOrNull {
+            val snapshot = events.toList()
+            val previousIndex = snapshot.indexOfLast {
                 it.action == OEngineInputAction.MOVE &&
                     it.device == event.device && it.code == event.code
             }
-            if (previous != null) {
-                events.removeLastOccurrence(previous)
+            if (previousIndex >= 0) {
+                // Replace in place: appending here would reorder motion across key transitions.
+                events.clear()
+                snapshot.forEachIndexed { index, queued ->
+                    events.addLast(if (index == previousIndex) event else queued)
+                }
                 dropped++
+                return@synchronized true
             }
         }
 
