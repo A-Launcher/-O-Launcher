@@ -7,7 +7,7 @@ package com.alauncher.olauncher
 object OEngineGameInputBridge {
     private val lock = Any()
     private val queue = OEngineInputQueue()
-    private val stateTracker = OEngineInputStateTracker()
+    private val stateTracker = OEngineInputStateTracker(OEngineInputQueue.DEFAULT_CAPACITY * 2)
 
     val inputResetRequired: Boolean
         get() = queue.inputResetRequired
