@@ -184,16 +184,13 @@ The native backend is packaged and CI checks its GLFW entry points and the O Eng
 
 ### Private runtime staging and integrity checks
 
-Before renderer/JVM setup, the isolated game process now stages the packaged Android GLFW dependencies into its private O Engine directory for the device ABI. It checks each ELF machine/ABI, rejects obvious non-Android ELF markers, copies atomically, verifies SHA-256, and writes `oengine-android-glfw-manifest.json`. The session log records the ABI, library hashes (short prefixes only), and manifest path. Unit tests cover successful staging, wrong-ABI rejection, and unsupported ABIs.
+The launcher stages the packaged Android GLFW dependencies into its private O Engine directory for the device ABI before building the Minecraft JVM plan. The isolated game process repeats the staging and integrity check before HotSpot creation. It checks each ELF machine/ABI, copies atomically, verifies SHA-256, and writes `oengine-android-glfw-manifest.json`. The session log records the ABI, library hashes (short prefixes only), and manifest path. Unit tests cover successful staging, wrong-ABI rejection, and unsupported ABIs.
 
-This makes the exact native backend artifacts available at stable private paths for the next integration phase. It does not load them into LWJGL or certify all transitive Android linker dependencies; the ELF inspector intentionally labels matching files as Android compatibility unverified. The `org.lwjgl.glfw` Java/JNI provider bridge is still a separate required task.
+### LWJGL 3 native-library hand-off
 
+The launch planner now passes the exact staged `libglfw.so` absolute path as `-Dorg.lwjgl.glfw.libname=...`, the documented LWJGL 3.3.3 library-selection property. The isolated game process independently verifies that the option matches its own staged library, adds that directory to the native dependency search path, and only then calls `JNI_CreateJavaVM`. The resolver no longer blocks solely because the GLFW library is a separate artifact: it requires the real staged file and matching Minecraft `lwjgl-glfw` Java module. Tests cover exact-path replacement, missing-library blocking, and the remaining EGL/window warning.
 
-### LWJGL runtime pairing gate
-
-The launch planner now inspects the actual Minecraft classpath for the matching `lwjgl-glfw` module and its `org.lwjgl.glfw.GLFW` class. For LWJGL 3, it explicitly blocks launch while the Android platform library is not wired to that class's LWJGL JNI/function-provider contract. This avoids treating the presence of a separately named `libglfw.so` as proof that Minecraft can call it. Tests cover both a missing GLFW module and the currently unadapted upstream module.
-
-
+This is the first actual LWJGL loader hand-off, not just artifact staging. The 117 exported-function audit establishes the expected symbol names, but does not prove every function's Android behavior or transitive linker compatibility. In particular, the current LTW EGL bootstrap and Mojo GLFW Android window/context lifecycle have not yet been unified or device-tested. Do not interpret this step as verified Minecraft rendering.
 ### Exact LWJGL 3.3.3 native export contract
 
 Inspected the generated upstream LWJGL 3.3.3 `org.lwjgl.glfw.GLFW` binding. It resolves 117 unique C functions from the shared library using `apiGetFunctionAddress`; the configurable property is `org.lwjgl.glfw.libname`, and LWJGL explicitly permits an absolute library path. O Engine now pins the complete 117-symbol list in `native/android-glfw/lwjgl-3.3.3-required-symbols.txt`. Android CI compares every packaged ABI's dynamic exported symbol table against that list, in addition to checking Mojo's Android JNI entry points and the O Engine wake hook.
