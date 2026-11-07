@@ -1302,6 +1302,63 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             return 0;
         }
     };
+    // Force LWJGL's core Library initializer to load the Android-native
+    // liblwjgl.so and exercise its MemoryAccessJNI entry points before we allow
+    // Minecraft main to run. File presence alone cannot detect a wrong-ABI or
+    // mismatched JNI module.
+    let memory_class_name = match env.new_string("org.lwjgl.system.MemoryAccessJNI") {
+        Ok(value) => value,
+        Err(error) => {
+            set_error(&format!("Cannot create LWJGL core probe class name: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let memory_class_object = match env.call_method(
+        &loader,
+        "loadClass",
+        "(Ljava/lang/String;)Ljava/lang/Class;",
+        &[JValue::Object(&JObject::from(memory_class_name))],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(value) if !value.is_null() => value,
+            _ => { set_error("HotSpot returned a null LWJGL MemoryAccessJNI class."); return 0; },
+        },
+        Err(error) => {
+            set_error(&format!("Cannot load LWJGL core MemoryAccessJNI class: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let memory_class = JClass::from(memory_class_object);
+    let pointer_size = match env.call_static_method(
+        &memory_class,
+        "getPointerSize",
+        "()I",
+        &[],
+    ) {
+        Ok(value) => match value.i() {
+            Ok(size) => size,
+            Err(error) => {
+                set_error(&format!("LWJGL core pointer-size probe returned an invalid value: {error}"));
+                if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+                return 0;
+            }
+        },
+        Err(error) => {
+            set_error(&format!("LWJGL Android native core failed to initialize or execute: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    if pointer_size != std::mem::size_of::<usize>() as i32 {
+        set_error(&format!(
+            "LWJGL Android native core reports {pointer_size}-byte pointers; HotSpot ABI requires {}.",
+            std::mem::size_of::<usize>()
+        ));
+        return 0;
+    }
+
     let java_name = match env.new_string(&class_name) {
         Ok(value) => value,
         Err(error) => {
