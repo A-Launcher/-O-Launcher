@@ -159,6 +159,28 @@ jobs:
           cp artwork/a9ac2f80-d9c3-11f1-b74a-cd36149609df.png app/src/main/assets/hero_banner_reference.png
           echo "Installed the six original user uploads with explicit asset mapping."
 
+      - name: Validate LTW EGL C ABI header layout
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/oengine_ltw_egl_abi.c" <<'EOF'
+          #include <stddef.h>
+          #include "oengine_ltw_egl.h"
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, display) == 0, "display offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, config) == sizeof(void*), "config offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, context) == 2 * sizeof(void*), "context offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, pbuffer) == 3 * sizeof(void*), "pbuffer offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, window_surface) == 4 * sizeof(void*), "window surface offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, create_context) == 5 * sizeof(void*), "create context offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, make_current) == 6 * sizeof(void*), "make current offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, destroy_context) == 7 * sizeof(void*), "destroy context offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, destroy_surface) == 8 * sizeof(void*), "destroy surface offset");
+          _Static_assert(offsetof(OEngineLtwEglShareInfo, swap_buffers) == 9 * sizeof(void*), "swap buffers offset");
+          _Static_assert(sizeof(OEngineLtwEglShareInfo) == 10 * sizeof(void*), "share info size");
+          int main(void) { return 0; }
+          EOF
+          cc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+            -I native/oengine/include "$RUNNER_TEMP/oengine_ltw_egl_abi.c"
+
       - name: Run engine JVM unit tests
         run: gradle --no-daemon testDebugUnitTest
 
