@@ -24,6 +24,9 @@ data class RuntimeInstallResult(val javaMajor: Int, val architecture: String, va
 object AndroidRuntimeInstaller {
     private const val CONNECT_TIMEOUT = 15000
     private const val READ_TIMEOUT = 60000
+    private const val MAX_ARCHIVE_BYTES = 1024L * 1024L * 1024L
+    private const val MAX_EXTRACTED_BYTES = 4L * 1024L * 1024L * 1024L
+    private const val MAX_ARCHIVE_ENTRIES = 200_000
     private val supportedJava = setOf(8, 17, 21, 25)
     private val xzMagic = byteArrayOf(0xFD.toByte(), 0x37, 0x7A, 0x58, 0x5A, 0x00)
 
@@ -70,6 +73,9 @@ object AndroidRuntimeInstaller {
                 throw IllegalStateException("Runtime download failed (HTTP ${connection.responseCode}).")
             }
             val total = connection.contentLengthLong.coerceAtLeast(0L)
+            require(total <= MAX_ARCHIVE_BYTES) {
+                "Runtime archive exceeds the 1 GiB download limit."
+            }
             var received = 0L
             connection.inputStream.use { input ->
                 temporary.outputStream().buffered().use { output ->
@@ -77,8 +83,11 @@ object AndroidRuntimeInstaller {
                     while (true) {
                         val count = input.read(buffer)
                         if (count < 0) break
-                        output.write(buffer, 0, count)
                         received += count
+                        require(received <= MAX_ARCHIVE_BYTES) {
+                            "Runtime archive exceeded the 1 GiB download limit."
+                        }
+                        output.write(buffer, 0, count)
                         onProgress(received, total)
                     }
                 }
@@ -127,6 +136,14 @@ object AndroidRuntimeInstaller {
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
                         val entry = tar.nextTarEntry ?: break
+                        extracted++
+                        if (extracted > MAX_ARCHIVE_ENTRIES) {
+                            throw IllegalStateException("Runtime archive contains too many entries.")
+                        }
+                        if (entry.size < 0L || entry.size > MAX_EXTRACTED_BYTES - extractedBytes) {
+                            throw IllegalStateException("Runtime archive exceeds the 4 GiB extraction limit.")
+                        }
+                        extractedBytes += entry.size
                         val name = entry.name
                         if (name.isBlank() || name.startsWith("/") || name.startsWith("\\")) throw IllegalStateException("Unsafe path in runtime archive.")
                         val rootPath = staging.toPath().toAbsolutePath().normalize()
@@ -159,8 +176,7 @@ object AndroidRuntimeInstaller {
                                 if ((mode and 73) != 0) target.setExecutable(true, false)
                                 if ((mode and 292) != 0) target.setReadable(true, false)
                                 if ((mode and 146) != 0) target.setWritable(true, true)
-                                extracted++
-                                if (extracted % 250 == 0) onProgress("Extracting Java runtime… " + extracted + " files")
+                                if (extracted % 250 == 0) onProgress("Extracting Java runtime… " + extracted + " entries")
                             }
                             entry.isLink -> throw IllegalStateException("Runtime archive contains an unsupported hard link: " + name)
                         }
