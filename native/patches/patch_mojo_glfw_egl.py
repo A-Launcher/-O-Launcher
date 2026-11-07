@@ -403,6 +403,10 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
     {
         wantedMode = GLFW_ANDROID_WINDOW_MODE_PBUFFER;
         target = (EGLSurface) share.pbuffer;
+        pthread_mutex_lock(&nw_egl_mutex);
+        surfaceInUse = false;
+        pthread_cond_broadcast(&nw_egl_cond);
+        pthread_mutex_unlock(&nw_egl_mutex);
     }
     if (!target || !share.make_current)
     {
