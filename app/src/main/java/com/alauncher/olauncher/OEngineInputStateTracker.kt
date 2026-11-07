@@ -11,6 +11,8 @@ class OEngineInputStateTracker(maxPressedControls: Int = 512) {
     private val pressed = LinkedHashMap<Control, OEngineInputEvent>()
 
     val pressedCount: Int get() = pressed.size
+    @Synchronized fun isPressed(device: OEngineInputDevice, code: Int): Boolean =
+        pressed.containsKey(Control(device, code))
 
     /** Records a digital transition and returns the event to forward. */
     @Synchronized
