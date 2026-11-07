@@ -164,3 +164,8 @@ The Android key adapter now preserves `KeyEvent.scanCode` separately from the GL
 The launcher-side forwarder now retains failed Messenger batches and retries them before accepting newer events. This matters for key/button state: if a DOWN could not be sent, a later UP or a new key must not overtake it; if focus is lost while a batch is pending, the synthesized release is appended behind that DOWN and both are retried in order. Pending batches are bounded, and each batch stays within the 128-event Binder limit. Tests cover a failed DOWN, retry ordering, and a queued focus-loss release.
 
 The native C event structure is explicitly 48 bytes with a reserved trailing word, keeping array stride stable across 32-bit and 64-bit Android ABIs. Its public C header test asserts every field offset and the full structure size. The callback table now has seven pointers, including both GLFW character callback variants.
+
+
+### Atomic native batch admission
+
+JNI input batches are now admitted transactionally. Rust stages the entire batch against a cloned bounded queue and publishes the staged queue only if every event is accepted. If any transition cannot fit, none of that batch is exposed to the game thread; the live queue instead requests an all-controls-up reset for already-held controls. This prevents a Binder batch containing a press/release sequence from being partially applied. The native unit test fills the queue with held controls, submits a two-event batch that cannot fit, and verifies that neither event leaks into the live queue and reset recovery is requested.
