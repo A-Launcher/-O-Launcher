@@ -1419,6 +1419,7 @@ private fun AccountDestination(images: LauncherImages) {
 }
 @Composable
 private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
+    val context = LocalContext.current
     val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
@@ -1532,7 +1533,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                         Text("${project.downloads} downloads  •  ${project.follows} followers", color = Muted, fontSize = 10.sp)
                         TextButton(onClick = {
                             val url = "https://modrinth.com/${project.projectType.apiValue.ifBlank { "mod" }}/${project.slug}"
-                            runCatching { contextStartActivity(url) }
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                         }) { Text("OPEN PROJECT  →", color = Color(0xFF8B5731), fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                     }
                 }
