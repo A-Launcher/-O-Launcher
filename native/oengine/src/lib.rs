@@ -1567,7 +1567,7 @@ struct OEngineLtwEglSession {
 static LTW_EGL_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
 static ACTIVE_LTW_EGL_SESSION: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct PendingLtwWindow { window: usize, width: i32, height: i32 }
 static PENDING_LTW_WINDOW: OnceLock<Mutex<Option<PendingLtwWindow>>> = OnceLock::new();
 
