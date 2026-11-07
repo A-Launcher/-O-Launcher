@@ -115,7 +115,7 @@ make_replacement = '''static void makeContextCurrentEGL(_GLFWwindow* window)
         typedef EGLBoolean (*OEngineLtwMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
         OEngineLtwMakeCurrentFn make_current =
             (OEngineLtwMakeCurrentFn) oengine_ltw_share.make_current;
-        EGLSurface target = window
+        EGLSurface target = window && oengine_ltw_share.window_surface
             ? (EGLSurface) oengine_ltw_share.window_surface
             : (EGLSurface) oengine_ltw_share.pbuffer;
         if (!make_current || !make_current((EGLDisplay) oengine_ltw_share.display,
@@ -126,7 +126,7 @@ make_replacement = '''static void makeContextCurrentEGL(_GLFWwindow* window)
             return;
         }
         if (window)
-            window->context.egl.surface = target;
+            window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;
         _glfwPlatformSetTls(&_glfw.contextSlot, window);
         return;
     }
@@ -176,7 +176,7 @@ destroy_surface_replacement = '''    if (window->context.egl.surface)
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
         const GLFWbool is_ltw_surface = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface;
+            window->context.egl.handle == (EGLContext) oengine_ltw_share.context;
         if (!is_ltw_surface)
 #endif
             eglDestroySurface(_glfw.egl.display, window->context.egl.surface);
