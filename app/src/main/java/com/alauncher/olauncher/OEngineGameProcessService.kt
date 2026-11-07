@@ -27,6 +27,7 @@ class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
 
     private var inputThread: HandlerThread? = null
+    private var surfaceThread: HandlerThread? = null
     @Volatile private var inputResetWasLogged = false
     /** A separate Binder endpoint remains responsive while the JVM owner thread is inside Minecraft main. */
     private val inputMessenger: Messenger by lazy {
@@ -92,7 +93,69 @@ class OEngineGameProcessService : Service() {
     @Volatile private var androidGlfwLibraryFile: File? = null
     @Volatile private var rendererHookInstalled = false
     @Volatile private var eglBootstrap: OEngineEglBootstrap? = null
-    @Volatile private var nativeWindowHandle: Long = 0L
+    /** Surface IPC remains responsive while the JVM owner thread is executing Minecraft main. */
+    private val surfaceMessenger: Messenger by lazy {
+        val thread = HandlerThread("OEngineSurfaceIngress").apply { start() }
+        surfaceThread = thread
+        Messenger(Handler(thread.looper) { message ->
+            when (message.what) {
+                MSG_ATTACH_GAME_SURFACE -> handleQueuedSurfaceAttach(message)
+                MSG_DETACH_GAME_SURFACE -> {
+                    try {
+                        OEngineAndroidGlfwBootstrap.surfaceDestroyed()
+                        (eglBootstrap ?: error("LTW EGL session is unavailable.")).queueDetachWindow()
+                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_QUEUED",
+                            "Surface detach queued for the GLFW/LTW owner thread.")
+                    } catch (error: Throwable) {
+                        OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_QUEUE_FAILED",
+                            error.message ?: error.javaClass.simpleName, error)
+                    }
+                    true
+                }
+                else -> false
+            }
+        })
+    }
+
+    private fun handleQueuedSurfaceAttach(message: Message): Boolean {
+        val reply = Message.obtain(null, MSG_GAME_SURFACE_RESULT)
+        reply.data.putLong(KEY_SURFACE_REQUEST_ID, message.data.getLong(KEY_SURFACE_REQUEST_ID))
+        var surface: Surface? = null
+        var candidateWindow = 0L
+        try {
+            @Suppress("DEPRECATION")
+            surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
+                ?: throw IllegalArgumentException("Game Surface IPC payload is missing.")
+            require(surface.isValid) { "The replacement Android Surface is invalid." }
+            val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
+            val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
+            val egl = eglBootstrap ?: throw IllegalStateException("LTW EGL session is not initialized.")
+            candidateWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
+            egl.queueWindow(candidateWindow, width, height)
+            candidateWindow = 0L // Ownership transferred to Rust's pending-surface queue.
+            OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
+            surface.release()
+            surface = null
+            reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
+            reply.data.putString(KEY_PROBE_STATUS, "game_surface_change_queued")
+            reply.data.putString(KEY_PROBE_DETAIL,
+                "Surface replacement/resize queued; LTW EGL will apply it on the GLFW event thread.")
+            OEngineSessionLog.append(this, "GAME_SURFACE_CHANGE_QUEUED",
+                "Replacement Surface queued for GLFW owner-thread application • " + width + "x" + height)
+        } catch (error: Throwable) {
+            if (candidateWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateWindow) }
+            runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
+            surface?.release()
+            reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
+            reply.data.putString(KEY_PROBE_STATUS, "game_surface_queue_error")
+            reply.data.putString(KEY_PROBE_DETAIL, error.message ?: error.javaClass.simpleName)
+            OEngineSessionLog.append(this, "GAME_SURFACE_CHANGE_QUEUE_FAILED",
+                error.message ?: error.javaClass.simpleName, error)
+        }
+        runCatching { message.replyTo?.send(reply) }
+        return true
+    }
+
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -112,29 +175,18 @@ class OEngineGameProcessService : Service() {
                         val width = message.data.getInt(KEY_SURFACE_WIDTH).coerceAtLeast(1)
                         val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
                         candidateNativeWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
-                        egl.attachWindow(candidateNativeWindow, width, height)
                         OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
-                        // EGL now owns this Surface reference. Transfer ownership before releasing
-                        // the previous ANativeWindow so a cleanup error cannot release the live Surface.
+                        egl.attachWindow(candidateNativeWindow, width, height)
+                        candidateNativeWindow = 0L // LTW session now owns and releases this ANativeWindow reference.
+                        surface.release()
                         receivedSurface = null
-                        val previousNativeWindow = nativeWindowHandle
-                        nativeWindowHandle = candidateNativeWindow
-                        candidateNativeWindow = 0L
-                        if (previousNativeWindow != 0L) {
-                            runCatching { OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow) }
-                                .onFailure {
-                                    OEngineSessionLog.append(
-                                        this, "NATIVE_WINDOW_REPLACEMENT_RELEASE_FAILED",
-                                        it.message ?: it.javaClass.simpleName, it
-                                    )
-                                }
-                        }
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "LTW-tracked EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
                         reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached through LTW eglMakeCurrent; LTW context tracking is active.")
                     } catch (error: Throwable) {
                         if (candidateNativeWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateNativeWindow) }
+                        runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
                         receivedSurface?.release()
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACH_FAILED", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
@@ -148,9 +200,6 @@ class OEngineGameProcessService : Service() {
                     try {
                         OEngineAndroidGlfwBootstrap.surfaceDestroyed()
                         eglBootstrap?.detachWindow()
-                        val previousNativeWindow = nativeWindowHandle
-                        nativeWindowHandle = 0L
-                        if (previousNativeWindow != 0L) OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow)
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACHED", "EGL returned to pbuffer; ANativeWindow reference released")
                     } catch (error: Throwable) {
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_FAILED", error.message ?: error.javaClass.simpleName, error)
@@ -166,6 +215,7 @@ class OEngineGameProcessService : Service() {
                         data.putString(KEY_PHASE, "process_ready")
                     }
                     reply.data.putBinder(KEY_INPUT_MESSENGER, inputMessenger.binder)
+                    reply.data.putBinder(KEY_SURFACE_MESSENGER, surfaceMessenger.binder)
 
                     runCatching { message.replyTo?.send(reply) }
                     true
@@ -455,12 +505,6 @@ class OEngineGameProcessService : Service() {
                     runCatching { eglBootstrap?.close() }
                         .onFailure { OEngineSessionLog.append(this, "EGL_BOOTSTRAP_RELEASE_FAILED", it.message ?: it.javaClass.simpleName, it) }
                     eglBootstrap = null
-                    val windowHandle = nativeWindowHandle
-                    nativeWindowHandle = 0L
-                    if (windowHandle != 0L) {
-                        runCatching { OEngineJvmNativeBridge.releaseNativeWindow(windowHandle) }
-                            .onFailure { OEngineSessionLog.append(this, "NATIVE_WINDOW_RELEASE_FAILED", it.message ?: it.javaClass.simpleName, it) }
-                    }
                     thread.quitSafely()
                 }
             }
@@ -468,6 +512,8 @@ class OEngineGameProcessService : Service() {
         }
         inputThread?.quitSafely()
         inputThread = null
+        surfaceThread?.quitSafely()
+        surfaceThread = null
         super.onDestroy()
     }
 
@@ -476,6 +522,7 @@ class OEngineGameProcessService : Service() {
         const val MSG_INPUT_BATCH = 17
         const val MAX_INPUT_BATCH = 128
         const val KEY_INPUT_MESSENGER = "oengine.input_messenger"
+        const val KEY_SURFACE_MESSENGER = "oengine.surface_messenger"
         const val KEY_INPUT_DEVICE = "oengine.input_device"
         const val KEY_INPUT_ACTION = "oengine.input_action"
         const val KEY_INPUT_CODE = "oengine.input_code"
