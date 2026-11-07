@@ -84,11 +84,13 @@ object OEngineTouchControls {
     }
 
     fun decode(json: String): List<OEngineTouchControl> {
+        require(json.length <= 16_384) { "Touch layout file is too large." }
         val root = JSONObject(json)
         require(root.optString("format") == "oengine-touch-layout" && root.optInt("version") == 1) {
             "Unsupported touch-layout format."
         }
         val array = root.getJSONArray("controls")
+        require(array.length() in 1..48) { "A touch layout must contain 1–48 controls." }
         val result = ArrayList<OEngineTouchControl>(array.length())
         for (i in 0 until array.length()) {
             val item = array.getJSONObject(i)
