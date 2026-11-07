@@ -26,3 +26,6 @@ endif()
 
 add_subdirectory("${OENGINE_UPSTREAM_DIR}/mojoexec" mojoexec)
 add_subdirectory("${OENGINE_UPSTREAM_DIR}/mojo-glfw" glfw)
+
+# The Android GLFW poll adapter consumes O Engine's stable public C event ABI.
+target_include_directories(glfw PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../oengine/include")
