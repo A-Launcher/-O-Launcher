@@ -8,6 +8,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OEngineGraphicsStackTest {
+
+    @Test
+    fun ltwRejectsUnknownOrMalformedGlesVersionInsteadOfAssumingMinimum() {
+        assertEquals(3, OEngineEglBootstrap.parseGlesMajor("OpenGL ES 3.2 V@145.0"))
+        assertEquals(3, OEngineEglBootstrap.parseGlesMajor("OpenGL ES 3"))
+        assertEquals(null, OEngineEglBootstrap.parseGlesMajor("OpenGL 3.2"))
+        assertEquals(null, OEngineEglBootstrap.parseGlesMajor("unknown driver string"))
+    }
+
     @Test
     fun ltwRequiresOpenGlesThreeAndUsesRendererEnvironmentDefaults() {
         assertTrue(OEngineGraphicsStack.ltwCompatibilityBlocker(2)?.contains("OpenGL ES 3") == true)
