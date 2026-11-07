@@ -36,6 +36,9 @@ uint32_t oengine_ltw_egl_share_info(
     OEngineLtwEglShareInfo* output
 );
 
+/* Active-session convenience entry point for the game-thread GLFW adapter. */
+uint32_t oengine_ltw_egl_active_share_info(OEngineLtwEglShareInfo* output);
+
 #ifdef __cplusplus
 }
 #endif
