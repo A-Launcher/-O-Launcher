@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define OENGINE_INPUT_MAX_RESET_RELEASES 1024u
+#define OENGINE_INPUT_MAX_RESET_RELEASES 1031u
 
 /* Keep field order and integer values aligned with OEngineInputDevice/Action.
  * DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 are O Engine values;
@@ -25,7 +25,7 @@ typedef struct OEngineNativeInputEvent {
     int32_t reserved;        /* Must be zero; keeps the event stride 48 bytes on every ABI. */
 } OEngineNativeInputEvent;
 
-/* Drain on the GLFW/game thread. Supply room for up to 1024 reset releases. */
+/* Drain on the GLFW/game thread. Supply room for up to 1024 digital releases plus 7 gamepad-axis resets. */
 size_t oengine_input_drain(OEngineNativeInputEvent *output, size_t capacity);
 
 /*
