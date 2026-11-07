@@ -208,7 +208,11 @@ object MicrosoftTokenVault {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val packed = cipher.iv + cipher.doFinal(token.toByteArray(Charsets.UTF_8))
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("refresh_token", Base64.encodeToString(packed, Base64.NO_WRAP)).apply()
+        check(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString("refresh_token", Base64.encodeToString(packed, Base64.NO_WRAP))
+                .commit()
+        ) { "Could not securely save the Microsoft sign-in session. Please try signing in again." }
     }
     fun load(context: Context): String? {
         val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("refresh_token", null) ?: return null
@@ -227,7 +231,11 @@ object MicrosoftTokenVault {
             null
         }
     }
-    fun clear(context: Context) { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply() }
+    fun clear(context: Context) {
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()) {
+            "Could not clear the saved Microsoft account from this device."
+        }
+    }
     private fun key(): SecretKey {
         val store = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(VAULT_ALIAS, null) as? SecretKey)?.let { return it }
