@@ -173,25 +173,36 @@ pub struct OEngineNativeInputCallbacks {
     )>,
 }
 
+fn glfw_action_from_oengine(action: i32) -> Option<i32> {
+    match action {
+        0 => Some(1), // O Engine DOWN -> GLFW_PRESS
+        1 => Some(0), // O Engine UP -> GLFW_RELEASE
+        2 => Some(2), // O Engine REPEAT -> GLFW_REPEAT
+        _ => None,
+    }
+}
+
 unsafe fn dispatch_native_input_event(
     window: *mut c_void,
     callbacks: &OEngineNativeInputCallbacks,
     event: OEngineNativeInputEvent,
 ) {
     match event.device {
-        1 => { // KEYBOARD: GLFW key action and optional Unicode character.
-            if let Some(callback) = callbacks.key {
-                callback(window, event.code, 0, event.action, event.modifiers);
-            }
-            if event.action != 1 && event.codepoint != 0 {
-                if let Some(callback) = callbacks.character {
-                    callback(window, event.codepoint);
+        1 => { // KEYBOARD: translate O Engine transition values to GLFW action values.
+            if let Some(action) = glfw_action_from_oengine(event.action) {
+                if let Some(callback) = callbacks.key {
+                    callback(window, event.code, 0, action, event.modifiers);
+                }
+                if action != 0 && event.codepoint != 0 {
+                    if let Some(callback) = callbacks.character {
+                        callback(window, event.codepoint);
+                    }
                 }
             }
         }
         2 => match event.action {
             0 | 1 => if let Some(callback) = callbacks.mouse_button {
-                callback(window, event.code, event.action, event.modifiers);
+                callback(window, event.code, glfw_action_from_oengine(event.action).unwrap(), event.modifiers);
             },
             3 => if let Some(callback) = callbacks.cursor_position {
                 callback(window, event.x as f64, event.y as f64);
@@ -1278,7 +1289,7 @@ mod native_input_dispatch_tests {
             });
         }
         assert_eq!(*trace.lock().unwrap(), vec![
-            (1, 87, 0), (2, 119, 0), (4, 0, 0), (3, 12, 34), (5, 1, -2), (6, 0, 0)
+            (1, 87, 1), (2, 119, 0), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
         ]);
     }
 
