@@ -18,7 +18,7 @@ object OEngineAndroidInputAdapter {
             event.action == KeyEvent.ACTION_DOWN -> OEngineInputAction.DOWN
             else -> return null
         }
-        val code = if (isGamepad) event.keyCode else
+        val code = if (isGamepad) OEngineAndroidGamepadMapper.buttonIndex(event.keyCode) ?: return null else
             OEngineGlfwKeyMapper.key(event.keyCode) ?: return null
         val meta = OEngineGlfwKeyMapper.modifiers(event.metaState)
         val rawCodepoint = event.getUnicodeChar(event.metaState)
