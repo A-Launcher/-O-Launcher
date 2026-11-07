@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.view.View
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -1818,6 +1820,9 @@ private fun InstallationsDestination(images: LauncherImages) {
     var showGameSurface by remember { mutableStateOf(false) }
     var gameSurfaceReady by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
+    val gameInputForwarder = remember(gameProcessClient) {
+        OEngineGameInputForwarder { batch -> gameProcessClient?.sendInputEvents(batch) == true }
+    }
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
     }
@@ -2765,6 +2770,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     if (showGameSurface) {
         Dialog(
             onDismissRequest = {
+                gameInputForwarder.releaseAll()
                 gameSurfaceReady = false
                 gameProcessClient?.detachGameSurface()
                 showGameSurface = false
@@ -2775,6 +2781,29 @@ private fun InstallationsDestination(images: LauncherImages) {
                 AndroidView(
                     factory = { viewContext ->
                         SurfaceView(viewContext).apply {
+                            isFocusable = true
+                            isFocusableInTouchMode = true
+                            setOnKeyListener { _, keyCode, event ->
+                                val translated = OEngineAndroidInputAdapter.fromKeyEvent(event)
+                                if (translated == null) false else {
+                                    gameInputForwarder.forward(listOf(translated))
+                                    true
+                                }
+                            }
+                            setOnTouchListener { _, event ->
+                                val translated = OEngineAndroidInputAdapter.fromMotionEvent(event)
+                                if (translated.isNotEmpty()) gameInputForwarder.forward(translated)
+                                true
+                            }
+                            setOnGenericMotionListener { _, event ->
+                                val translated = OEngineAndroidInputAdapter.fromMotionEvent(event)
+                                if (translated.isNotEmpty()) gameInputForwarder.forward(translated)
+                                translated.isNotEmpty()
+                            }
+                            onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+                                if (!hasFocus) gameInputForwarder.releaseAll()
+                            }
+                            requestFocus()
                             holder.addCallback(object : SurfaceHolder.Callback {
                                 override fun surfaceCreated(holder: SurfaceHolder) {
                                     OEngineSessionLog.append(viewContext, "ANDROID_GAME_SURFACE_CREATED", "SurfaceView created")
@@ -2791,6 +2820,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 }
 
                                 override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    gameInputForwarder.releaseAll()
                                     gameSurfaceReady = false
                                     gameProcessClient?.detachGameSurface()
                                     OEngineSessionLog.append(viewContext, "ANDROID_GAME_SURFACE_DESTROYED", "SurfaceView destroyed")
@@ -2809,6 +2839,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                 )
                 Button(
                     onClick = {
+                        gameInputForwarder.releaseAll()
                         gameProcessClient?.detachGameSurface()
                         showGameSurface = false
                     },
