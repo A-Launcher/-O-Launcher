@@ -497,6 +497,7 @@ class OEngineGameProcessClient(
             onGameSurface(Result.failure(IllegalStateException(invalidReason)))
             return false
         }
+        val activeTarget = requireNotNull(target)
         val requestId = surfaceRequestId.incrementAndGet()
         surfaceRequestPending.set(true)
         timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
@@ -508,7 +509,7 @@ class OEngineGameProcessClient(
             replyTo = replyMessenger
         }
         return try {
-            target.send(request)
+            activeTarget.send(request)
             timeoutHandler.postDelayed(surfaceTimeoutRunnable, 10_000L)
             true
         } catch (error: RemoteException) {
