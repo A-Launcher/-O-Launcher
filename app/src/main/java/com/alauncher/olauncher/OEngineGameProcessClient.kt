@@ -36,7 +36,7 @@ class OEngineGameProcessClient(
     private val onRendererHook: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onRendererPreload: (Result<OEngineJvmLibraryProbe>) -> Unit = {},
     private val onJvmMainStarted: (OEngineJvmLibraryProbe) -> Unit = {},
-    private val onJvmMainRunning: (OEngineJvmLibraryProbe) -> Unit = {}
+    private val onJvmMainRunning: (OEngineJvmLibraryProbe) -> Unit = {},
     private val onGameSurface: (Result<OEngineJvmLibraryProbe>) -> Unit = {}
 ) : AutoCloseable {
     private val appContext = context.applicationContext
