@@ -60,3 +60,22 @@ for the four Android ABIs. This packages the Android GLFW platform backend and
 its support libraries; it does **not** yet mean Minecraft's runtime LWJGL JNI
 library has been replaced or that the game event loop calls O Engine's input
 queue. That integration remains a separate required step.
+
+
+## Android LWJGL native runtime
+
+O Launcher packages Android ABI-specific LWJGL native modules from
+[PojavLauncherTeam/PojavLauncher](https://github.com/PojavLauncherTeam/PojavLauncher),
+pinned to commit
+`b12ad048157b3aa255d078c235dd4571e1900309`. The CI workflow verifies each
+binary against its Git blob SHA before packaging. The required core
+`liblwjgl.so` and OpenGL `liblwjgl_opengl.so` modules are packaged for all
+four supported Android ABIs; optional NanoVG, STB and TinyFD modules from the
+same pinned build are included for mod/runtime compatibility.
+
+These are Android-native builds, not Mojang's Linux native classifier archives.
+The LWJGL license text and the pinned PojavLauncher project license are included
+in `assets/licenses/LICENSE-LWJGL.txt` and
+`assets/licenses/LICENSE-PojavLauncher.txt`. This integration supplies native
+runtime prerequisites; it does not claim that Minecraft has launched or
+presented a frame on a device.
