@@ -122,6 +122,7 @@ class OEngineGameProcessService : Service() {
         reply.data.putLong(KEY_SURFACE_REQUEST_ID, message.data.getLong(KEY_SURFACE_REQUEST_ID))
         var surface: Surface? = null
         var candidateWindow = 0L
+        var queuedWindow = false
         try {
             @Suppress("DEPRECATION")
             surface = message.data.getParcelable<Surface>(KEY_GAME_SURFACE)
@@ -132,6 +133,7 @@ class OEngineGameProcessService : Service() {
             val egl = eglBootstrap ?: throw IllegalStateException("LTW EGL session is not initialized.")
             candidateWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
             egl.queueWindow(candidateWindow, width, height)
+            queuedWindow = true
             candidateWindow = 0L // Ownership transferred to Rust's pending-surface queue.
             OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
             surface.release()
@@ -144,6 +146,7 @@ class OEngineGameProcessService : Service() {
                 "Replacement Surface queued for GLFW owner-thread application • " + width + "x" + height)
         } catch (error: Throwable) {
             if (candidateWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateWindow) }
+            if (queuedWindow) runCatching { eglBootstrap?.queueDetachWindow() }
             runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
             surface?.release()
             reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
