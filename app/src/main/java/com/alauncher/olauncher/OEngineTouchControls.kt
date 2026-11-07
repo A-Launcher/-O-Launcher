@@ -4,6 +4,16 @@ import android.content.Context
 import android.view.KeyEvent
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** Persisted touch layout. Coordinates are normalized to the game surface (0..1). */
 data class OEngineTouchControl(
@@ -146,8 +156,8 @@ fun OEngineTouchControlsOverlay(
                                 change.consume()
                                 val moved = OEngineTouchControls.move(
                                     controls.toList(), control.id,
-                                    control.x + drag.x / size.width.coerceAtLeast(1),
-                                    control.y + drag.y / size.height.coerceAtLeast(1)
+                                    controls.first { it.id == control.id }.x + drag.x / size.width.coerceAtLeast(1),
+                                    controls.first { it.id == control.id }.y + drag.y / size.height.coerceAtLeast(1)
                                 )
                                 controls.clear()
                                 controls.addAll(moved)
