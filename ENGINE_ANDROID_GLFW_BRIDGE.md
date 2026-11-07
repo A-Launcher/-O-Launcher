@@ -188,3 +188,10 @@ This makes the exact native backend artifacts available at stable private paths 
 ### LWJGL runtime pairing gate
 
 The launch planner now inspects the actual Minecraft classpath for the matching `lwjgl-glfw` module and its `org.lwjgl.glfw.GLFW` class. For LWJGL 3, it explicitly blocks launch while the Android platform library is not wired to that class's LWJGL JNI/function-provider contract. This avoids treating the presence of a separately named `libglfw.so` as proof that Minecraft can call it. Tests cover both a missing GLFW module and the currently unadapted upstream module.
+
+
+### Exact LWJGL 3.3.3 native export contract
+
+Inspected the generated upstream LWJGL 3.3.3 `org.lwjgl.glfw.GLFW` binding. It resolves 117 unique C functions from the shared library using `apiGetFunctionAddress`; the configurable property is `org.lwjgl.glfw.libname`, and LWJGL explicitly permits an absolute library path. O Engine now pins the complete 117-symbol list in `native/android-glfw/lwjgl-3.3.3-required-symbols.txt`. Android CI compares every packaged ABI's dynamic exported symbol table against that list, in addition to checking Mojo's Android JNI entry points and the O Engine wake hook.
+
+This verifies the native symbol surface needed by the selected LWJGL Java binding, rather than just checking that a file named `libglfw.so` exists. It does **not** yet establish that every API has compatible runtime semantics, nor does it solve Android Surface-provider initialization or the existing LTW/GLFW EGL-context ownership decision. The absolute-path `org.lwjgl.glfw.libname` setting remains gated until those runtime pieces are connected.
