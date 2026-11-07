@@ -97,6 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 native/patches/patch_mojo_glfw_input.py
+          python3 native/patches/patch_mojo_glfw_egl.py
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             build_dir="$RUNNER_TEMP/oengine-glfw-$abi"
             cmake -S native/android-glfw -B "$build_dir" \
