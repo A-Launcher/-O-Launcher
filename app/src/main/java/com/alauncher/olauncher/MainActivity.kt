@@ -1062,6 +1062,9 @@ private fun SkinDestination(images: LauncherImages) {
     var selectedSkin by remember { mutableStateOf<File?>(null) }
     var message by remember { mutableStateOf("Import a 64×64 PNG skin to add it to your collection.") }
     var skinPreview by remember { mutableStateOf<ImageBitmap?>(null) }
+    var skinVariant by remember { mutableStateOf("CLASSIC") }
+    var uploadingSkin by remember { mutableStateOf(false) }
+    val skinScope = rememberCoroutineScope()
     val skinPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             try {
@@ -1080,7 +1083,7 @@ private fun SkinDestination(images: LauncherImages) {
                     }
                     selectedSkin = destination
                     skinPreview = bitmap.asImageBitmap()
-                    message = "Imported successfully. In-game skin applying will be connected with the game runtime."
+                    message = "Skin imported. Sign in with Microsoft to apply it to your Java profile."
                 }
             } catch (_: Exception) {
                 message = "Could not import that skin. Please choose a PNG skin file."
@@ -1161,6 +1164,42 @@ private fun SkinDestination(images: LauncherImages) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text(if (selectedSkin == null) "CHOOSE SKIN PNG" else "CHANGE SKIN", fontWeight = FontWeight.Black)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("MODEL", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        listOf("CLASSIC", "SLIM").forEach { model ->
+                            FilterChip(
+                                selected = skinVariant == model,
+                                onClick = { skinVariant = model },
+                                label = { Text(model, fontSize = 9.sp) }
+                            )
+                        }
+                    }
+                    Button(
+                        enabled = selectedSkin != null && !uploadingSkin,
+                        onClick = {
+                            val skin = selectedSkin ?: return@Button
+                            uploadingSkin = true
+                            message = "Refreshing Microsoft session…"
+                            skinScope.launch {
+                                try {
+                                    val refreshToken = MicrosoftTokenVault.load(context)
+                                        ?: throw IllegalStateException("Sign in with Microsoft on the Account screen first.")
+                                    val account = MinecraftAuth.refreshAccount(refreshToken)
+                                    MicrosoftTokenVault.save(context, account.refreshToken)
+                                    message = MinecraftAuth.uploadSkin(account.accessToken, skin, skinVariant)
+                                } catch (failure: Exception) {
+                                    message = failure.message ?: "Could not apply this skin."
+                                } finally {
+                                    uploadingSkin = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB5E96D), contentColor = Ink),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(if (uploadingSkin) "APPLYING SKIN…" else "APPLY TO JAVA PROFILE", fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
                     Text(message, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
                 }
