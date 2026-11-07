@@ -157,3 +157,10 @@ The Android input model already carried Android's physical `scanCode`, but the J
 ## Physical keyboard fidelity
 
 The Android key adapter now preserves `KeyEvent.scanCode` separately from the GLFW logical key value. That value crosses the Messenger arrays and JNI boundary into the native event struct, then reaches the GLFW key callback's scancode parameter. Unicode input is dispatched through both the regular character callback and the character-with-modifiers callback when those callbacks are registered. This avoids substituting the GLFW key value for the hardware scancode and retains modifier state for text callbacks.
+
+
+### Retry-safe Android input transport
+
+The launcher-side forwarder now retains failed Messenger batches and retries them before accepting newer events. This matters for key/button state: if a DOWN could not be sent, a later UP or a new key must not overtake it; if focus is lost while a batch is pending, the synthesized release is appended behind that DOWN and both are retried in order. Pending batches are bounded, and each batch stays within the 128-event Binder limit. Tests cover a failed DOWN, retry ordering, and a queued focus-loss release.
+
+The native C event structure is explicitly 48 bytes with a reserved trailing word, keeping array stride stable across 32-bit and 64-bit Android ABIs. Its public C header test asserts every field offset and the full structure size. The callback table now has seven pointers, including both GLFW character callback variants.
