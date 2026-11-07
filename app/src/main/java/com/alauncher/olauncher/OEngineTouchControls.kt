@@ -16,6 +16,8 @@ import androidx.compose.ui.input.pointer.awaitFirstDown
 import androidx.compose.ui.input.pointer.waitForUpOrCancellation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** Persisted touch layout. Coordinates are normalized to the game surface (0..1). */
 data class OEngineTouchControl(
