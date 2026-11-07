@@ -61,6 +61,7 @@ class OEngineGameProcessClient(
     private val mainRequestPending = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
     @Volatile private var inputMessenger: Messenger? = null
+    @Volatile private var surfaceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val surfaceTimeoutRunnable = Runnable {
         if (surfaceRequestPending.compareAndSet(true, false)) {
@@ -187,6 +188,11 @@ class OEngineGameProcessClient(
                     inputMessenger = Messenger(it)
                     OEngineSessionLog.append(appContext, "IPC_INPUT_CHANNEL_READY",
                         "Dedicated input ingress Binder endpoint connected; native game-thread consumption is not yet installed.")
+                }
+                data.getBinder(OEngineGameProcessService.KEY_SURFACE_MESSENGER)?.let {
+                    surfaceMessenger = Messenger(it)
+                    OEngineSessionLog.append(appContext, "IPC_SURFACE_CHANNEL_READY",
+                        "Dedicated Surface ingress Binder endpoint connected; it remains responsive while Minecraft main is running.")
                 }
                 val status = OEngineGameProcessStatus(
                     ready = data.getBoolean(OEngineGameProcessService.KEY_READY),
@@ -491,7 +497,7 @@ class OEngineGameProcessClient(
 
     /** Passes an Android window surface to the persistent EGL context in :game. */
     fun attachGameSurface(surface: Surface, width: Int, height: Int): Boolean {
-        val target = serviceMessenger
+        val target = if (mainInvocationAttempted.get()) surfaceMessenger else serviceMessenger
         val invalidReason = when {
             closed.get() -> "The game-process client is already closed."
             target == null -> "The isolated game process is not connected."
@@ -555,12 +561,13 @@ class OEngineGameProcessClient(
         } catch (error: RemoteException) {
             OEngineSessionLog.append(appContext, "IPC_INPUT_SEND_FAILED", error.message ?: "Input ingress Binder send failed", error)
             inputMessenger = null
+            surfaceMessenger = null
             false
         }
     }
 
     fun detachGameSurface(): Boolean {
-        val target = serviceMessenger
+        val target = if (mainInvocationAttempted.get()) surfaceMessenger else serviceMessenger
         if (closed.get() || target == null) return false
         surfaceRequestId.incrementAndGet()
         surfaceRequestPending.set(false)
