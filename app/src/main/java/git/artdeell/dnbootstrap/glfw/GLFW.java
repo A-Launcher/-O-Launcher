@@ -232,7 +232,8 @@ public final class GLFW {
 
     public static void receiveInit() {}
 
-    public static boolean isInitialized() { return initialized; }\n    public static boolean isCursorGrabbed() { return cursorGrabbed; }
+    public static boolean isInitialized() { return initialized; }
+    public static boolean isCursorGrabbed() { return cursorGrabbed; }
     public static double getCursorX() { return cursorX; }
     public static double getCursorY() { return cursorY; }
 
