@@ -175,7 +175,11 @@ class OEngineGameProcessClient(
                 )
                 OEngineSessionLog.append(
                     appContext,
-                    if (result.successful) "IPC_GAME_SURFACE_ATTACHED" else "IPC_GAME_SURFACE_FAILED",
+                    when {
+                        !result.successful -> "IPC_GAME_SURFACE_FAILED"
+                        result.status == "game_surface_change_queued" -> "IPC_GAME_SURFACE_CHANGE_QUEUED"
+                        else -> "IPC_GAME_SURFACE_ATTACHED"
+                    },
                     result.status + " • " + result.detail
                 )
                     onGameSurface(if (result.successful) Result.success(result) else Result.failure(IllegalStateException(result.detail.ifBlank { result.status })))
