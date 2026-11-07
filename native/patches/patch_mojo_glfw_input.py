@@ -161,6 +161,14 @@ if "static int32_t oengine_primary_touch_pointer = -1;" not in text:
     raise SystemExit("Primary-touch pointer tracking was not installed")
 if "if (code != oengine_primary_touch_pointer) return;" not in text:
     raise SystemExit("Secondary touch pointers are not isolated from the primary mouse")
+if "if (surfaceOwner == window) {" not in text:
+    raise SystemExit("GLFW destroy path does not guard the active surface owner")
+if "surfaceOwner = NULL;\\n        oengine_primary_touch_pointer = -1;\\n        atomic_store(&oengine_glfw_ready, 0);" not in text:
+    raise SystemExit("GLFW destroy path does not clear owner, touch pointer and readiness together")
+if "atomic_store(&oengine_glfw_ready, 1);" not in text:
+    raise SystemExit("GLFW create path does not publish readiness")
+if text.count("static int32_t oengine_primary_touch_pointer = -1;") != 1:
+    raise SystemExit("Primary-touch state must have exactly one definition")
 
 poll_start = text.index("void _glfwPollEventsAndroid(void)")
 wait_start = text.index("void _glfwWaitEventsAndroid(void)")
