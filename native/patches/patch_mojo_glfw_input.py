@@ -16,7 +16,7 @@ owner_anchor = "static _GLFWwindow *surfaceOwner = NULL;\n"
 if "static _Atomic int oengine_glfw_ready" not in text:
     if owner_anchor not in text:
         raise SystemExit("Pinned Mojo GLFW surface-owner anchor changed")
-    text = text.replace(owner_anchor, owner_anchor + "static _Atomic int oengine_glfw_ready = 0;\n", 1)
+    text = text.replace(owner_anchor, owner_anchor + "static _Atomic int oengine_glfw_ready = 0;\n" + "static int32_t oengine_primary_touch_pointer = -1;\n", 1)
 
 # Publish readiness only after GLFW owns a real game window; use atomics because
 # the wake function is called from the independent Android input Binder thread.
@@ -30,7 +30,7 @@ destroy_anchor = "    if (_glfw.android.focusedWindow == window)\n        _glfw.
 if "atomic_store(&oengine_glfw_ready, 0);" not in text:
     if destroy_anchor not in text:
         raise SystemExit("Pinned Mojo GLFW window-destroy anchor changed")
-    text = text.replace(destroy_anchor, destroy_anchor + "    if (surfaceOwner == window) {\n        surfaceOwner = NULL;\n        atomic_store(&oengine_glfw_ready, 0);\n    }\n", 1)
+    text = text.replace(destroy_anchor, destroy_anchor + "    if (surfaceOwner == window) {\n        surfaceOwner = NULL;\n        oengine_primary_touch_pointer = -1;\n        atomic_store(&oengine_glfw_ready, 0);\n    }\n", 1)
 
 anchor = "void _glfwPollEventsAndroid(void)\n{\n"
 bridge = r'''
@@ -71,7 +71,6 @@ static void oengine_glfw_scroll(void* window, double x, double y) {
  * active pointer as the desktop primary mouse, and ignore secondary fingers
  * so a second finger cannot release the first finger's held mouse button.
  */
-static int32_t oengine_primary_touch_pointer = -1;
 static void oengine_glfw_platform(void* window, int32_t device, int32_t action,
                                   int32_t code, int32_t scan, float x, float y,
                                   float value, int64_t timestamp, int32_t mods,
