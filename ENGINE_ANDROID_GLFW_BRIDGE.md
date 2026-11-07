@@ -223,3 +223,16 @@ The live Surface lifecycle now has a separate Binder ingress HandlerThread, so a
 `OEngineGameProcessClient` now receives a second Messenger from the isolated service. Once Minecraft main has been dispatched, Surface changes use this independent endpoint instead of the JVM HandlerThread that is synchronously executing Minecraft. The service acquires a native window reference and queues it without touching EGL from Binder. Rust owns the queued and active references; replacing a pending event releases the superseded pending reference, applying a replacement releases the previous active reference, and detach/session teardown release their owned references.
 
 `patch_mojo_glfw_input.py` invokes the Rust queue processor from GLFW's poll/wait event thread. `patch_mojo_glfw_egl.py` also replaces Mojo's Android-specific `_glfwManageEglSurfaceAndroid` path: it switches between the LTW pbuffer and the current LTW window surface instead of calling `eglCreateWindowSurface`/`eglDestroySurface` itself. Surface create/update/destroy JNI callbacks wake `glfwWaitEvents`; the destroy path waits until the GLFW thread has switched to pbuffer and signalled the Android Surface condition. This is a source-level lifecycle implementation, not a device-verified rendering result.
+
+
+## Current integration checkpoint (2026-11-07)
+
+The earlier "not yet connected" paragraphs above are historical checkpoints and are superseded by the later implementation sections and this status:
+
+- The pinned Mojo GLFW Android poll/wait patch now calls the O Engine Rust queue dispatcher on the GLFW event thread and forwards key, character, cursor, mouse, scroll, and primary-touch callbacks into GLFW's internal callback machinery.
+- The LWJGL 3.3.3 GLFW module consumes exported GLFW C functions through its generated function table. It does not need per-function Java_org_lwjgl_glfw JNI exports. The ART-side Mojo JNI shim remains a separate Android Surface/input callback layer.
+- Android pointer capture now forwards relative mouse motion using the captured mouse source's relative getX()/getY() samples; captured touchpad sources use relative axes and preserve historical samples.
+- The ART-side cursor callback now converts Mojo's ARGB bitmap buffer and hotspot into an Android PointerIcon, restores the selected cursor after pointer ungrab, and applies it when the game SurfaceView attaches.
+- Gamepad events cross the existing bounded Messenger protocol. In the isolated game process, they also update Mojo's 14-button / 6-axis direct GLFW joystick buffers using the same button and axis ordering as Mojo's GamepadKeycodes. O Engine's bounded Rust event queue remains in place; the upstream fixed-capacity queue was not transplanted.
+
+These are source-level integrations. They are not a substitute for Android CI, a real Minecraft launch, physical mouse/controller testing, Surface recreation testing, or proof that a rendered frame reaches the display.
