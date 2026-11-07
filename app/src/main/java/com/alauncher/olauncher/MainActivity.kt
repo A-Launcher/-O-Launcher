@@ -2800,7 +2800,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 if (translated.isNotEmpty()) gameInputForwarder.forward(translated)
                                 translated.isNotEmpty()
                             }
-                            onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+                            setOnFocusChangeListener { _, hasFocus ->
                                 if (!hasFocus) gameInputForwarder.releaseAll()
                             }
                             requestFocus()
