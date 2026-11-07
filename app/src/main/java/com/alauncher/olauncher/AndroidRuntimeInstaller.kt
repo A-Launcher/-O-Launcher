@@ -61,12 +61,7 @@ object AndroidRuntimeInstaller {
         val target = File(directory, filename)
         val temporary = File(directory, "$filename.part")
         if (temporary.exists()) temporary.delete()
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = CONNECT_TIMEOUT
-            readTimeout = READ_TIMEOUT
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "O-Launcher/0.1.0")
-        }
+        val connection = openHttpsDownload(address)
         try {
             connection.connect()
             if (connection.responseCode !in 200..299) {
@@ -115,6 +110,31 @@ object AndroidRuntimeInstaller {
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun openHttpsDownload(address: String): HttpURLConnection {
+        var current = URL(address)
+        require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
+            "Runtime downloads must use a valid HTTPS URL."
+        }
+        repeat(6) {
+            val connection = (current.openConnection() as HttpURLConnection).apply {
+                connectTimeout = CONNECT_TIMEOUT
+                readTimeout = READ_TIMEOUT
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", "O-Launcher/0.1.0")
+            }
+            val status = connection.responseCode
+            if (status !in setOf(301, 302, 303, 307, 308)) return connection
+            val location = connection.getHeaderField("Location")
+            connection.disconnect()
+            require(!location.isNullOrBlank()) { "Runtime server returned a redirect without a destination." }
+            current = URL(current, location)
+            require(current.protocol.equals("https", true) && current.host.isNotBlank() && current.userInfo == null) {
+                "Runtime server attempted an insecure or invalid redirect."
+            }
+        }
+        error("Runtime server exceeded the allowed redirect count.")
     }
 
     suspend fun installRuntime(archive: File, javaMajor: Int, gameDirectory: File, onProgress: (String) -> Unit): RuntimeInstallResult = withContext(Dispatchers.IO) {
