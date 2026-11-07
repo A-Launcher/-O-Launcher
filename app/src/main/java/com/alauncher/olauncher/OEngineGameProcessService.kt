@@ -112,11 +112,13 @@ class OEngineGameProcessService : Service() {
                 MSG_ATTACH_GAME_SURFACE -> handleQueuedSurfaceAttach(message)
                 MSG_DETACH_GAME_SURFACE -> {
                     try {
-                        OEngineAndroidGlfwBootstrap.surfaceDestroyed()
+                        // Queue first. nativeSurfaceDestroyed marks the Surface unavailable and
+                        // wakes GLFW; its owner thread drains the LTW detach and switches to the
+                        // pbuffer before Mojo releases its ANativeWindow reference.
                         (eglBootstrap ?: error("LTW EGL session is unavailable.")).queueDetachWindow()
-                        OEngineAndroidGlfwBootstrap.surfaceUpdated() // Wake GLFW after the detach event is in the native queue.
+                        OEngineAndroidGlfwBootstrap.surfaceDestroyed()
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_QUEUED",
-                            "Surface detach queued for the GLFW/LTW owner thread.")
+                            "Surface detach queued; GLFW owner thread was woken to release the window safely.")
                     } catch (error: Throwable) {
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_QUEUE_FAILED",
                             error.message ?: error.javaClass.simpleName, error)
@@ -160,7 +162,6 @@ class OEngineGameProcessService : Service() {
             if (candidateWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateWindow) }
             if (queuedWindow) {
                 runCatching { eglBootstrap?.queueDetachWindow() }
-                runCatching { OEngineAndroidGlfwBootstrap.surfaceUpdated() }
             }
             runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
             surface?.release()
