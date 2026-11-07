@@ -108,6 +108,17 @@ text = text.replace(
     1,
 )
 text = text.replace(
+    "    _input_queue_wait(&input_queue, android_dequeue_event);\n    process_flag_bits();",
+    "    _input_queue_wait(&input_queue, android_dequeue_event);\n    oengine_drain_input_events();\n    process_flag_bits();",
+    1,
+)
+text = text.replace(
+    "    process_flag_bits();\n}\n\nvoid _glfwPostEmptyEventAndroid",
+    "    oengine_drain_input_events();\n    process_flag_bits();\n}\n\nvoid _glfwPostEmptyEventAndroid",
+    1,
+)
+
+text = text.replace(
     "void _glfwWaitEventsTimeoutAndroid(double timeout)\n{\n    if(update_flags != 0) {",
     "void _glfwWaitEventsTimeoutAndroid(double timeout)\n{\n    oengine_drain_input_events();\n    if(update_flags != 0) {",
     1,
