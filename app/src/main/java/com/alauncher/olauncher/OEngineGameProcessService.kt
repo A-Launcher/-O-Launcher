@@ -1,7 +1,5 @@
 package com.alauncher.olauncher
 
-import git.artdeell.dnbootstrap.glfw.GLFW
-
 import android.app.Service
 import android.content.Intent
 import android.os.Handler
