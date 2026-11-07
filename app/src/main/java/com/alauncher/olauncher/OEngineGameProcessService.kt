@@ -62,13 +62,19 @@ class OEngineGameProcessService : Service() {
                         codepoint = codepoints[index], text = texts?.get(index)
                     )
                 }
-                events.forEach(OEngineGameInputBridge::enqueue)
-                if (OEngineGameInputBridge.inputResetRequired && !inputResetWasLogged) {
+                val accepted = OEngineJvmNativeBridge.enqueueInputEvents(events)
+                require(accepted >= 0) { "The Rust native input queue rejected the event batch." }
+                val resetPending = OEngineJvmNativeBridge.inputResetPending()
+                if (resetPending && !inputResetWasLogged) {
                     inputResetWasLogged = true
                     OEngineSessionLog.append(this, "INPUT_QUEUE_RESET_REQUIRED",
-                        "Input ingress overflowed with digital transitions pending; the game-thread bridge will synthesize all-controls-up.")
-                } else if (!OEngineGameInputBridge.inputResetRequired) {
+                        "Native input queue overflowed with digital transitions pending; the GLFW game-thread drain will synthesize all-controls-up.")
+                } else if (!resetPending) {
                     inputResetWasLogged = false
+                }
+                if (accepted < events.size) {
+                    OEngineSessionLog.append(this, "INPUT_BATCH_BACKPRESSURE",
+                        "Native input queue accepted " + accepted + " of " + events.size + " events.")
                 }
             } catch (error: Throwable) {
                 OEngineSessionLog.append(this, "INPUT_BATCH_REJECTED",
