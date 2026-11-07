@@ -58,6 +58,23 @@ class OEngineTouchControlsTest {
         assertEquals("JUMP", remapped.first { it.id == "jump" }.label)
     }
 
+    @Test fun renameChangesOnlyTheSelectedControlAndTrimsWhitespace() {
+        val controls = OEngineTouchControls.defaults()
+        val renamed = OEngineTouchControls.rename(controls, "jump", "  HOP  ")
+        assertEquals("HOP", renamed.first { it.id == "jump" }.label)
+        assertEquals("▲", renamed.first { it.id == "forward" }.label)
+    }
+
+    @Test fun renameRejectsBlankAndOverlongLabels() {
+        val controls = OEngineTouchControls.defaults()
+        listOf("   ", "1234567890123").forEach { label ->
+            try {
+                OEngineTouchControls.rename(controls, "jump", label)
+                fail("Invalid labels must be rejected.")
+            } catch (_: IllegalArgumentException) { }
+        }
+    }
+
     @Test fun layoutPresetsMirrorAndResizeControlsWithoutBreakingBounds() {
         val controls = OEngineTouchControls.defaults()
         val left = OEngineTouchControls.applyPreset(controls, "left-handed")
