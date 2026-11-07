@@ -11,6 +11,7 @@ import android.view.SurfaceView
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.widget.Toast
+import git.artdeell.dnbootstrap.glfw.GLFW
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -2808,7 +2809,13 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 super.onWindowFocusChanged(hasWindowFocus)
                                 if (!hasWindowFocus) gameInputForwarder.releaseAll()
                             }
+
+                            override fun onDetachedFromWindow() {
+                                GLFW.detachHostView(this)
+                                super.onDetachedFromWindow()
+                            }
                         }.apply {
+                            GLFW.attachHostView(this)
                             isFocusable = true
                             isFocusableInTouchMode = true
                             setOnKeyListener { _, keyCode, event ->
