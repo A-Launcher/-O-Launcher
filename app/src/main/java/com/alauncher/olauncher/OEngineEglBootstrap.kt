@@ -12,7 +12,7 @@ internal class OEngineEglBootstrap private constructor(
     val glesMajor: Int,
     private val ownerThreadId: Long
 ) {
-    private var closed = false
+    @Volatile private var closed = false
     private var windowAttached = false
 
     fun attachWindow(nativeWindowHandle: Long, width: Int, height: Int) {
