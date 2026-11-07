@@ -506,7 +506,7 @@ if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in
 destroy_handler = "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed"
 destroy_function_start = android_text.find(destroy_handler)
 destroy_body_start = android_text.find("{", destroy_function_start)
-destroy_body_end = android_text.find("\\n\\n}", destroy_body_start)
+destroy_body_end = android_text.find("\n\n}", destroy_body_start)
 if destroy_function_start < 0 or destroy_body_start < 0 or destroy_body_end < 0:
     raise SystemExit("Pinned Mojo nativeSurfaceDestroyed function changed")
 destroy_function_body = """
@@ -525,7 +525,9 @@ destroy_function_body = """
         nativeWindow = NULL;
     }
 """
-android_text = android_text[:destroy_body_start + 1] + destroy_function_body + android_text[destroy_body_end:]if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
+android_text = android_text[:destroy_body_start + 1] + destroy_function_body + android_text[destroy_body_end:]
+
+if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
 if "atomic_exchange_explicit(&surfaceUpdated" not in manage_replacement:
     raise SystemExit("Android GLFW must consume Surface resize notifications without losing concurrent updates")
