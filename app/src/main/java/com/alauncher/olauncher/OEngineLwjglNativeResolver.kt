@@ -28,6 +28,9 @@ data class OEngineLwjglResolution(
     val coreJar: File?,
     val dynamicLinkLoaderClassPresent: Boolean,
     val ndlopenSignaturePresent: Boolean,
+    val glfwModulePresent: Boolean,
+    val glfwJavaClassPresent: Boolean,
+    val androidGlfwNativeProviderIntegrated: Boolean,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -50,6 +53,7 @@ object OEngineLwjglNativeResolver {
     const val DYNAMIC_LINK_LOADER_CLASS_NAME = "org.lwjgl.system.linux.DynamicLinkLoader"
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
     private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
+    private const val LWJGL3_GLFW_CLASS = "org/lwjgl/glfw/GLFW.class"
 
 
     /**
@@ -160,6 +164,32 @@ object OEngineLwjglNativeResolver {
                     versions.map { it.version }.distinct().joinToString()
             }
 
+        val glfwModules = modules.filter { it.artifact == "lwjgl-glfw" }
+        val glfwJar = glfwModules.singleOrNull()?.jar
+        var glfwJavaClassPresent = false
+        if (generation == OEngineLwjglGeneration.LWJGL3) {
+            if (glfwModules.isEmpty()) {
+                blockers += "LWJGL 3 classpath is missing the lwjgl-glfw module required by Minecraft's window and input APIs."
+            } else if (glfwModules.size == 1 && glfwJar?.isFile == true) {
+                try {
+                    JarFile(glfwJar).use { jar ->
+                        glfwJavaClassPresent = jar.getJarEntry(LWJGL3_GLFW_CLASS) != null
+                    }
+                } catch (error: Exception) {
+                    blockers += "Could not inspect the LWJGL GLFW module JAR: " + (error.message ?: error.javaClass.simpleName)
+                }
+                if (!glfwJavaClassPresent) {
+                    blockers += "The selected lwjgl-glfw JAR does not contain org.lwjgl.glfw.GLFW."
+                }
+            }
+        }
+        // Mojo's Android GLFW exposes a separate git.artdeell JNI binding. It is not
+        // the lwjgl-glfw JNI provider expected by Minecraft's org.lwjgl.glfw classes.
+        val androidGlfwNativeProviderIntegrated = false
+        if (generation == OEngineLwjglGeneration.LWJGL3 && glfwJavaClassPresent) {
+            blockers += "The Android GLFW platform library is staged, but Minecraft's org.lwjgl.glfw Java/JNI provider is not yet adapted to it."
+        }
+
         val core = modules.filter { it.artifact == "lwjgl" }
         val coreJar = core.singleOrNull()?.jar
         if (core.size > 1) blockers += "The LWJGL core artifact is ambiguous."
@@ -228,6 +258,9 @@ object OEngineLwjglNativeResolver {
             coreJar = coreJar,
             dynamicLinkLoaderClassPresent = dynamicLoaderPresent,
             ndlopenSignaturePresent = ndlopenSignaturePresent,
+            glfwModulePresent = glfwModules.size == 1,
+            glfwJavaClassPresent = glfwJavaClassPresent,
+            androidGlfwNativeProviderIntegrated = androidGlfwNativeProviderIntegrated,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )
