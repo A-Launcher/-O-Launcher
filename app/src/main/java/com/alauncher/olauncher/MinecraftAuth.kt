@@ -20,6 +20,61 @@ data class MinecraftAccount(val name: String, val uuid: String, val refreshToken
 data class MicrosoftDeviceCode(val deviceCode: String, val userCode: String, val verificationUri: String, val expiresIn: Int, val interval: Int)
 
 object MinecraftAuth {
+    /** Uploads a validated custom skin to the authenticated Java profile. */
+    suspend fun uploadSkin(accessToken: String, skinFile: java.io.File, variant: String): String =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            require(accessToken.isNotBlank()) { "Sign in with a Microsoft account before applying a skin." }
+            require(variant == "CLASSIC" || variant == "SLIM") { "Choose a valid skin model." }
+            require(skinFile.isFile && skinFile.length() in 1..1_048_576L) {
+                "Skin PNG must be between 1 byte and 1 MiB."
+            }
+            val signature = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+            val header = ByteArray(signature.size)
+            skinFile.inputStream().use { input ->
+                require(input.read(header) == header.size && header.contentEquals(signature)) {
+                    "The selected skin is not a valid PNG file."
+                }
+            }
+            val boundary = "OLauncherSkin" + java.util.UUID.randomUUID().toString().replace("-", "")
+            val connection = (URL("https://api.minecraftservices.com/minecraft/profile/skins")
+                .openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 30000
+                doOutput = true
+                setRequestProperty("Authorization", "Bearer $accessToken")
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+            }
+            try {
+                connection.outputStream.use { output ->
+                    fun write(value: String) = output.write(value.toByteArray(Charsets.UTF_8))
+                    write("--$boundary\r\n")
+                    write("Content-Disposition: form-data; name=\"variant\"\r\n\r\n")
+                    write("$variant\r\n")
+                    write("--$boundary\r\n")
+                    write("Content-Disposition: form-data; name=\"file\"; filename=\"skin.png\"\r\n")
+                    write("Content-Type: image/png\r\n\r\n")
+                    skinFile.inputStream().use { input -> input.copyTo(output) }
+                    write("\r\n--$boundary--\r\n")
+                }
+                val status = connection.responseCode
+                val body = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                    ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+                if (status !in 200..299) {
+                    val detail = runCatching { JSONObject(body).optString("errorMessage") }.getOrNull()
+                        ?.takeIf(String::isNotBlank)
+                        ?: runCatching { JSONObject(body).optString("error") }.getOrNull()
+                            ?.takeIf(String::isNotBlank)
+                        ?: "Minecraft skin upload failed (HTTP $status)."
+                    error(detail)
+                }
+                "Skin uploaded to your Minecraft Java profile."
+            } finally {
+                connection.disconnect()
+            }
+        }
+
     suspend fun beginDeviceLogin(): MicrosoftDeviceCode = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val j = form("https://login.live.com/oauth20_devicecode.srf", mapOf("client_id" to MS_CLIENT_ID, "scope" to MS_SCOPE))
         MicrosoftDeviceCode(j.getString("device_code"), j.getString("user_code"), j.optString("verification_uri", "https://www.microsoft.com/link"), j.optInt("expires_in", 900), j.optInt("interval", 5))
