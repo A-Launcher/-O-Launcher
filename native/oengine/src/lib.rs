@@ -137,6 +137,7 @@ impl OEngineNativeInputQueue {
                     timestamp_nanos: 0,
                     modifiers: pressed.modifiers,
                     codepoint: 0,
+                    scan_code: pressed.scan_code,
                 };
             }
             self.pressed.clear();
@@ -1282,7 +1283,7 @@ mod native_input_dispatch_tests {
         let window = ptr::null_mut();
         unsafe {
             dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
-                device: 1, action: 0, code: 87, codepoint: 119, modifiers: 1, ..Default::default()
+                device: 1, action: 0, code: 87, scan_code: 42, codepoint: 119, modifiers: 1, ..Default::default()
             });
             dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
                 device: 2, action: 0, code: 0, modifiers: 2, ..Default::default()
@@ -1341,7 +1342,8 @@ mod native_input_dispatch_tests {
         assert_eq!(offset_of!(OEngineNativeInputEvent, timestamp_nanos), 24);
         assert_eq!(offset_of!(OEngineNativeInputEvent, modifiers), 32);
         assert_eq!(offset_of!(OEngineNativeInputEvent, codepoint), 36);
-        assert_eq!(size_of::<OEngineNativeInputEvent>(), 40);
+        assert_eq!(offset_of!(OEngineNativeInputEvent, scan_code), 40);
+        assert_eq!(size_of::<OEngineNativeInputEvent>(), 48);
     }
 
     #[test]
@@ -1756,7 +1758,7 @@ mod native_input_tests {
     fn event(device: i32, action: i32, code: i32, x: f32) -> OEngineNativeInputEvent {
         OEngineNativeInputEvent {
             device, action, code, x, y: 0.0, value: 1.0,
-            timestamp_nanos: 1, modifiers: 0, codepoint: 0,
+            timestamp_nanos: 1, modifiers: 0, codepoint: 0, scan_code: 0,
         }
     }
 
