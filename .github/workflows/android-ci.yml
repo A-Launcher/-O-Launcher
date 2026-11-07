@@ -295,7 +295,7 @@ jobs:
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceCreated",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",
-                  "oengine_wake_input",
+                  "glfwPostEmptyEvent",
               }
               lwjgl_required_symbols = {
                   line.strip()
