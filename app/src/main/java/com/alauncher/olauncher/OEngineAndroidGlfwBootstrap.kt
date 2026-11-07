@@ -3,6 +3,7 @@ package com.alauncher.olauncher
 import android.content.Context
 import android.view.Surface
 import git.artdeell.dnbootstrap.glfw.GLFW
+import git.artdeell.mojoexec.MojoExec
 import java.io.File
 
 /**
@@ -28,6 +29,13 @@ internal object OEngineAndroidGlfwBootstrap {
         check(abi.successful) {
             "Android GLFW cannot satisfy the selected LWJGL native ABI: " +
                 abi.status + ": " + abi.detail
+        }
+        // Mojo's Android GLFW backend calls _glfwLoadEglAndroid() through
+        // MojoExec. Loading libglfw alone is insufficient: prepareEgl stores the
+        // exact EGL handle and enables its Android GLES context configuration.
+        MojoExec.setNativeLibraryDir(context.applicationInfo.nativeLibraryDir)
+        check(MojoExec.prepareEgl("libEGL.so", false, true, OEngineGraphicsStack.LTW_MIN_GLES_MAJOR)) {
+            "MojoExec could not preload Android libEGL.so for the GLFW platform backend."
         }
         GLFW.initializeOnce(context)
         loadedPath = path
