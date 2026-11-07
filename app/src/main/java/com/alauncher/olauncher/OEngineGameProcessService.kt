@@ -50,11 +50,21 @@ class OEngineGameProcessService : Service() {
                         val height = message.data.getInt(KEY_SURFACE_HEIGHT).coerceAtLeast(1)
                         candidateNativeWindow = OEngineJvmNativeBridge.acquireNativeWindow(surface, width, height)
                         egl.attachWindow(surface, width, height)
+                        // EGL now owns this Surface reference. Transfer ownership before releasing
+                        // the previous ANativeWindow so a cleanup error cannot release the live Surface.
+                        receivedSurface = null
                         val previousNativeWindow = nativeWindowHandle
                         nativeWindowHandle = candidateNativeWindow
                         candidateNativeWindow = 0L
-                        if (previousNativeWindow != 0L) OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow)
-                        receivedSurface = null
+                        if (previousNativeWindow != 0L) {
+                            runCatching { OEngineJvmNativeBridge.releaseNativeWindow(previousNativeWindow) }
+                                .onFailure {
+                                    OEngineSessionLog.append(
+                                        this, "NATIVE_WINDOW_REPLACEMENT_RELEASE_FAILED",
+                                        it.message ?: it.javaClass.simpleName, it
+                                    )
+                                }
+                        }
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
