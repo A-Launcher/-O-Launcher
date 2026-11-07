@@ -29,7 +29,7 @@ class OEngineAndroidGlfwArtifactInstallerTest {
             val manifest = JSONObject(result.manifest.readText())
             assertEquals("arm64-v8a", manifest.getString("abi"))
             assertEquals(4, manifest.getJSONArray("libraries").length())
-            assertTrue(manifest.getString("notice").contains("not yet connected"))
+            assertTrue(manifest.getString("notice").contains("absolute libglfw.so path"))
         } finally {
             root.deleteRecursively()
         }
