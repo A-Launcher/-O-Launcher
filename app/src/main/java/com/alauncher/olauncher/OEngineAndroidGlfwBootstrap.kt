@@ -41,6 +41,7 @@ internal object OEngineAndroidGlfwBootstrap {
         loadedPath = path
     }
 
+    @Synchronized
     fun surfaceCreated(surface: Surface) {
         check(loadedPath != null) { "Android GLFW JNI must be initialized before attaching a Surface." }
         require(surface.isValid) { "Cannot pass an invalid Android Surface to GLFW." }
@@ -51,6 +52,7 @@ internal object OEngineAndroidGlfwBootstrap {
         GLFW.nativeSurfaceUpdated()
     }
 
+    @Synchronized
     fun surfaceUpdated() {
         check(loadedPath != null) { "Android GLFW JNI is not initialized." }
         GLFW.nativeSurfaceUpdated()
