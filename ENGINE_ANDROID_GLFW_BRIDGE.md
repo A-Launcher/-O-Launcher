@@ -105,3 +105,12 @@ The LTW-tracked EGL context and Android Surface attach/swap primitives exist. Th
 A further platform-neutral safety layer now tracks held digital controls. It suppresses duplicate DOWN transitions, forwards REPEAT only for controls already held, ignores unmatched UP events, and can synthesize UP events in reverse press order when focus is lost or an input-device class disconnects. The Android adapter also preserves independent motion samples for each touch pointer, emits UP events for every active touch pointer on ACTION_CANCEL, and handles primary mouse ACTION_DOWN/ACTION_UP in addition to mouse button actions.
 
 This tracker is a tested primitive, not yet wired to the Activity's focus callback or to the game's event loop. The current SurfaceView does not yet forward Android input to the isolated game process; this change must not be mistaken for working in-game keyboard/mouse/gamepad input.
+
+
+## Independent input IPC ingress foundation
+
+The game process now exposes a second Messenger endpoint on a dedicated `OEngineInputIngress` HandlerThread. The health-check handshake returns this endpoint to the launcher process, and the client can send bounded batches of typed input events through it. The ingress validates array lengths, batch size, enum values, and each event's numeric invariants before adding events to the existing bounded input queue.
+
+This split is deliberate: the original game-process command HandlerThread is also the HotSpot/JVM owner thread and can remain inside Minecraft's synchronous `main()` call. The new endpoint can still receive Binder messages without moving EGL or JNI calls to an unsafe thread.
+
+**Not yet connected:** the SurfaceView does not send events through this channel, and no GLFW/game-thread consumer drains the service queue. The endpoint currently establishes responsive transport and validation only; it does not produce in-game input. The next required step is to connect the queue to the exact native GLFW event-poll contract after verifying the packaged LWJGL/GLFW implementation. Surface attach/resize/detach also still needs to be consumed on the LTW EGL owner/game thread rather than the blocked command handler.
