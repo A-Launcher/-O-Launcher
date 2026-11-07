@@ -13,11 +13,9 @@ internal class OEngineEglBootstrap private constructor(
     private val ownerThreadId: Long
 ) {
     @Volatile private var closed = false
-    @Volatile private var windowAttached = false
-    // Binder/Surface callbacks enqueue transitions while the game thread drains them.
-    // Keep the Kotlin mirror of the queue state in the same critical section as JNI.
+    // Serializes Binder-thread queue requests against session destruction. GLFW drains
+    // the native queue itself, so Kotlin deliberately does not mirror its attachment state.
     private val surfaceQueueLock = Any()
-    private var pendingWindowAttached: Boolean? = null
 
     fun attachWindow(nativeWindowHandle: Long, width: Int, height: Int) {
         checkOwner()
@@ -26,20 +24,19 @@ internal class OEngineEglBootstrap private constructor(
             "LTW window attachment requires a native window and positive dimensions."
         }
         OEngineJvmNativeBridge.attachLtwWindow(nativeSession, nativeWindowHandle, width, height)
-        windowAttached = true
     }
 
     fun detachWindow() {
         checkOwner()
-        if (closed || !windowAttached) return
+        if (closed) return
         OEngineJvmNativeBridge.detachLtwWindow(nativeSession)
-        windowAttached = false
     }
 
     /** Present one completed frame on the attached Android window surface. */
     fun swapBuffers() {
         checkOwner()
-        check(!closed && windowAttached) { "No active LTW game window is available for presentation." }
+        check(!closed) { "LTW EGL session has already been closed." }
+        // Native EGL state is authoritative because GLFW may drain Surface events directly.
         OEngineJvmNativeBridge.swapLtwBuffers(nativeSession)
     }
 
@@ -49,7 +46,6 @@ internal class OEngineEglBootstrap private constructor(
         synchronized(surfaceQueueLock) {
             check(!closed) { "LTW EGL session has already been closed." }
             OEngineJvmNativeBridge.queueLtwWindow(nativeSession, nativeWindowHandle, width, height)
-            pendingWindowAttached = true
         }
     }
 
@@ -58,35 +54,22 @@ internal class OEngineEglBootstrap private constructor(
         synchronized(surfaceQueueLock) {
             check(!closed) { "LTW EGL session has already been closed." }
             OEngineJvmNativeBridge.queueLtwWindow(nativeSession, 0L, 0, 0)
-            pendingWindowAttached = false
         }
     }
 
     /** Drain one pending Surface transition on the creating game/GLFW thread. */
     fun processPendingWindowChange() {
         checkOwner()
-        synchronized(surfaceQueueLock) {
-            check(!closed) { "LTW EGL session has already been closed." }
-            OEngineJvmNativeBridge.processPendingLtwWindow()
-            pendingWindowAttached?.let { windowAttached = it }
-            pendingWindowAttached = null
-        }
+        OEngineJvmNativeBridge.processPendingLtwWindow()
     }
 
     fun close() {
         checkOwner()
         if (closed) return
         synchronized(surfaceQueueLock) {
-            if (pendingWindowAttached != null) {
-                OEngineJvmNativeBridge.processPendingLtwWindow()
-                pendingWindowAttached?.let { windowAttached = it }
-                pendingWindowAttached = null
-            }
-            if (windowAttached) {
-                OEngineJvmNativeBridge.detachLtwWindow(nativeSession)
-                windowAttached = false
-            }
+            if (closed) return
             closed = true
+            // Native teardown is idempotent and owns the actual EGL attachment state.
             OEngineJvmNativeBridge.destroyLtwEglSession(nativeSession)
         }
     }
