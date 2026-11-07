@@ -183,13 +183,12 @@ class OEngineGameProcessClient(
             }
             OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
                 val data = message.data
-                val status = OEngineGameProcessStatus(
                 data.getBinder(OEngineGameProcessService.KEY_INPUT_MESSENGER)?.let {
                     inputMessenger = Messenger(it)
                     OEngineSessionLog.append(appContext, "IPC_INPUT_CHANNEL_READY",
                         "Dedicated input ingress Binder endpoint connected; native game-thread consumption is not yet installed.")
                 }
-
+                val status = OEngineGameProcessStatus(
                     ready = data.getBoolean(OEngineGameProcessService.KEY_READY),
                     pid = data.getInt(OEngineGameProcessService.KEY_PID),
                     processName = data.getString(OEngineGameProcessService.KEY_PROCESS).orEmpty(),
