@@ -1915,6 +1915,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     var showGameSurface by remember { mutableStateOf(false) }
     var gameSurfaceReady by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
+    val savedTouchControls = remember(context) { OEngineTouchControls.load(context) }
     val gameInputForwarder = remember(gameProcessClient) {
         OEngineGameInputForwarder(sendBatch = { batch -> gameProcessClient?.sendInputEvents(batch) == true })
     }
@@ -3155,6 +3156,20 @@ private fun InstallationsDestination(images: LauncherImages) {
                         }
                     },
                     modifier = Modifier.fillMaxSize()
+                )
+                OEngineTouchControlsOverlay(
+                    initialControls = savedTouchControls,
+                    onKey = { code, down ->
+                        gameInputForwarder.forward(listOf(
+                            OEngineInputEvent(
+                                device = OEngineInputDevice.KEYBOARD,
+                                action = if (down) OEngineInputAction.DOWN else OEngineInputAction.UP,
+                                code = code,
+                                timestampNanos = System.nanoTime()
+                            )
+                        ))
+                    },
+                    onLayoutChanged = { layout -> OEngineTouchControls.save(context, layout) }
                 )
                 Text(
                     "O ENGINE • GAME SURFACE",
