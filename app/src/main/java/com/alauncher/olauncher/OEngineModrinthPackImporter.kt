@@ -85,6 +85,7 @@ object OEngineModrinthPackImporter {
                 }
                 val destination = safeDestination(root, relative)
                 require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
+                verifySafeDestination(root, destination)
                 val temp = File(destination.parentFile, destination.name + ".oengine-part")
                 downloadVerified(url, temp, size, sha1, sha512)
                 moveIntoPlace(temp, destination)
@@ -122,7 +123,17 @@ object OEngineModrinthPackImporter {
     private fun safeDestination(root: File, relative: String): File {
         val destination = File(root, relative).canonicalFile
         require(destination.toPath().startsWith(root.toPath()) && destination != root) { "Archive path escapes the instance." }
+        require(!destination.isDirectory) { "A modpack file cannot replace an instance directory." }
         return destination
+    }
+
+    /** Re-resolve after parent creation so a symlinked parent cannot redirect extraction outside the instance. */
+    private fun verifySafeDestination(root: File, destination: File) {
+        val canonicalRoot = root.canonicalFile.toPath()
+        val canonicalParent = destination.parentFile?.canonicalFile?.toPath()
+            ?: error("Modpack destination has no parent directory.")
+        require(canonicalParent.startsWith(canonicalRoot)) { "Modpack destination parent escapes the instance." }
+        require(!destination.isDirectory) { "A modpack file cannot replace an instance directory." }
     }
 
     private fun copyOverrides(zip: ZipFile, prefix: String, root: File, initialBytes: Long): Pair<Int, Long> {
@@ -135,6 +146,7 @@ object OEngineModrinthPackImporter {
             val relative = safeRelativePath(entry.name.removePrefix(prefix))
             val destination = safeDestination(root, relative)
             require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
+            verifySafeDestination(root, destination)
             val temp = File(destination.parentFile, destination.name + ".oengine-part")
             zip.getInputStream(entry).use { input ->
                 temp.outputStream().buffered().use { output ->
