@@ -81,6 +81,9 @@ internal class OEngineEglBootstrap private constructor(
     }
 
     companion object {
+        internal fun parseGlesMajor(version: String): Int? =
+            Regex("OpenGL ES ([0-9]+)").find(version)?.groupValues?.get(1)?.toIntOrNull()
+
         fun create(rendererHandle: Long, minimumGlesMajor: Int = 3): OEngineEglBootstrap {
             require(minimumGlesMajor == 3) { "The pinned LTW renderer requires OpenGL ES 3." }
             val ownerThreadId = Thread.currentThread().id
@@ -88,11 +91,13 @@ internal class OEngineEglBootstrap private constructor(
             val info = OEngineJvmNativeBridge.ltwEglInfo(nativeSession)
             val version = info.substringBefore(" • ").trim()
             val renderer = info.substringAfter(" • ", "").trim()
-            val major = Regex("OpenGL ES ([0-9]+)").find(version)
-                ?.groupValues?.get(1)?.toIntOrNull() ?: minimumGlesMajor
-            if (major < minimumGlesMajor) {
+            val major = parseGlesMajor(version)
+            if (major == null || major < minimumGlesMajor) {
                 OEngineJvmNativeBridge.destroyLtwEglSession(nativeSession)
-                error("LTW created GLES $major; GLES $minimumGlesMajor is required.")
+                error(
+                    if (major == null) "Could not verify the LTW OpenGL ES version: $version"
+                    else "LTW created GLES $major; GLES $minimumGlesMajor is required."
+                )
             }
             return OEngineEglBootstrap(
                 nativeSession = nativeSession,
