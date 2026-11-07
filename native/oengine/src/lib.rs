@@ -1294,6 +1294,15 @@ mod native_input_dispatch_tests {
     }
 
     #[test]
+    fn oengine_transition_values_are_translated_to_glfw_actions() {
+        assert_eq!(glfw_action_from_oengine(0), Some(1)); // PRESS
+        assert_eq!(glfw_action_from_oengine(1), Some(0)); // RELEASE
+        assert_eq!(glfw_action_from_oengine(2), Some(2)); // REPEAT
+        assert_eq!(glfw_action_from_oengine(3), None);
+        assert_eq!(glfw_action_from_oengine(4), None);
+    }
+
+    #[test]
     fn callback_table_is_a_c_compatible_pointer_table() {
         assert_eq!(
             std::mem::size_of::<OEngineNativeInputCallbacks>(),
