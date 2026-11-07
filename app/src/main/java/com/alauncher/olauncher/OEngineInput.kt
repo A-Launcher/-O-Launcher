@@ -8,6 +8,7 @@ data class OEngineInputEvent(
     val device: OEngineInputDevice,
     val action: OEngineInputAction,
     val code: Int,
+    val scanCode: Int = 0,
     val x: Float = 0f,
     val y: Float = 0f,
     val value: Float = 0f,
