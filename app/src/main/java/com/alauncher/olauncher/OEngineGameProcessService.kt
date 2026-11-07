@@ -26,6 +26,7 @@ class OEngineGameProcessService : Service() {
     private var workerThread: HandlerThread? = null
 
     private var inputThread: HandlerThread? = null
+    @Volatile private var inputResetWasLogged = false
     /** A separate Binder endpoint remains responsive while the JVM owner thread is inside Minecraft main. */
     private val inputMessenger: Messenger by lazy {
         val thread = HandlerThread("OEngineInputIngress").apply { start() }
@@ -62,9 +63,12 @@ class OEngineGameProcessService : Service() {
                     )
                 }
                 events.forEach(OEngineGameInputBridge::enqueue)
-                if (OEngineGameInputBridge.inputResetRequired) {
+                if (OEngineGameInputBridge.inputResetRequired && !inputResetWasLogged) {
+                    inputResetWasLogged = true
                     OEngineSessionLog.append(this, "INPUT_QUEUE_RESET_REQUIRED",
-                        "Input ingress overflowed with digital transitions pending; a game-thread all-controls-up reset is required.")
+                        "Input ingress overflowed with digital transitions pending; the game-thread bridge will synthesize all-controls-up.")
+                } else if (!OEngineGameInputBridge.inputResetRequired) {
+                    inputResetWasLogged = false
                 }
             } catch (error: Throwable) {
                 OEngineSessionLog.append(this, "INPUT_BATCH_REJECTED",
