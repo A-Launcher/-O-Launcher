@@ -287,6 +287,37 @@ jobs:
                   raise SystemExit("Pinned LWJGL GLFW export manifest is unexpectedly incomplete")
               glfw_symbols |= lwjgl_required_symbols
               for abi in sorted(expected_abis):
+                  for library in ("liblwjgl.so", "liblwjgl_opengl.so"):
+                      path = f"lib/{abi}/{library}"
+                      if path not in archive.namelist() or archive.getinfo(path).file_size < 50000:
+                          raise SystemExit(f"{abi}: required Android LWJGL native module missing or implausibly small: {library}")
+                      print(f"{abi}: verified Android LWJGL native module: {library}")
+                  path = f"lib/{abi}/liblwjgl.so"
+                  with tempfile.NamedTemporaryFile(suffix=".so") as native:
+                      native.write(archive.read(path))
+                      native.flush()
+                      output = subprocess.check_output(
+                          [os.environ["NM"], "--dynamic", "--defined-only", native.name],
+                          text=True
+                      )
+                      exported = {line.split()[-1].split("@")[0] for line in output.splitlines() if line.split()}
+                      required_lwjgl_jni = {
+                          "Java_org_lwjgl_system_MemoryAccessJNI_getPointerSize",
+                          "Java_org_lwjgl_system_MemoryAccessJNI_malloc",
+                          "Java_org_lwjgl_system_MemoryUtil_memGlobalRefToObject",
+                          "Java_org_lwjgl_system_SharedLibraryUtil_getLibraryPath",
+                          "Java_org_lwjgl_system_ThreadLocalUtil_getThreadJNIEnv",
+                          "Java_org_lwjgl_system_ThreadLocalUtil_getFunctionMissingAbort",
+                          "Java_org_lwjgl_system_ThreadLocalUtil_nsetupEnvData",
+                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlerror",
+                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlsym",
+                          "Java_org_lwjgl_system_linux_DynamicLinkLoader_ndlclose",
+                      }
+                      absent = required_lwjgl_jni - exported
+                      if absent:
+                          raise SystemExit(f"{abi}: LWJGL core JNI exports missing: {sorted(absent)}")
+                      print(f"{abi}: verified required LWJGL core JNI exports")
+              for abi in sorted(expected_abis):
                   path = f"lib/{abi}/libglfw.so"
                   with tempfile.NamedTemporaryFile(suffix=".so") as native:
                       native.write(archive.read(path))
