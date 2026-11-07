@@ -508,6 +508,16 @@ if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInU
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
 if "atomic_exchange_explicit(&surfaceUpdated" not in manage_replacement:
     raise SystemExit("Android GLFW must consume Surface resize notifications without losing concurrent updates")
+destroy_anchor = """surfaceDestroyed = true;
+    if(!ownedByVulkan && surfaceInUse) {"""
+destroy_replacement = """surfaceDestroyed = true;
+    /* Wake the GLFW owner thread after the detach has been queued. */
+    _glfwPostEmptyEventAndroid();
+    if(!ownedByVulkan && surfaceInUse) {"""
+if "_glfwPostEmptyEventAndroid();" not in android_text:
+    if destroy_anchor not in android_text:
+        raise SystemExit("Pinned Mojo nativeSurfaceDestroyed wake anchor changed")
+    android_text = android_text.replace(destroy_anchor, destroy_replacement, 1)
 android_source.write_text(android_text, encoding="utf-8")
 
 required = [
