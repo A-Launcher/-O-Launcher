@@ -287,6 +287,10 @@ fun OEngineTouchControlsOverlay(
                     }
                     .size(maxWidth * control.width, maxHeight * control.height)
                     .clip(RoundedCornerShape(12.dp))
+                    .then(
+                        if (editing) androidx.compose.ui.Modifier.clickable { selectedId = control.id }
+                        else androidx.compose.ui.Modifier
+                    )
                     .background(if (editing) androidx.compose.ui.graphics.Color(0xAA8B6B35) else androidx.compose.ui.graphics.Color(0x66505050))
                     .border(
                         if (editing && selectedId == control.id) 2.dp else 1.dp,
