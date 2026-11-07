@@ -49,8 +49,28 @@ class OEngineLwjglNativeResolverTest {
             assertTrue(resolution.glfwModulePresent)
             assertTrue(resolution.glfwJavaClassPresent)
             assertFalse(resolution.androidGlfwNativeProviderIntegrated)
-            assertTrue(resolution.blockers.any { it.contains("Java/JNI provider is not yet adapted") })
+            assertTrue(resolution.blockers.any { it.contains("staged libglfw.so path") })
             assertTrue(resolution.warnings.any { it.contains("register its retained-renderer ndlopen hook") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun acceptsStagedAndroidGlfwAndKeepsEglValidationWarning() {
+        val root = Files.createTempDirectory("oengine-lwjgl3-android-glfw").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
+                "org/lwjgl/system/linux/DynamicLinkLoader.class" to lwjglClass())
+            val glfw = jar(root, "org/lwjgl/lwjgl-glfw/3.3.3/lwjgl-glfw-3.3.3.jar",
+                "org/lwjgl/glfw/GLFW.class" to byteArrayOf(1, 2, 3))
+            val native = File(root, "staged/arm64-v8a/libglfw.so").apply {
+                parentFile?.mkdirs()
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core, glfw), native)
+
+            assertTrue(result.androidGlfwNativeProviderIntegrated)
+            assertFalse(result.blockers.any { it.contains("staged libglfw.so path") })
+            assertTrue(result.warnings.any { it.contains("EGL/window lifecycle") })
         } finally { root.deleteRecursively() }
     }
 
