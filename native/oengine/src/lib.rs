@@ -1571,6 +1571,13 @@ static ACTIVE_LTW_EGL_SESSION: AtomicUsize = AtomicUsize::new(0);
 struct PendingLtwWindow { window: usize, width: i32, height: i32 }
 static PENDING_LTW_WINDOW: OnceLock<Mutex<Option<PendingLtwWindow>>> = OnceLock::new();
 
+fn replace_pending_ltw_window(
+    slot: &mut Option<PendingLtwWindow>,
+    next: PendingLtwWindow,
+) -> Option<usize> {
+    slot.replace(next).map(|previous| previous.window).filter(|window| *window != 0)
+}
+
 fn set_ltw_egl_error(message: String) {
     if let Ok(mut value) = LTW_EGL_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
         *value = message;
@@ -1715,12 +1722,12 @@ pub unsafe extern "C" fn oengine_ltw_egl_queue_window(
         set_ltw_egl_error("LTW EGL session closed before the Surface event could be queued.".to_owned());
         return 0;
     }
-    if let Some(previous) = pending.take() {
-        if previous.window != 0 {
-            release_anative_window(previous.window as *mut c_void);
-        }
+    if let Some(previous_window) = replace_pending_ltw_window(
+        &mut *pending,
+        PendingLtwWindow { window: window as usize, width, height },
+    ) {
+        release_anative_window(previous_window as *mut c_void);
     }
-    *pending = Some(PendingLtwWindow { window: window as usize, width, height });
     1
 }
 
@@ -2072,6 +2079,34 @@ mod native_input_tests {
             device, action, code, x, y: 0.0, value: 1.0,
             timestamp_nanos: 1, modifiers: 0, codepoint: 0, scan_code: 0, reserved: 0,
         }
+    }
+
+    #[test]
+    fn ltw_surface_queue_keeps_latest_transition_and_returns_superseded_reference() {
+        let mut pending = None;
+        assert_eq!(
+            replace_pending_ltw_window(&mut pending, PendingLtwWindow { window: 0x1000, width: 800, height: 600 }),
+            None
+        );
+        assert_eq!(
+            replace_pending_ltw_window(&mut pending, PendingLtwWindow { window: 0x2000, width: 1280, height: 720 }),
+            Some(0x1000)
+        );
+        assert_eq!(pending, Some(PendingLtwWindow { window: 0x2000, width: 1280, height: 720 }));
+        assert_eq!(
+            replace_pending_ltw_window(&mut pending, PendingLtwWindow { window: 0, width: 0, height: 0 }),
+            Some(0x2000)
+        );
+        assert_eq!(pending, Some(PendingLtwWindow { window: 0, width: 0, height: 0 }));
+    }
+
+    #[test]
+    fn ltw_surface_queue_releases_superseded_reference_even_for_same_native_pointer() {
+        let mut pending = Some(PendingLtwWindow { window: 0x3000, width: 640, height: 480 });
+        assert_eq!(
+            replace_pending_ltw_window(&mut pending, PendingLtwWindow { window: 0x3000, width: 1024, height: 768 }),
+            Some(0x3000)
+        );
     }
 
     #[test]
