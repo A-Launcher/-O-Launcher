@@ -50,6 +50,14 @@ class OEngineTouchControlsTest {
         assertEquals(controls, reduced)
     }
 
+    @Test fun remapChangesOnlyTheSelectedControlsKey() {
+        val controls = OEngineTouchControls.defaults()
+        val remapped = OEngineTouchControls.remap(controls, "jump", KeyEvent.KEYCODE_F)
+        assertEquals(KeyEvent.KEYCODE_F, remapped.first { it.id == "jump" }.keyCode)
+        assertEquals(KeyEvent.KEYCODE_W, remapped.first { it.id == "forward" }.keyCode)
+        assertEquals("JUMP", remapped.first { it.id == "jump" }.label)
+    }
+
     @Test fun layoutEncodingRoundTripsAllControlFields() {
         val controls = OEngineTouchControls.defaults()
         assertEquals(controls, OEngineTouchControls.decode(OEngineTouchControls.encode(controls)))
