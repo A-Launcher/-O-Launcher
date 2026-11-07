@@ -64,6 +64,36 @@ class OEngineJvmBootstrapPlanTest {
 
 
     @Test
+    fun configuresStagedAndroidGlfwAbsolutePathForLwjgl() {
+        val root = Files.createTempDirectory("oengine-jvm-glfw-plan").toFile()
+        try {
+            val runtimeHome = File(root, "runtime").apply { mkdirs() }
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\"17\"\\n")
+            val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            File(runtimeHome, "lib/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val game = File(root, "game").apply { mkdirs() }
+            val nativeDir = File(game, "natives").apply { mkdirs() }
+            val client = File(game, "client.jar").apply { writeBytes(byteArrayOf(1)) }
+            val glfw = File(root, "oengine/android-glfw/arm64-v8a/libglfw.so").apply {
+                parentFile?.mkdirs()
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
+
+            val plan = OEngineJvmBootstrapPlanner.prepare(
+                OEngineRuntime("Java-17-arm64", 17, "arm64", runtimeHome, java),
+                listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
+                listOf("-Dorg.lwjgl.glfw.libname=/wrong/path"),
+                emptyList(),
+                androidGlfwLibrary = glfw
+            )
+
+            assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
+            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=" + glfw.canonicalPath))
+            assertFalse(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=/wrong/path"))
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
     fun omitsRendererAliasWhenNoRendererProviderWasSelected() {
         val root = Files.createTempDirectory("oengine-jvm-no-renderer").toFile()
         try {
