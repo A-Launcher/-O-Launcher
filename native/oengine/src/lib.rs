@@ -1235,6 +1235,7 @@ mod native_input_dispatch_tests {
     use super::*;
 
     static TRACE: OnceLock<Mutex<Vec<(i32, i64, i64)>>> = OnceLock::new();
+    static DISPATCH_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     fn record(kind: i32, first: i64, second: i64) {
         TRACE.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap().push((kind, first, second));
@@ -1264,6 +1265,7 @@ mod native_input_dispatch_tests {
 
     #[test]
     fn dispatch_maps_keyboard_mouse_and_platform_events_to_callbacks() {
+        let _serial = DISPATCH_TEST_LOCK.lock().unwrap();
         let trace = TRACE.get_or_init(|| Mutex::new(Vec::new()));
         trace.lock().unwrap().clear();
         let callbacks = OEngineNativeInputCallbacks {
@@ -1304,6 +1306,7 @@ mod native_input_dispatch_tests {
 
     #[test]
     fn exported_c_dispatch_drains_the_native_queue() {
+        let _serial = DISPATCH_TEST_LOCK.lock().unwrap();
         oengine_input_clear_session();
         TRACE.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap().clear();
         native_input_queue().lock().unwrap().enqueue(OEngineNativeInputEvent {
