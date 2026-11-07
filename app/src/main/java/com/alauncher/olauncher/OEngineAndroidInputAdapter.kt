@@ -28,6 +28,7 @@ object OEngineAndroidInputAdapter {
             device = device,
             action = action,
             code = code,
+            scanCode = event.scanCode,
             value = if (action == OEngineInputAction.UP) 0f else 1f,
             timestampNanos = event.eventTime * 1_000_000L,
             modifiers = meta,
