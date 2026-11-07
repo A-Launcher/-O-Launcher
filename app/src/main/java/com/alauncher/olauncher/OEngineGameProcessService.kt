@@ -432,6 +432,28 @@ class OEngineGameProcessService : Service() {
                         val options = requestedOptions
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
+                        // Minecraft's LWJGL 3 Java modules require the Android-native
+                        // JNI core and OpenGL helper libraries before their static
+                        // Library initializers can run. Linux classifier archives are
+                        // not valid Android substitutes.
+                        val requiredLwjglNativeModules = listOf("liblwjgl.so", "liblwjgl_opengl.so")
+                        val missingLwjglModules = requiredLwjglNativeModules.filter { name ->
+                            val file = File(nativeDir, name)
+                            !file.isFile || file.length() <= 0L
+                        }
+                        check(missingLwjglModules.isEmpty()) {
+                            "Android LWJGL native runtime is incomplete; missing " +
+                                missingLwjglModules.joinToString() +
+                                ". Install the ABI-matched Android native modules before creating HotSpot."
+                        }
+                        OEngineSessionLog.append(
+                            this,
+                            "LWJGL_ANDROID_NATIVE_READY",
+                            requiredLwjglNativeModules.joinToString { name ->
+                                val file = File(nativeDir, name)
+                                name + ":" + file.length() + "B"
+                            }
+                        )
                         val searchPaths = listOf(
                             File(runtimeHome, "lib"),
                             File(runtimeHome, "lib/server"),
