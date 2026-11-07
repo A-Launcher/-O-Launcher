@@ -24,6 +24,56 @@ class OEngineGameProcessService : Service() {
         OEngineSessionLog.append(this, "GAME_PROCESS", "Isolated game-process service created; pid=" + Process.myPid())
     }
     private var workerThread: HandlerThread? = null
+
+    private var inputThread: HandlerThread? = null
+    private val inputQueue = OEngineInputQueue()
+    /** A separate Binder endpoint remains responsive while the JVM owner thread is inside Minecraft main. */
+    private val inputMessenger: Messenger by lazy {
+        val thread = HandlerThread("OEngineInputIngress").apply { start() }
+        inputThread = thread
+        Messenger(Handler(thread.looper) { message ->
+            if (message.what != MSG_INPUT_BATCH) return@Handler false
+            try {
+                val data = message.data
+                val devices = data.getIntArray(KEY_INPUT_DEVICE) ?: error("Missing input device array.")
+                val actions = data.getIntArray(KEY_INPUT_ACTION) ?: error("Missing input action array.")
+                val codes = data.getIntArray(KEY_INPUT_CODE) ?: error("Missing input code array.")
+                val xs = data.getFloatArray(KEY_INPUT_X) ?: error("Missing input X array.")
+                val ys = data.getFloatArray(KEY_INPUT_Y) ?: error("Missing input Y array.")
+                val values = data.getFloatArray(KEY_INPUT_VALUE) ?: error("Missing input value array.")
+                val times = data.getLongArray(KEY_INPUT_TIME) ?: error("Missing input timestamp array.")
+                val modifiers = data.getIntArray(KEY_INPUT_MODIFIERS) ?: error("Missing input modifiers array.")
+                val codepoints = data.getIntArray(KEY_INPUT_CODEPOINT) ?: error("Missing input codepoint array.")
+                val texts = data.getStringArray(KEY_INPUT_TEXT)
+                val count = devices.size
+                require(count in 1..MAX_INPUT_BATCH && listOf(actions.size, codes.size, xs.size, ys.size,
+                    values.size, times.size, modifiers.size, codepoints.size).all { it == count } &&
+                    (texts == null || texts.size == count)) { "Input batch arrays have inconsistent lengths or exceed the batch limit." }
+                val events = ArrayList<OEngineInputEvent>(count)
+                for (index in 0 until count) {
+                    val device = OEngineInputDevice.entries.getOrNull(devices[index])
+                        ?: error("Input batch contains an unknown device.")
+                    val action = OEngineInputAction.entries.getOrNull(actions[index])
+                        ?: error("Input batch contains an unknown action.")
+                    events += OEngineInputEvent(
+                        device = device, action = action, code = codes[index],
+                        x = xs[index], y = ys[index], value = values[index],
+                        timestampNanos = times[index], modifiers = modifiers[index],
+                        codepoint = codepoints[index], text = texts?.get(index)
+                    )
+                }
+                events.forEach(inputQueue::offer)
+                if (inputQueue.inputResetRequired) {
+                    OEngineSessionLog.append(this, "INPUT_QUEUE_RESET_REQUIRED",
+                        "Input ingress overflowed with digital transitions pending; a game-thread all-controls-up reset is required.")
+                }
+            } catch (error: Throwable) {
+                OEngineSessionLog.append(this, "INPUT_BATCH_REJECTED",
+                    error.message ?: error.javaClass.simpleName, error)
+            }
+            true
+        })
+    }
     @Volatile private var jvmCreationAttempted = false
     @Volatile private var jvmCreated = false
     @Volatile private var rendererHandle: Long = 0L
@@ -101,6 +151,8 @@ class OEngineGameProcessService : Service() {
                         data.putString(KEY_PROCESS, packageName + ":game")
                         data.putString(KEY_PHASE, "process_ready")
                     }
+                        data.putBinder(KEY_INPUT_MESSENGER, inputMessenger.binder)
+
                     runCatching { message.replyTo?.send(reply) }
                     true
                 }
@@ -371,11 +423,27 @@ class OEngineGameProcessService : Service() {
             }
             workerThread = null
         }
+        inputThread?.quitSafely()
+        inputThread = null
         super.onDestroy()
     }
 
     companion object {
         const val MSG_HEALTH_CHECK = 1
+        const val MSG_INPUT_BATCH = 17
+        const val MAX_INPUT_BATCH = 128
+        const val KEY_INPUT_MESSENGER = "oengine.input_messenger"
+        const val KEY_INPUT_DEVICE = "oengine.input_device"
+        const val KEY_INPUT_ACTION = "oengine.input_action"
+        const val KEY_INPUT_CODE = "oengine.input_code"
+        const val KEY_INPUT_X = "oengine.input_x"
+        const val KEY_INPUT_Y = "oengine.input_y"
+        const val KEY_INPUT_VALUE = "oengine.input_value"
+        const val KEY_INPUT_TIME = "oengine.input_time"
+        const val KEY_INPUT_MODIFIERS = "oengine.input_modifiers"
+        const val KEY_INPUT_CODEPOINT = "oengine.input_codepoint"
+        const val KEY_INPUT_TEXT = "oengine.input_text"
+
         const val MSG_ATTACH_GAME_SURFACE = 14
         const val MSG_GAME_SURFACE_RESULT = 15
         const val MSG_DETACH_GAME_SURFACE = 16
