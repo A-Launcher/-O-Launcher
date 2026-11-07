@@ -140,7 +140,7 @@ This closes the Android frontend and process-transport gap. It does **not** yet 
 
 A native callback dispatcher now sits directly on the Rust queue. `oengine_input_dispatch(window, callbacks, capacity)` drains a bounded batch, releases the queue mutex, then invokes callback pointers on the calling thread. The callback table mirrors the standard GLFW callback signatures for key, character, cursor position, mouse button, and scroll. It explicitly converts O Engine DOWN/UP/REPEAT values (0/1/2) to GLFW PRESS/RELEASE/REPEAT values (1/0/2), rather than forwarding the internal enum unchanged. Touch and gamepad events are preserved through a separate raw platform-event callback instead of being misrepresented as mouse buttons. Overflow recovery releases are delivered through the same key/mouse callback paths.
 
-The callback pointers must be obtained from the active embedded HotSpot GLFW implementation. Never pass ART method pointers or call Kotlin through HotSpot's `JNIEnv`. The dispatcher is now test-covered, and Android APK CI checks that its C symbol is exported for every shipped ABI, but no packaged GLFW implementation calls it yet.
+The callback pointers must be obtained from the active embedded HotSpot GLFW implementation. Never pass ART method pointers or call Kotlin through HotSpot's `JNIEnv`. The dispatcher is now test-covered, Android APK CI checks that its C symbol is exported for every shipped ABI, and native host CI compiles the public C header with strict warnings. No packaged GLFW implementation calls it yet.
 
 ### Pojav reference contract inspected
 
