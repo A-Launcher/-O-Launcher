@@ -2559,7 +2559,9 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             onSuccess = { surface ->
                                                 gameSurfaceReady = surface.successful
                                                 gameProcessStatus = if (surface.successful) {
-                                                    "ANDROID GAME SURFACE READY • " + surface.detail
+                                                    (if (surface.status == "game_surface_change_queued")
+                                                        "ANDROID GAME SURFACE CHANGE QUEUED • "
+                                                    else "ANDROID GAME SURFACE READY • ") + surface.detail
                                                 } else {
                                                     "ANDROID GAME SURFACE FAILED • " + surface.detail
                                                 }
