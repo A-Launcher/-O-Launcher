@@ -272,7 +272,7 @@ class OEngineGameProcessService : Service() {
                             abi = androidAbi
                         )
                         androidGlfwLibraryFile = androidGlfw.libraries.single { it.name == "libglfw.so" }.canonicalFile
-                        OEngineAndroidGlfwBootstrap.initialize(androidGlfwLibraryFile!!)
+                        OEngineAndroidGlfwBootstrap.initialize(this, androidGlfwLibraryFile!!)
                         OEngineSessionLog.append(
                             this,
                             "ANDROID_GLFW_ARTIFACTS_STAGED",
