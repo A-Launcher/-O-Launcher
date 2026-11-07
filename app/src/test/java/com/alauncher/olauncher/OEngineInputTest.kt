@@ -184,7 +184,7 @@ class OEngineInputTest {
     @Test fun gameInputForwarderTracksAndReleasesSurfaceControls() {
         val sent = mutableListOf<OEngineInputEvent>()
         val forwarder = OEngineGameInputForwarder { batch -> sent.addAll(batch); true }
-        val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f)
+        val down = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87, value = 1f, scanCode = 42)
         val up = down.copy(action = OEngineInputAction.UP, value = 0f)
         assertTrue(forwarder.forward(listOf(down, down)))
         assertEquals(1, sent.size)
@@ -192,6 +192,7 @@ class OEngineInputTest {
         assertEquals(2, sent.size)
         assertEquals(OEngineInputAction.UP, sent.last().action)
         assertEquals(99L, sent.last().timestampNanos)
+        assertEquals(42, sent.last().scanCode)
         assertTrue(forwarder.forward(listOf(up)))
         assertEquals(2, sent.size)
     }
