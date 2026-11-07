@@ -13,7 +13,11 @@ internal class OEngineEglBootstrap private constructor(
     private val ownerThreadId: Long
 ) {
     @Volatile private var closed = false
-    private var windowAttached = false
+    @Volatile private var windowAttached = false
+    // Binder/Surface callbacks enqueue transitions while the game thread drains them.
+    // Keep the Kotlin mirror of the queue state in the same critical section as JNI.
+    private val surfaceQueueLock = Any()
+    private var pendingWindowAttached: Boolean? = null
 
     fun attachWindow(nativeWindowHandle: Long, width: Int, height: Int) {
         checkOwner()
@@ -41,31 +45,50 @@ internal class OEngineEglBootstrap private constructor(
 
     /** Queue a replacement Surface from a Binder thread; EGL is changed on the GLFW game thread. */
     fun queueWindow(nativeWindowHandle: Long, width: Int, height: Int) {
-        check(!closed) { "LTW EGL session has already been closed." }
         require(nativeWindowHandle != 0L && width > 0 && height > 0)
-        OEngineJvmNativeBridge.queueLtwWindow(nativeSession, nativeWindowHandle, width, height)
+        synchronized(surfaceQueueLock) {
+            check(!closed) { "LTW EGL session has already been closed." }
+            OEngineJvmNativeBridge.queueLtwWindow(nativeSession, nativeWindowHandle, width, height)
+            pendingWindowAttached = true
+        }
     }
 
     /** Queue a detach without making EGL calls on the Android Surface callback thread. */
     fun queueDetachWindow() {
-        check(!closed) { "LTW EGL session has already been closed." }
-        OEngineJvmNativeBridge.queueLtwWindow(nativeSession, 0L, 0, 0)
+        synchronized(surfaceQueueLock) {
+            check(!closed) { "LTW EGL session has already been closed." }
+            OEngineJvmNativeBridge.queueLtwWindow(nativeSession, 0L, 0, 0)
+            pendingWindowAttached = false
+        }
     }
 
     /** Drain one pending Surface transition on the creating game/GLFW thread. */
     fun processPendingWindowChange() {
         checkOwner()
-        check(!closed) { "LTW EGL session has already been closed." }
-        OEngineJvmNativeBridge.processPendingLtwWindow()
-        windowAttached = true
+        synchronized(surfaceQueueLock) {
+            check(!closed) { "LTW EGL session has already been closed." }
+            OEngineJvmNativeBridge.processPendingLtwWindow()
+            pendingWindowAttached?.let { windowAttached = it }
+            pendingWindowAttached = null
+        }
     }
 
     fun close() {
         checkOwner()
         if (closed) return
-        if (windowAttached) detachWindow()
-        closed = true
-        OEngineJvmNativeBridge.destroyLtwEglSession(nativeSession)
+        synchronized(surfaceQueueLock) {
+            if (pendingWindowAttached != null) {
+                OEngineJvmNativeBridge.processPendingLtwWindow()
+                pendingWindowAttached?.let { windowAttached = it }
+                pendingWindowAttached = null
+            }
+            if (windowAttached) {
+                OEngineJvmNativeBridge.detachLtwWindow(nativeSession)
+                windowAttached = false
+            }
+            closed = true
+            OEngineJvmNativeBridge.destroyLtwEglSession(nativeSession)
+        }
     }
 
     private fun checkOwner() {
