@@ -183,9 +183,9 @@ object OEngineLwjglNativeResolver {
                 }
             }
         }
-        // LWJGL 3.3.3 supports an explicit org.lwjgl.glfw.libname path. The Android
-        // platform port exports the pinned LWJGL function surface; runtime EGL/window
-        // semantics remain a separate device-validation gate.
+        // LWJGL 3.3.3's generated GLFW class resolves C function addresses from the
+        // configured shared library. This is a C ABI contract, not a GLFW JNI-export
+        // contract; the ART-side Mojo JNI shim is a separate Android lifecycle API.
         val glfwLibrary = androidGlfwLibrary?.canonicalFile
         val androidGlfwLibraryConfigured =
             glfwLibrary != null && glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L
