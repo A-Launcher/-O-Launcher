@@ -69,6 +69,8 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -1813,6 +1815,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     var showGameSessionLog by remember { mutableStateOf(false) }
     var launchingMinecraft by remember { mutableStateOf(false) }
     var showGameSurface by remember { mutableStateOf(false) }
+    var gameSurfaceReady by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
@@ -2524,6 +2527,22 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             }
                                         )
                                     },
+                                    onGameSurface = { result ->
+                                        result.fold(
+                                            onSuccess = { surface ->
+                                                gameSurfaceReady = surface.successful
+                                                gameProcessStatus = if (surface.successful) {
+                                                    "ANDROID GAME SURFACE READY • " + surface.detail
+                                                } else {
+                                                    "ANDROID GAME SURFACE FAILED • " + surface.detail
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                gameSurfaceReady = false
+                                                gameProcessStatus = "ANDROID GAME SURFACE IPC FAILED • " + (error.message ?: "Unknown surface error")
+                                            }
+                                        )
+                                    },
                                     onRendererPreload = { result ->
                                         result.fold(
                                             onSuccess = { preload ->
@@ -2568,6 +2587,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 val release = selectedRelease ?: return@Button
                                 val instance = activeInstance
                                 launchingMinecraft = true
+                                gameSurfaceReady = false
                                 showGameSurface = true
                                 gameProcessStatus = "REFRESHING MICROSOFT SESSION + BUILDING AUTHENTICATED GAME ARGUMENTS…"
                                 scope.launch {
@@ -2584,6 +2604,9 @@ private fun InstallationsDestination(images: LauncherImages) {
                                             account.accessToken
                                         )
                                         preparedLaunchPlan = authenticatedPlan
+                                        withTimeout(15_000L) {
+                                            kotlinx.coroutines.flow.snapshotFlow { gameSurfaceReady }.first { it }
+                                        }
                                         val sent = gameProcessClient?.invokeMain(
                                             authenticatedPlan.mainClass,
                                             authenticatedPlan.gameArguments
@@ -2741,6 +2764,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     if (showGameSurface) {
         Dialog(
             onDismissRequest = {
+                gameSurfaceReady = false
                 gameProcessClient?.detachGameSurface()
                 showGameSurface = false
             },
@@ -2756,6 +2780,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 }
 
                                 override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+                                    gameSurfaceReady = false
                                     val attached = gameProcessClient?.attachGameSurface(holder.surface, width, height) == true
                                     OEngineSessionLog.append(
                                         viewContext,
@@ -2765,6 +2790,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 }
 
                                 override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    gameSurfaceReady = false
                                     gameProcessClient?.detachGameSurface()
                                     OEngineSessionLog.append(viewContext, "ANDROID_GAME_SURFACE_DESTROYED", "SurfaceView destroyed")
                                 }
