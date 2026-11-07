@@ -42,6 +42,15 @@ This separation is useful for O Engine, but the backend is not merely a Kotlin e
 
 Therefore a Messenger input event handler or a second Kotlin thread calling EGL is not a valid runtime solution.
 
+## LWJGL 3.3.3 runtime native ABI gate
+
+LWJGL's generated `org.lwjgl.glfw.GLFW` class does not call a matching set of `Java_org_lwjgl_glfw_*` JNI entry points for the GLFW API. It loads the GLFW shared library and resolves the exported C functions from its `Functions` table. O Engine therefore verifies the actual C ABI instead of assuming that loading `libglfw.so` is sufficient.
+
+`native/android-glfw/lwjgl-3.3.3-required-symbols.txt` is the pinned function table extracted from the LWJGL 3.3.3 generated binding. Before Mojo's ART-side JNI initialization or HotSpot launch, `OEngineAndroidGlfwBootstrap` asks Rust to `dlopen` the exact staged library, resolve every required export, and call `glfwGetVersion`. The gate rejects missing exports and versions older than GLFW 3.3 or outside major version 3, and returns a diagnostic listing missing functions. Android CI verifies the JNI probe export for all packaged ABIs; Rust host tests verify manifest uniqueness, core event/context functions, and the version gate.
+
+This catches a major class of loader failures early, but it is not proof of runtime compatibility: calling conventions, context behavior, event delivery, and the actual LWJGL/HotSpot binding still need physical-device tests.
+
+
 ## Primary touch-pointer handling
 
 The Android adapter preserves each touch pointer ID in the native event payload. The GLFW adapter now selects the first pointer that becomes active as the desktop primary mouse pointer, tracks that pointer ID rather than assuming it is numeric zero, and ignores secondary fingers for mouse-button state. This prevents a secondary finger's UP event from releasing the primary finger's held left mouse button. When the primary pointer is released, the next DOWN may become primary. Touch IDs remain platform event data; they are not interpreted as GLFW mouse-button indices.
