@@ -51,9 +51,9 @@ class OEngineGameProcessService : Service() {
                     (texts == null || texts.size == count)) { "Input batch arrays have inconsistent lengths or exceed the batch limit." }
                 val events = ArrayList<OEngineInputEvent>(count)
                 for (index in 0 until count) {
-                    val device = OEngineInputDevice.entries.getOrNull(devices[index])
+                    val device = OEngineInputDevice.values().getOrNull(devices[index])
                         ?: error("Input batch contains an unknown device.")
-                    val action = OEngineInputAction.entries.getOrNull(actions[index])
+                    val action = OEngineInputAction.values().getOrNull(actions[index])
                         ?: error("Input batch contains an unknown action.")
                     events += OEngineInputEvent(
                         device = device, action = action, code = codes[index],
