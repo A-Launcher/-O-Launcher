@@ -39,6 +39,27 @@ internal class OEngineEglBootstrap private constructor(
         OEngineJvmNativeBridge.swapLtwBuffers(nativeSession)
     }
 
+    /** Queue a replacement Surface from a Binder thread; EGL is changed on the GLFW game thread. */
+    fun queueWindow(nativeWindowHandle: Long, width: Int, height: Int) {
+        check(!closed) { "LTW EGL session has already been closed." }
+        require(nativeWindowHandle != 0L && width > 0 && height > 0)
+        OEngineJvmNativeBridge.queueLtwWindow(nativeSession, nativeWindowHandle, width, height)
+    }
+
+    /** Queue a detach without making EGL calls on the Android Surface callback thread. */
+    fun queueDetachWindow() {
+        check(!closed) { "LTW EGL session has already been closed." }
+        OEngineJvmNativeBridge.queueLtwWindow(nativeSession, 0L, 0, 0)
+    }
+
+    /** Drain one pending Surface transition on the creating game/GLFW thread. */
+    fun processPendingWindowChange() {
+        checkOwner()
+        check(!closed) { "LTW EGL session has already been closed." }
+        OEngineJvmNativeBridge.processPendingLtwWindow()
+        windowAttached = true
+    }
+
     fun close() {
         checkOwner()
         if (closed) return
