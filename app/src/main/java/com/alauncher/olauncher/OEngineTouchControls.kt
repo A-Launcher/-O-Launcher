@@ -142,6 +142,12 @@ object OEngineTouchControls {
         return controls.filterNot { it.id == id }
     }
 
+    fun remap(controls: List<OEngineTouchControl>, id: String, keyCode: Int): List<OEngineTouchControl> {
+        require(keyCode >= 0)
+        require(controls.any { it.id == id }) { "Unknown touch control: $id" }
+        return controls.map { if (it.id == id) it.copy(keyCode = keyCode) else it }
+    }
+
     fun reset(): List<OEngineTouchControl> = defaults()
 
     private fun validate(controls: List<OEngineTouchControl>) {
@@ -161,6 +167,14 @@ fun OEngineTouchControlsOverlay(
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    val keyChoices = listOf(
+        KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
+        KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CONTROL_LEFT,
+        KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_C,
+        KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_3, KeyEvent.KEYCODE_4,
+        KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_7, KeyEvent.KEYCODE_8,
+        KeyEvent.KEYCODE_9
+    )
     androidx.compose.foundation.layout.BoxWithConstraints(
         androidx.compose.ui.Modifier.fillMaxSize()
     ) {
@@ -190,6 +204,26 @@ fun OEngineTouchControlsOverlay(
                     controls.clear(); controls.addAll(added); selectedId = added.last().id
                     onLayoutChanged(added)
                 }, enabled = controls.size < 48) { androidx.compose.material3.Text("+ DROP") }
+                val selectedControl = controls.firstOrNull { it.id == selectedId }
+                androidx.compose.material3.TextButton(onClick = {
+                    if (selectedControl != null) {
+                        val index = keyChoices.indexOf(selectedControl.keyCode).let { if (it < 0) 0 else it }
+                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(index - 1 + keyChoices.size) % keyChoices.size])
+                        controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
+                    }
+                }) { androidx.compose.material3.Text("KEY −") }
+                androidx.compose.material3.Text(
+                    selectedControl?.let { KeyEvent.keyCodeToString(it.keyCode).removePrefix("KEYCODE_") } ?: "KEY",
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 10.sp
+                )
+                androidx.compose.material3.TextButton(onClick = {
+                    if (selectedControl != null) {
+                        val index = keyChoices.indexOf(selectedControl.keyCode).let { if (it < 0) 0 else it }
+                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(index + 1) % keyChoices.size])
+                        controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
+                    }
+                }) { androidx.compose.material3.Text("KEY +") }
                 androidx.compose.material3.TextButton(onClick = {
                     val resized = OEngineTouchControls.resize(controls.toList(), selectedId, 1.12f)
                     controls.clear(); controls.addAll(resized); onLayoutChanged(resized)
