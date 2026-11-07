@@ -2436,6 +2436,57 @@ mod native_input_tests {
         );
     }
 
+    static GAMEPAD_CAPTURE_DEVICE: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static GAMEPAD_CAPTURE_ACTION: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static GAMEPAD_CAPTURE_CODE: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static GAMEPAD_CAPTURE_VALUE: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+    unsafe extern "C" fn capture_gamepad_platform_event(
+        _window: *mut c_void, device: i32, action: i32, code: i32, _scan: i32,
+        _x: f32, _y: f32, value: f32, _timestamp: i64, _mods: i32, _codepoint: u32,
+    ) {
+        GAMEPAD_CAPTURE_DEVICE.store(device as usize, Ordering::SeqCst);
+        GAMEPAD_CAPTURE_ACTION.store(action as usize, Ordering::SeqCst);
+        GAMEPAD_CAPTURE_CODE.store(code as usize, Ordering::SeqCst);
+        GAMEPAD_CAPTURE_VALUE.store(value.to_bits() as usize, Ordering::SeqCst);
+    }
+
+    #[test]
+    fn gamepad_events_reach_the_platform_adapter_on_the_glfw_owner_thread() {
+        GAMEPAD_CAPTURE_DEVICE.store(usize::MAX, Ordering::SeqCst);
+        let callbacks = OEngineNativeInputCallbacks {
+            platform_event: Some(capture_gamepad_platform_event),
+            ..OEngineNativeInputCallbacks::default()
+        };
+        unsafe {
+            dispatch_native_input_event(
+                ptr::null_mut(),
+                &callbacks,
+                OEngineNativeInputEvent {
+                    device: 3, action: 3, code: 4, value: 0.75,
+                    ..OEngineNativeInputEvent::default()
+                },
+            );
+        }
+        assert_eq!(GAMEPAD_CAPTURE_DEVICE.load(Ordering::SeqCst), 3);
+        assert_eq!(GAMEPAD_CAPTURE_ACTION.load(Ordering::SeqCst), 3);
+        assert_eq!(GAMEPAD_CAPTURE_CODE.load(Ordering::SeqCst), 4);
+        assert_eq!(GAMEPAD_CAPTURE_VALUE.load(Ordering::SeqCst), 0.75f32.to_bits() as usize);
+    }
+
+    #[test]
+    fn gamepad_button_overflow_reset_synthesizes_button_release() {
+        let mut queue = OEngineNativeInputQueue::default();
+        assert!(queue.enqueue(event(3, 0, 0, 0.0)));
+        for code in 0..INPUT_QUEUE_CAPACITY as i32 {
+            assert!(queue.enqueue(event(1, 0, code, 0.0)));
+        }
+        assert!(!queue.enqueue(event(3, 0, 1, 0.0)));
+        let mut output = [OEngineNativeInputEvent::default(); INPUT_MAX_TRACKED_CONTROLS];
+        let count = queue.drain(&mut output);
+        assert!(output[..count].iter().any(|item| item.device == 3 && item.code == 0 && item.action == 1));
+    }
+
     #[test]
     fn native_input_queue_preserves_order_when_coalescing_motion() {
         let mut queue = OEngineNativeInputQueue::default();
