@@ -1431,6 +1431,23 @@ mod native_input_dispatch_tests {
     }
 
     #[test]
+    fn ltw_egl_share_info_has_stable_c_pointer_layout() {
+        use std::mem::{align_of, offset_of, size_of};
+        assert_eq!(align_of::<OEngineLtwEglShareInfo>(), align_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, display), 0);
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, config), size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, context), 2 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, pbuffer), 3 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, window_surface), 4 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, create_context), 5 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, make_current), 6 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, destroy_context), 7 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, destroy_surface), 8 * size_of::<usize>());
+        assert_eq!(offset_of!(OEngineLtwEglShareInfo, swap_buffers), 9 * size_of::<usize>());
+        assert_eq!(size_of::<OEngineLtwEglShareInfo>(), 10 * size_of::<usize>());
+    }
+
+    #[test]
     fn callback_table_is_a_c_compatible_pointer_table() {
         assert_eq!(
             std::mem::size_of::<OEngineNativeInputCallbacks>(),
