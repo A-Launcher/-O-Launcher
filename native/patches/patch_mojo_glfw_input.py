@@ -215,19 +215,23 @@ if text[timeout_start:post_start].count("oengine_drain_input_events();") < 2:
 surface_create_anchor = '''    ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
     ANativeWindow_acquire(window);
     LOGI("Acquired native window: %p", window);
+    nativeWindow = window;
+    surfaceDestroyed = false;
 '''
 surface_create_replacement = '''    ANativeWindow* window = ANativeWindow_fromSurface(env, surface);
     if (!window) {
         LOGE("Could not acquire ANativeWindow from Android Surface");
         return;
     }
+    LOGI("Acquired native window: %p", window);
+    /* Publish the acquired ANativeWindow and lifecycle flag atomically with
+       the LTW surface manager / nativeSurfaceDestroyed waiter. */
     pthread_mutex_lock(&nw_egl_mutex);
     nativeWindow = window;
     surfaceDestroyed = false;
     pthread_mutex_unlock(&nw_egl_mutex);
-    LOGI("Acquired native window: %p", window);
 '''
-if "Could not acquire ANativeWindow from Android Surface" not in text:
+if "Publish the acquired ANativeWindow" not in text:
     if surface_create_anchor not in text:
         raise SystemExit("Pinned Mojo nativeSurfaceCreated ownership anchor changed")
     text = text.replace(surface_create_anchor, surface_create_replacement, 1)
