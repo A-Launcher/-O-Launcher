@@ -128,7 +128,7 @@ object OEngineLwjglNativeResolver {
         }
     }
 
-    fun resolve(classpath: List<File>): OEngineLwjglResolution {
+    fun resolve(classpath: List<File>, androidGlfwLibrary: File? = null): OEngineLwjglResolution {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
         val modules = classpath.mapNotNull { file ->
@@ -183,11 +183,18 @@ object OEngineLwjglNativeResolver {
                 }
             }
         }
-        // Mojo's Android GLFW exposes a separate git.artdeell JNI binding. It is not
-        // the lwjgl-glfw JNI provider expected by Minecraft's org.lwjgl.glfw classes.
-        val androidGlfwNativeProviderIntegrated = false
+        // LWJGL 3.3.3 supports an explicit org.lwjgl.glfw.libname path. The Android
+        // platform port exports the pinned LWJGL function surface; runtime EGL/window
+        // semantics remain a separate device-validation gate.
+        val glfwLibrary = androidGlfwLibrary?.canonicalFile
+        val androidGlfwNativeProviderIntegrated =
+            glfwLibrary != null && glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L
         if (generation == OEngineLwjglGeneration.LWJGL3 && glfwJavaClassPresent) {
-            blockers += "The Android GLFW platform library is staged, but Minecraft's org.lwjgl.glfw Java/JNI provider is not yet adapted to it."
+            if (!androidGlfwNativeProviderIntegrated) {
+                blockers += "The Android GLFW native library is missing; LWJGL 3 requires a staged libglfw.so path."
+            } else {
+                warnings += "LWJGL is configured to load the staged Android libglfw.so by absolute path; Android EGL/window lifecycle and rendering still require device validation."
+            }
         }
 
         val core = modules.filter { it.artifact == "lwjgl" }
