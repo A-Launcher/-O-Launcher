@@ -2400,8 +2400,29 @@ private fun InstallationsDestination(images: LauncherImages) {
                             enabled = preparedLaunchPlan != null && !probingGameProcess && !installingRuntime && !downloadingRuntime,
                             onClick = {
                                 val launchPlan = preparedLaunchPlan ?: return@Button
+                                val androidAbi = android.os.Build.SUPPORTED_ABIS.firstOrNull {
+                                    it in setOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+                                }
+                                if (androidAbi == null) {
+                                    gameProcessStatus = "ANDROID GLFW BLOCKED • no supported device ABI."
+                                    return@Button
+                                }
+                                val androidGlfw = runCatching {
+                                    OEngineAndroidGlfwArtifactInstaller.install(
+                                        sourceDirectory = File(context.applicationInfo.nativeLibraryDir),
+                                        destinationRoot = File(context.filesDir, "oengine/android-glfw"),
+                                        abi = androidAbi
+                                    )
+                                }.getOrElse { error ->
+                                    gameProcessStatus = "ANDROID GLFW STAGING FAILED • " + (error.message ?: error.javaClass.simpleName)
+                                    return@Button
+                                }
+                                val androidGlfwLibrary = androidGlfw.libraries.single { it.name == "libglfw.so" }
                                 val preview = OLauncherEngine.prepareCommandPreview(
-                                    activeInstance.root, launchPlan, rendererLibraryAlias = OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS
+                                    activeInstance.root,
+                                    launchPlan,
+                                    rendererLibraryAlias = OEngineGraphicsStack.LTW_LWJGL_LIBRARY_ALIAS,
+                                    androidGlfwLibrary = androidGlfwLibrary
                                 )
                                 val bootstrap = preview.jvmBootstrapPlan
                                 val jvmLibrary = bootstrap?.jvmLibrary
