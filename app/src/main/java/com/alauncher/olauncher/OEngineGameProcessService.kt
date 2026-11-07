@@ -342,11 +342,11 @@ class OEngineGameProcessService : Service() {
                         OEngineSessionLog.append(
                             this,
                             "RENDERER_HOOK_INSTALLED",
-                            "target=" + targetClass + ", alias=" + alias + ", provider=LTW, Android LWJGL core and OpenGL module initialized"
+                            "target=" + targetClass + ", alias=" + alias + ", provider=LTW, Android LWJGL core/OpenGL modules and HotSpot GLFW function table initialized"
                         )
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, true)
                         reply.data.putString(KEY_PROBE_STATUS, "renderer_hook_installed")
-                        reply.data.putString(KEY_PROBE_DETAIL, "Android LWJGL core and OpenGL native modules loaded; libGLMojo.so resolved through the retained LTW handle.")
+                        reply.data.putString(KEY_PROBE_DETAIL, "Android LWJGL core/OpenGL modules loaded; libGLMojo.so and the staged GLFW C function table passed HotSpot preflight.")
                     } catch (error: Throwable) {
                         OEngineSessionLog.append(this, "RENDERER_HOOK_FAILED", error.message ?: error.javaClass.simpleName, error)
                         reply.data.putBoolean(KEY_PROBE_SUCCESS, false)
