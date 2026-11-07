@@ -126,7 +126,7 @@ make_replacement = '''static void makeContextCurrentEGL(_GLFWwindow* window)
             return;
         }
         if (window)
-            window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;
+            window->context.egl.surface = target;
         _glfwPlatformSetTls(&_glfw.contextSlot, window);
         return;
     }
