@@ -1905,15 +1905,15 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 ) {
     if handle == 0 { return; }
     let mut session = Box::from_raw(handle as *mut OEngineLtwEglSession);
-    if ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) == handle as usize {
-        ACTIVE_LTW_EGL_SESSION.store(0, Ordering::Release);
-    }
     if session.owner_thread != std::thread::current().id() {
         // Do not destroy EGL objects from the wrong thread. The process owns this
         // session and will reclaim it on process exit if the owner thread is gone.
         std::mem::forget(session);
         set_ltw_egl_error("Refused to destroy the LTW EGL session from a non-owner thread.".to_owned());
         return;
+    }
+    if ACTIVE_LTW_EGL_SESSION.load(Ordering::Acquire) == handle as usize {
+        ACTIVE_LTW_EGL_SESSION.store(0, Ordering::Release);
     }
     destroy_ltw_egl_session(&mut session);
 }
