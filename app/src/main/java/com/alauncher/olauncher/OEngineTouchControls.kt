@@ -153,6 +153,28 @@ object OEngineTouchControls {
         return controls.map { if (it.id == id) it.copy(keyCode = keyCode) else it }
     }
 
+    fun applyPreset(controls: List<OEngineTouchControl>, preset: String): List<OEngineTouchControl> {
+        require(controls.isNotEmpty())
+        val result = when (preset.lowercase()) {
+            "classic" -> defaults()
+            "left-handed" -> controls.map { control ->
+                control.copy(x = (1f - control.x - control.width).coerceIn(0f, 1f - control.width))
+            }
+            "compact" -> controls.map { control ->
+                val width = (control.width * .78f).coerceAtLeast(.04f)
+                val height = (control.height * .78f).coerceAtLeast(.06f)
+                control.copy(
+                    width = width, height = height,
+                    x = (control.x + (control.width - width) / 2f).coerceIn(0f, 1f - width),
+                    y = (control.y + (control.height - height) / 2f).coerceIn(0f, 1f - height)
+                )
+            }
+            else -> throw IllegalArgumentException("Unknown touch layout preset: $preset")
+        }
+        validate(result)
+        return result
+    }
+
     fun reset(): List<OEngineTouchControl> = defaults()
 
     private fun validate(controls: List<OEngineTouchControl>) {
@@ -172,6 +194,7 @@ fun OEngineTouchControlsOverlay(
     }
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
+    var presetIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
     DisposableEffect(Unit) {
         onDispose {
@@ -219,6 +242,15 @@ fun OEngineTouchControlsOverlay(
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
                 val selected = controls.firstOrNull { it.id == selectedId }
+                androidx.compose.material3.TextButton(onClick = {
+                    val presets = listOf("classic", "left-handed", "compact")
+                    presetIndex = (presetIndex + 1) % presets.size
+                    val updated = OEngineTouchControls.applyPreset(controls.toList(), presets[presetIndex])
+                    controls.clear(); controls.addAll(updated)
+                    selectedId = updated.firstOrNull { it.id == "jump" }?.id ?: updated.first().id
+                    toggled.clear()
+                    onLayoutChanged(updated)
+                }) { androidx.compose.material3.Text("LAYOUT") }
                 androidx.compose.material3.TextButton(onClick = {
                     val reset = OEngineTouchControls.reset()
                     toggled.forEach { (id, pressed) ->
