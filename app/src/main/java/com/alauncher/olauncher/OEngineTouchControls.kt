@@ -187,6 +187,11 @@ fun OEngineTouchControlsOverlay(
                 colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color.White)
             ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
         }
+        OEngineTouchJoystick(
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+                .padding(start = 24.dp, bottom = 28.dp),
+            onKey = onKey
+        )
         if (editing) {
             androidx.compose.foundation.layout.Row(
                 modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
@@ -262,3 +267,69 @@ fun OEngineTouchControlsOverlay(
                     .pointerInput(control.id, editing, control.toggle) {
                         if (editing) {
                             androidx.compose.foundation.gestures.detectTapGestures(onTap = { selectedId = control.id })
+@androidx.compose.runtime.Composable
+private fun OEngineTouchJoystick(
+    modifier: androidx.compose.ui.Modifier,
+    onKey: (Int, Boolean) -> Unit
+) {
+    var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var knobY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var activeKeys by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(setOf<Int>()) }
+    val radius = 62.dp
+    val keyMap = mapOf(
+        KeyEvent.KEYCODE_W to (0f to -1f),
+        KeyEvent.KEYCODE_S to (0f to 1f),
+        KeyEvent.KEYCODE_A to (-1f to 0f),
+        KeyEvent.KEYCODE_D to (1f to 0f)
+    )
+    fun updateKeys(x: Float, y: Float, width: Float, height: Float) {
+        val next = buildSet {
+            if (y < -height * .22f) add(KeyEvent.KEYCODE_W)
+            if (y > height * .22f) add(KeyEvent.KEYCODE_S)
+            if (x < -width * .22f) add(KeyEvent.KEYCODE_A)
+            if (x > width * .22f) add(KeyEvent.KEYCODE_D)
+        }
+        (activeKeys - next).forEach { onKey(it, false) }
+        (next - activeKeys).forEach { onKey(it, true) }
+        activeKeys = next
+    }
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier.size(150.dp)
+            .background(androidx.compose.ui.graphics.Color(0x55303030), androidx.compose.foundation.shape.CircleShape)
+            .border(2.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), androidx.compose.foundation.shape.CircleShape)
+            .pointerInput(Unit) {
+                val maxTravel = size.width * .32f
+                detectDragGestures(
+                    onDragStart = { point ->
+                        knobX = (point.x - size.width / 2f).coerceIn(-maxTravel, maxTravel)
+                        knobY = (point.y - size.height / 2f).coerceIn(-maxTravel, maxTravel)
+                        updateKeys(knobX, knobY, maxTravel, maxTravel)
+                    },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        knobX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
+                        knobY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
+                        updateKeys(knobX, knobY, maxTravel, maxTravel)
+                    },
+                    onDragEnd = {
+                        activeKeys.forEach { onKey(it, false) }
+                        activeKeys = emptySet(); knobX = 0f; knobY = 0f
+                    },
+                    onDragCancel = {
+                        activeKeys.forEach { onKey(it, false) }
+                        activeKeys = emptySet(); knobX = 0f; knobY = 0f
+                    }
+                )
+            },
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier.size(64.dp)
+                .offset {
+                    androidx.compose.ui.unit.IntOffset(knobX.toInt(), knobY.toInt())
+                }
+                .background(androidx.compose.ui.graphics.Color(0xCCB9A58B), androidx.compose.foundation.shape.CircleShape)
+                .border(2.dp, androidx.compose.ui.graphics.Color(0xCCFFFFFF), androidx.compose.foundation.shape.CircleShape)
+        )
+    }
+}
