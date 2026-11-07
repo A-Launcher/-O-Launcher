@@ -104,6 +104,7 @@ class OEngineGameProcessService : Service() {
                     try {
                         OEngineAndroidGlfwBootstrap.surfaceDestroyed()
                         (eglBootstrap ?: error("LTW EGL session is unavailable.")).queueDetachWindow()
+                        OEngineAndroidGlfwBootstrap.surfaceUpdated() // Wake GLFW after the detach event is in the native queue.
                         OEngineSessionLog.append(this, "GAME_SURFACE_DETACH_QUEUED",
                             "Surface detach queued for the GLFW/LTW owner thread.")
                     } catch (error: Throwable) {
