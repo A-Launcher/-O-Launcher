@@ -325,9 +325,13 @@ private fun OEngineTouchJoystick(
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var knobY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var activeKeys by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(setOf<Int>()) }
+    // DisposableEffect(Unit) is installed only once. Keep the latest pressed-key
+    // set so closing the game surface during a joystick gesture cannot strand keys.
+    val latestActiveKeys by androidx.compose.runtime.rememberUpdatedState(activeKeys)
+    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(Unit) {
         onDispose {
-            activeKeys.forEach { onKey(it, false) }
+            latestActiveKeys.forEach { latestOnKey(it, false) }
         }
     }
 
