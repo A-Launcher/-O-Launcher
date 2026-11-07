@@ -347,6 +347,12 @@ class OEngineGameProcessService : Service() {
                     runCatching { eglBootstrap?.close() }
                         .onFailure { OEngineSessionLog.append(this, "EGL_BOOTSTRAP_RELEASE_FAILED", it.message ?: it.javaClass.simpleName, it) }
                     eglBootstrap = null
+                    val windowHandle = nativeWindowHandle
+                    nativeWindowHandle = 0L
+                    if (windowHandle != 0L) {
+                        runCatching { OEngineJvmNativeBridge.releaseNativeWindow(windowHandle) }
+                            .onFailure { OEngineSessionLog.append(this, "NATIVE_WINDOW_RELEASE_FAILED", it.message ?: it.javaClass.simpleName, it) }
+                    }
                     thread.quitSafely()
                 }
             }
