@@ -22,6 +22,24 @@ class OEngineInstalledContentManagerTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun listIgnoresSymbolicLinksToFilesOutsideInstanceFolder() {
+        val root = Files.createTempDirectory("oengine-content-links").toFile()
+        try {
+            val mods = File(root, "mods").apply { mkdirs() }
+            val outside = File(root, "outside.jar").apply { writeText("private") }
+            val link = File(mods, "linked.jar")
+            try {
+                Files.createSymbolicLink(link.toPath(), outside.toPath())
+            } catch (_: UnsupportedOperationException) {
+                return
+            } catch (_: SecurityException) {
+                return
+            }
+            assertTrue(OEngineInstalledContentManager.list(root).isEmpty())
+            assertTrue(outside.exists())
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun removeDeletesOnlySelectedInstanceFile() {
         val root = Files.createTempDirectory("oengine-remove").toFile()
         try {
