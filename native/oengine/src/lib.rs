@@ -1456,6 +1456,73 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             return 0;
         }
     }
+    // Exercise the exact LWJGL Java GLFW function-table path from HotSpot.
+    // This loads the staged absolute-path libglfw.so through the selected classpath
+    // binding and calls a harmless query (no glfwInit/window creation yet).
+    let glfw_name = match env.new_string("org.lwjgl.glfw.GLFW") {
+        Ok(value) => value,
+        Err(error) => {
+            set_error(&format!("Cannot create LWJGL GLFW probe class name: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let glfw_class_object = match env.call_static_method(
+        "java/lang/Class",
+        "forName",
+        "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;",
+        &[
+            JValue::Object(&JObject::from(glfw_name)),
+            JValue::Bool(1),
+            JValue::Object(&loader),
+        ],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(class) if !class.is_null() => class,
+            _ => {
+                set_error("HotSpot returned a null LWJGL GLFW class during native preflight.");
+                return 0;
+            }
+        },
+        Err(error) => {
+            set_error(&format!("LWJGL GLFW Java binding could not initialize: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let glfw_class = JClass::from(glfw_class_object);
+    let version_value = match env.call_static_method(
+        &glfw_class,
+        "glfwGetVersionString",
+        "()Ljava/lang/String;",
+        &[],
+    ) {
+        Ok(value) => match value.l() {
+            Ok(value) if !value.is_null() => JString::from(value),
+            _ => {
+                set_error("LWJGL GLFW returned a null version string.");
+                return 0;
+            }
+        },
+        Err(error) => {
+            set_error(&format!("LWJGL GLFW C function table could not call glfwGetVersionString: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    let glfw_version: String = match env.get_string(&version_value) {
+        Ok(value) => value.into(),
+        Err(error) => {
+            set_error(&format!("Cannot read the LWJGL GLFW native version string: {error}"));
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            return 0;
+        }
+    };
+    if !glfw_version.starts_with("3.") {
+        set_error(&format!("HotSpot loaded an unsupported GLFW version string: {glfw_version}"));
+        return 0;
+    }
+
     set_error("");
     1
 }
