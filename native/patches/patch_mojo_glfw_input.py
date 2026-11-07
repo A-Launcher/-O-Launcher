@@ -161,6 +161,8 @@ text = text.replace(
     1,
 )
 
+if "oengine_ltw_egl_process_pending_window" not in text or "process_surface()" not in text:
+    raise SystemExit("GLFW event thread does not apply queued LTW Surface transitions")
 if "oengine_wake_input" not in text or "glfwPostEmptyEvent();" not in text:
     raise SystemExit("O Engine GLFW wake bridge was not installed")
 if "static int32_t oengine_primary_touch_pointer = -1;" not in text:
