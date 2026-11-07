@@ -1303,6 +1303,22 @@ mod native_input_dispatch_tests {
     }
 
     #[test]
+    fn exported_c_dispatch_drains_the_native_queue() {
+        oengine_input_clear_session();
+        TRACE.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap().clear();
+        native_input_queue().lock().unwrap().enqueue(OEngineNativeInputEvent {
+            device: 1, action: 0, code: 65, codepoint: 97, ..Default::default()
+        });
+        let callbacks = OEngineNativeInputCallbacks {
+            key: Some(key), character: Some(character), ..Default::default()
+        };
+        let count = unsafe { oengine_input_dispatch(ptr::null_mut(), &callbacks, 8) };
+        assert_eq!(count, 1);
+        assert_eq!(*TRACE.get().unwrap().lock().unwrap(), vec![(1, 65, 1), (2, 97, 0)]);
+        oengine_input_clear_session();
+    }
+
+    #[test]
     fn callback_table_is_a_c_compatible_pointer_table() {
         assert_eq!(
             std::mem::size_of::<OEngineNativeInputCallbacks>(),
