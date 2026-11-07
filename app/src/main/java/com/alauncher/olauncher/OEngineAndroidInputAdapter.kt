@@ -70,11 +70,19 @@ object OEngineAndroidInputAdapter {
                             x = hatX, y = hatY, timestampNanos = timestamp
                         )
                     }
-                } else {
+                } else if (isMouse) {
                     output += OEngineInputEvent(
-                        device, OEngineInputAction.MOVE, 0, event.x, event.y,
+                        OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, event.x, event.y,
                         timestampNanos = timestamp
                     )
+                } else {
+                    for (index in 0 until event.pointerCount) {
+                        output += OEngineInputEvent(
+                            OEngineInputDevice.TOUCH, OEngineInputAction.MOVE,
+                            event.getPointerId(index), event.getX(index), event.getY(index),
+                            timestampNanos = timestamp
+                        )
+                    }
                 }
             }
             MotionEvent.ACTION_SCROLL -> if (isMouse) {
