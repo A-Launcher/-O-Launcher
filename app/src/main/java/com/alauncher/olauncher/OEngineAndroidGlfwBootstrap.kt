@@ -11,6 +11,7 @@ import java.io.File
  */
 internal object OEngineAndroidGlfwBootstrap {
     @Volatile private var loadedPath: String? = null
+    @Volatile private var surfaceIsAttached: Boolean = false
 
     @Synchronized
     fun initialize(library: File) {
@@ -29,7 +30,10 @@ internal object OEngineAndroidGlfwBootstrap {
     fun surfaceCreated(surface: Surface) {
         check(loadedPath != null) { "Android GLFW JNI must be initialized before attaching a Surface." }
         require(surface.isValid) { "Cannot pass an invalid Android Surface to GLFW." }
-        GLFW.nativeSurfaceCreated(surface)
+        if (!surfaceIsAttached) {
+            GLFW.nativeSurfaceCreated(surface)
+            surfaceIsAttached = true
+        }
         GLFW.nativeSurfaceUpdated()
     }
 
@@ -38,7 +42,11 @@ internal object OEngineAndroidGlfwBootstrap {
         GLFW.nativeSurfaceUpdated()
     }
 
+    @Synchronized
     fun surfaceDestroyed() {
-        if (loadedPath != null) GLFW.nativeSurfaceDestroyed()
+        if (loadedPath != null && surfaceIsAttached) {
+            GLFW.nativeSurfaceDestroyed()
+            surfaceIsAttached = false
+        }
     }
 }
