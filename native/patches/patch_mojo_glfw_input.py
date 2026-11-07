@@ -66,19 +66,31 @@ static void oengine_glfw_scroll(void* window, double x, double y) {
     _glfwInputScroll((_GLFWwindow*) window, x, y);
 }
 
-/* Touch pointer zero is exposed to desktop Minecraft as the primary mouse. */
+/*
+ * Android pointer IDs are not guaranteed to start at zero. Track the first
+ * active pointer as the desktop primary mouse, and ignore secondary fingers
+ * so a second finger cannot release the first finger's held mouse button.
+ */
+static int32_t oengine_primary_touch_pointer = -1;
 static void oengine_glfw_platform(void* window, int32_t device, int32_t action,
                                   int32_t code, int32_t scan, float x, float y,
                                   float value, int64_t timestamp, int32_t mods,
                                   uint32_t codepoint) {
-    if (device != 0 || code != 0) return;
+    (void) scan; (void) value; (void) timestamp; (void) codepoint;
+    if (device != 0) return;
+    if (action == 0 && oengine_primary_touch_pointer < 0)
+        oengine_primary_touch_pointer = code;
+    if (code != oengine_primary_touch_pointer) return;
+
     _GLFWwindow* target = (_GLFWwindow*) window;
     if (action == 0 || action == 1 || action == 3)
         _glfwInputCursorPos(target, x, y);
     if (action == 0)
         _glfwInputMouseClick(target, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, mods);
-    else if (action == 1)
+    else if (action == 1) {
         _glfwInputMouseClick(target, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE, mods);
+        oengine_primary_touch_pointer = -1;
+    }
 }
 
 /* Wake GLFW's native wait-event condition after Rust accepts a new batch. */
@@ -146,6 +158,10 @@ text = text.replace(
 
 if "oengine_wake_input" not in text or "glfwPostEmptyEvent();" not in text:
     raise SystemExit("O Engine GLFW wake bridge was not installed")
+if "static int32_t oengine_primary_touch_pointer = -1;" not in text:
+    raise SystemExit("Primary-touch pointer tracking was not installed")
+if "if (code != oengine_primary_touch_pointer) return;" not in text:
+    raise SystemExit("Secondary touch pointers are not isolated from the primary mouse")
 
 poll_start = text.index("void _glfwPollEventsAndroid(void)")
 wait_start = text.index("void _glfwWaitEventsAndroid(void)")
