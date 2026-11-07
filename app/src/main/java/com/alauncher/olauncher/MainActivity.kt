@@ -2808,6 +2808,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                             override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
                                 super.onWindowFocusChanged(hasWindowFocus)
                                 if (!hasWindowFocus) gameInputForwarder.releaseAll()
+                                GLFW.onHostWindowFocusChanged(this, hasWindowFocus)
                             }
 
                             override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
