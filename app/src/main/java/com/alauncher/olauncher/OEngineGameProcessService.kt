@@ -1,5 +1,7 @@
 package com.alauncher.olauncher
 
+import git.artdeell.dnbootstrap.glfw.GLFW
+
 import android.app.Service
 import android.content.Intent
 import android.os.Handler
@@ -63,6 +65,14 @@ class OEngineGameProcessService : Service() {
                         x = xs[index], y = ys[index], value = values[index],
                         timestampNanos = times[index], modifiers = modifiers[index],
                         codepoint = codepoints[index], text = texts?.get(index)
+                    )
+                }
+                // Mojo's Android GLFW backend exposes direct native joystick buffers.
+                // Update them inside the isolated game process (never from the launcher
+                // process) while retaining O Engine's bounded Rust queue for other input.
+                events.asSequence().filter { it.device == OEngineInputDevice.GAMEPAD }.forEach { event ->
+                    GLFW.updateGamepadEvent(
+                        event.code, event.action.ordinal, event.x, event.y, event.value
                     )
                 }
                 val accepted = OEngineJvmNativeBridge.enqueueInputEvents(events)
