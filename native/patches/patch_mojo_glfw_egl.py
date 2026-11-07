@@ -461,8 +461,7 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
         (OEngineAndroidMakeCurrentFn) share.make_current;
     if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
     {
-        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE &&
-            currentMode != GLFW_ANDROID_WINDOW_MODE_SURFACE) {
+        if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
             pthread_mutex_lock(&nw_egl_mutex);
             surfaceInUse = false;
             pthread_cond_broadcast(&nw_egl_cond);
@@ -504,6 +503,32 @@ if "oengine_android_get_ltw_share_info(&share)" not in android_text:
     raise SystemExit("Android GLFW surface manager is not using LTW share-info")
 if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in android_text:
     raise SystemExit("Android GLFW must clear surfaceInUse before waking nativeSurfaceDestroyed")
+destroy_wait_anchor = """    if(!ownedByVulkan && surfaceInUse) {
+        pthread_mutex_lock(&nw_egl_mutex);
+        pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
+        LOGI("Unhalted after window destruction");
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+        pthread_mutex_unlock(&nw_egl_mutex);
+    }else {
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+    }"""
+destroy_wait_replacement = """    if(!ownedByVulkan) {
+        pthread_mutex_lock(&nw_egl_mutex);
+        while (surfaceInUse)
+            pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+        pthread_mutex_unlock(&nw_egl_mutex);
+    }else {
+        ANativeWindow_release(nativeWindow);
+        nativeWindow = NULL;
+    }"""
+if destroy_wait_anchor in android_text:
+    android_text = android_text.replace(destroy_wait_anchor, destroy_wait_replacement, 1)
+else:
+    raise SystemExit("Pinned Mojo Surface-destroy wait block changed")
 if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
 if "atomic_exchange_explicit(&surfaceUpdated" not in manage_replacement:
