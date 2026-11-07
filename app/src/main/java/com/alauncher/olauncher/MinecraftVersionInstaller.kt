@@ -347,7 +347,8 @@ object MinecraftVersionInstaller {
         playerName: String = "Player",
         playerUuid: String = "00000000000000000000000000000000",
         accessToken: String = "0",
-        loaderProfileId: String? = null
+        loaderProfileId: String? = null,
+        maxMemoryMb: Int = 2048
     ): LaunchPlan = withContext(Dispatchers.IO) {
         val versionDirectory = File(File(gameDirectory, "versions"), version.id)
         val metadataFile = File(versionDirectory, "${version.id}.json")
@@ -452,6 +453,7 @@ object MinecraftVersionInstaller {
         }
         val jvmArguments = mutableListOf<String>()
         argumentSources.forEach { collectArguments(it.optJSONArray("jvm"), jvmArguments) }
+        applyMemoryArguments(jvmArguments, maxMemoryMb)
         LaunchPlan(
             version = launchVersionId,
             mainClass = mainClass,
@@ -462,6 +464,16 @@ object MinecraftVersionInstaller {
             gameArguments = gameArguments,
             jvmArguments = jvmArguments
         )
+    }
+
+    internal fun applyMemoryArguments(arguments: MutableList<String>, maxMemoryMb: Int) {
+        require(maxMemoryMb in 512..8192) { "Minecraft memory must be between 512 MiB and 8192 MiB." }
+        arguments.removeAll { argument ->
+            argument.startsWith("-Xmx", ignoreCase = true) ||
+                argument.startsWith("-Xms", ignoreCase = true)
+        }
+        arguments += "-Xms512M"
+        arguments += "-Xmx${maxMemoryMb}M"
     }
 
     internal fun isAllowedForAndroid(rules: org.json.JSONArray?): Boolean {
