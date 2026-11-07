@@ -63,6 +63,9 @@ class OEngineInputQueue(capacity: Int = DEFAULT_CAPACITY) {
         false
     }
 
+    /** Requests a consumer-side all-controls-up reset when upstream state itself cannot be tracked. */
+    fun requestInputReset() = synchronized(lock) { resetRequired = true }
+
     /** Atomically acknowledges an overflow request to release all pressed controls. */
     fun consumeInputResetRequired(): Boolean = synchronized(lock) {
         val required = resetRequired
