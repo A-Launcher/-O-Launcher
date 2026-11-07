@@ -21,6 +21,7 @@ object OEngineJvmNativeBridge {
     }
 
     private external fun nativeProbeJvmLibrary(absolutePath: String): String
+    private external fun nativeVerifyGlfwLibrary(absolutePath: String): String
 
     private external fun nativeCreateJvm(vmOptions: Array<String>, javaMajor: Int): String
 
@@ -154,6 +155,20 @@ object OEngineJvmNativeBridge {
         if (handle == 0L) return
         check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
         nativeReleaseWindow(handle)
+    }
+
+    /** Verify every C symbol LWJGL 3.3.3 resolves before starting HotSpot. */
+    internal fun verifyAndroidGlfwLibrary(absolutePath: String): OEngineJvmLibraryProbe {
+        require(absolutePath.startsWith('/')) { "GLFW library path must be absolute." }
+        check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
+        val result = nativeVerifyGlfwLibrary(absolutePath)
+        val status = result.substringBefore(':')
+        val detail = result.substringAfter(':', "")
+        return OEngineJvmLibraryProbe(
+            successful = status == "glfw_compatible",
+            status = status,
+            detail = detail
+        )
     }
 
     fun probe(plan: OEngineJvmBootstrapPlan): OEngineJvmLibraryProbe {
