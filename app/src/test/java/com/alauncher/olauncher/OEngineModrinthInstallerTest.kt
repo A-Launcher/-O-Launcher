@@ -23,6 +23,15 @@ class OEngineModrinthInstallerTest {
   assertEquals(listOf("good.jar"),OEngineModrinthInstaller.parseVersions(body).single().files.map { it.filename })
  }
 
+ @Test fun versionFiltersAreEncodedAsJsonArrays() {
+  assertEquals("game_versions=%5B%221.20.1%22%5D&loaders=%5B%22fabric%22%5D",
+   OEngineModrinthInstaller.buildVersionQuery("1.20.1","FABRIC"))
+ }
+ @Test fun versionFiltersOmitBlankValues() {
+  assertEquals("",OEngineModrinthInstaller.buildVersionQuery(" ",""))
+  assertEquals("loaders=%5B%22quilt%22%5D",OEngineModrinthInstaller.buildVersionQuery(null,"quilt"))
+ }
+
  @Test fun parsesSingleVersionEndpointObject() {
   val body="""{"id":"v1","project_id":"p1","name":"Release","version_number":"1.0","game_versions":["1.20.1"],"loaders":["fabric"],"files":[{"filename":"mod.jar","url":"https://cdn.example/mod.jar","size":12,"primary":true,"hashes":{"sha1":"0123456789012345678901234567890123456789"}}],"dependencies":[]}"""
   val parsed=OEngineModrinthInstaller.parseVersions(body)
