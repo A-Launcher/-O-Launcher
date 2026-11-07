@@ -159,3 +159,62 @@ O Engine now has a separate `prepareGl4es` launch preflight. It models the upstr
 - GL4ES remains catalogued and packaged only. A separate LWJGL 2 adapter, EGL initialization/context lifecycle, GL function resolution, and physical-device rendering test are required before it can be preloaded or selected.
 - Upstream reference: `GLESRenderSpec.GL4ESRenderSpec` selects `libgl4es_114.so` with GLES 2; `GLESRenderSpec.setupRenderer()` delegates EGL preparation to MojoExec. O Engine has not imported MojoExec's private linker-namespace bypass and does not assume its absence is harmless on every Android version.
 - MojoExec's inspected implementation stores the renderer library path, loads that library with `RTLD_LOCAL | RTLD_NOW`, and sets the renderer's GLES-context policy/version; it does not itself create the Android window surface. The renderer wrapper's EGL entry points and the game's surface lifecycle still need to be connected and tested. O Engine's existing `OEngineEglSession` creates a native Android GLES window context and is explicitly not a desktop-GL/LWJGL bridge, so it must not be substituted for GL4ES's wrapper-owned EGL path.
+
+
+## Android window and LWJGL bridge source audit (2026-11-07)
+
+The following source paths were inspected specifically to design the missing Android Surface-to-LWJGL window bridge. This is a source-level assessment, not a claim that the bridge is integrated.
+
+### PojavLauncher
+
+- Repository: https://github.com/PojavLauncherTeam/PojavLauncher
+- Branch: `v3_openjdk`
+- Inspected tree: `b12ad048157b3aa255d078c235dd4571e1900309`
+- Repository license: LGPL-3.0; individual files and bundled components still require their own notice review.
+- Relevant paths:
+  - `app_pojavlauncher/src/main/jni/egl_bridge.c`
+  - `app_pojavlauncher/src/main/jni/ctxbridges/egl_loader.c`
+  - `app_pojavlauncher/src/main/java/net/kdt/pojavlaunch/MinecraftGLSurface.java`
+  - `app_pojavlauncher/src/main/java/org/lwjgl/glfw/CallbackBridge.java`
+  - `jre_lwjgl3glfw/src/main/java/org/lwjgl/opengl/PojavRendererInit.java`
+  - `jre_lwjgl3glfw/src/main/java/org/lwjgl/glfw/CallbackBridge.java`
+
+Important implementation findings:
+
+1. Pojav does not treat an Android `Surface` as a complete GLFW window. Its JNI bridge converts the Java Surface to an `ANativeWindow` with `ANativeWindow_fromSurface`, retains/releases that native window explicitly, and calls its native window/context bridge setup.
+2. The native EGL bridge owns the EGL window/context lifecycle and resolves EGL entry points, including `eglCreateWindowSurface`, `eglMakeCurrent`, and `eglSwapBuffers`. The GLFW Android port and bridge table connect the game-facing LWJGL API to this native implementation.
+3. The Java-side `MinecraftGLSurface` coordinates Surface creation, resizing, destruction, touch/mouse/keyboard/gamepad input, and game readiness. Its input callbacks are connected to the LWJGL `CallbackBridge`, not merely stored in an Android event queue.
+4. Renderer initialization is an additional integration point: Pojav's `PojavRendererInit` identifies the selected GL library from LWJGL's function provider or `org.lwjgl.opengl.libname` and invokes renderer-specific initialization for GL4ES.
+
+### MojoLauncher
+
+- Repository: https://github.com/MojoLauncher/MojoLauncher
+- Branch: `v3_openjdk`
+- Inspected commit: `1b8d90424c1cb791321d45f60ac62c54f4b013fa`
+- Repository license: LGPL-3.0.
+- Relevant paths:
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/render/SurfaceProvider.java`
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/render/SurfaceViewSurfaceProvider.java`
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/render/TextureViewSurfaceProvider.java`
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/platform/backend/PlatformBackend.java`
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/platform/backend/GLFWBackend.java`
+  - `app_mojo/src/main/java/git/artdeell/mojo/game/renderer/impl/GLESRenderSpec.java`
+
+Important implementation findings:
+
+1. Mojo separates Android Surface acquisition from the platform backend through a small `SurfaceProvider` callback contract.
+2. The GLFW backend forwards Surface create/update/destroy to native GLFW methods (`nativeSurfaceCreated`, `nativeSurfaceUpdated`, `nativeSurfaceDestroyed`) and routes mouse, keyboard, scroll, visibility and cursor state to GLFW.
+3. Surface resize is a first-class event, distinct from Surface creation. Both SurfaceView and TextureView providers report lifecycle changes.
+4. Mojo's GLES renderer environment is configured before JVM startup, including the LTW compatibility flags already documented above.
+
+### DroidBridge Launcher
+
+- Public source URL identified: https://github.com/DNAMobileApplications/DroidBridgeLauncherGplayGithub
+- The public repository endpoint was not retrievable through the connected GitHub source reader during this audit (404). Its public project description identifies a mixed-origin source tree; DNA Mobile Applications-authored files may have separate rights, while third-party-derived files remain governed by their upstream licenses.
+- Decision: use only publicly inspectable technical documentation and independently licensed upstream components until the exact source files and their individual license notices can be verified. The user's permission to use a project as a reference does not replace the copyright holder's license for proprietary or separately owned files.
+
+### O Engine integration decision
+
+The current O Engine Java EGL bootstrap creates and attaches an EGL window surface, but it does not yet expose that surface to LWJGL's GLFW implementation, provide a native window bridge, or present frames with `eglSwapBuffers`. The next implementation stage must add a narrow native-window/GLFW adapter with explicit create, resize, destroy and input callbacks. It must also define who owns the EGL display/context/surface and the `ANativeWindow` reference; O Engine must not create a second unrelated EGL context and assume Minecraft will render into it.
+
+Do not port a single Pojav C function in isolation: its bridge depends on the matching bridge table, EGL loader, renderer-specific behavior, GLFW Android port, JNI declarations and lifecycle ownership. Any Pojav- or Mojo-derived code integrated into O Launcher must retain the LGPL-3.0 notices and comply with the applicable source/relinking obligations. Prefer a separately built, replaceable native bridge library and keep O Engine's Kotlin/Rust public APIs independent of upstream package names.
