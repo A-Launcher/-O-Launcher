@@ -1541,6 +1541,12 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var installingFile by remember { mutableStateOf(false) }
     var installStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
+    var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
+    var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
+    fun refreshInstalledContent() {
+        installedContent = OEngineInstalledContentManager.list(activeGameRoot)
+    }
     var importingModpack by remember { mutableStateOf(false) }
     var modpackStatus by remember { mutableStateOf<String?>(null) }
     val modpackPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -1582,13 +1588,6 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
             }
         }
     }
-    var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
-    var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
-    var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
-    fun refreshInstalledContent() {
-        installedContent = OEngineInstalledContentManager.list(activeGameRoot)
-    }
-
     fun prepareProjectInstall(project: OEngineModrinthCatalog.Project) {
         if (project.projectType == OEngineModrinthCatalog.ProjectType.MODPACK ||
             project.projectType == OEngineModrinthCatalog.ProjectType.ALL) {
