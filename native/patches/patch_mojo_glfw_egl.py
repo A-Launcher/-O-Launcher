@@ -503,17 +503,13 @@ if "oengine_android_get_ltw_share_info(&share)" not in android_text:
     raise SystemExit("Android GLFW surface manager is not using LTW share-info")
 if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in android_text:
     raise SystemExit("Android GLFW must clear surfaceInUse before waking nativeSurfaceDestroyed")
-destroy_wait_anchor = """    if(!ownedByVulkan && surfaceInUse) {
-        pthread_mutex_lock(&nw_egl_mutex);
-        pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
-        LOGI("Unhalted after window destruction");
-        ANativeWindow_release(nativeWindow);
-        nativeWindow = NULL;
-        pthread_mutex_unlock(&nw_egl_mutex);
-    }else {
-        ANativeWindow_release(nativeWindow);
-        nativeWindow = NULL;
-    }"""
+destroy_wait_start = android_text.find("    if(!ownedByVulkan && surfaceInUse) {")
+destroy_wait_end = android_text.find("\\n    }", destroy_wait_start)
+if destroy_wait_start < 0 or destroy_wait_end < 0:
+    raise SystemExit("Pinned Mojo Surface-destroy wait block changed")
+destroy_wait_end = android_text.find("\\n", android_text.find("    }", destroy_wait_end + 1) + 6)
+if destroy_wait_end < 0:
+    raise SystemExit("Pinned Mojo Surface-destroy wait block end changed")
 destroy_wait_replacement = """    if(!ownedByVulkan) {
         pthread_mutex_lock(&nw_egl_mutex);
         while (surfaceInUse)
@@ -525,10 +521,7 @@ destroy_wait_replacement = """    if(!ownedByVulkan) {
         ANativeWindow_release(nativeWindow);
         nativeWindow = NULL;
     }"""
-if destroy_wait_anchor in android_text:
-    android_text = android_text.replace(destroy_wait_anchor, destroy_wait_replacement, 1)
-else:
-    raise SystemExit("Pinned Mojo Surface-destroy wait block changed")
+android_text = android_text[:destroy_wait_start] + destroy_wait_replacement + android_text[destroy_wait_end:]
 if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
 if "atomic_exchange_explicit(&surfaceUpdated" not in manage_replacement:
