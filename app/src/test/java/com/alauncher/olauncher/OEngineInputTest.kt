@@ -202,4 +202,16 @@ class OEngineInputTest {
             OEngineGameInputBridge.resetForTests()
         }
     }
+
+    @Test fun heldControlTrackerRejectsControlsBeyondItsBound() {
+        val tracker = OEngineInputStateTracker(maxPressedControls = 1)
+        assertNotNull(tracker.accept(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 87
+        )))
+        assertNull(tracker.accept(OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 65
+        )))
+        assertEquals(1, tracker.pressedCount)
+        assertTrue(tracker.isPressed(OEngineInputDevice.KEYBOARD, 87))
+    }
 }
