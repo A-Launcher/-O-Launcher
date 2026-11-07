@@ -45,7 +45,8 @@ object OEngineInstalledContentManager {
             saves.listFiles().orEmpty().filter { world ->
                 !Files.isSymbolicLink(world.toPath()) &&
                     world.isDirectory &&
-                    world.canonicalFile.parentFile == saves.canonicalFile
+                    world.canonicalFile.parentFile == saves.canonicalFile &&
+                    File(world, "level.dat").isFile
             }.flatMap { world ->
                 listDirectory(
                     root,
