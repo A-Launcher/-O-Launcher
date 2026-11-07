@@ -4,6 +4,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val mojoForgeAgentAssets = layout.buildDirectory.dir("generated/mojoForgeAgentAssets")
+val packageMojoForgeInstallerAgent by tasks.registering(Copy::class) {
+    dependsOn(":mojo-forge-installer:jar")
+    from(project(":mojo-forge-installer").layout.buildDirectory.dir("libs"))
+    include("*.jar")
+    into(mojoForgeAgentAssets)
+    rename { "forge_installer.jar" }
+}
+
 android {
     namespace = "com.alauncher.olauncher"
     compileSdk = 36
@@ -27,6 +36,7 @@ android {
     // Load the user's original PNG sidebar icons from the repository artwork folder.
     sourceSets.getByName("main").assets.srcDir("../artwork/sidebar")
     sourceSets.getByName("main").assets.srcDir("../artwork/quick_links")
+    sourceSets.getByName("main").assets.srcDir(mojoForgeAgentAssets)
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -34,6 +44,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
+tasks.named("preBuild").configure { dependsOn(packageMojoForgeInstallerAgent) }
 
 dependencies {
     // Built from the pinned MojoLauncher/LTW source in android-ci.yml; LGPL-3.0.
