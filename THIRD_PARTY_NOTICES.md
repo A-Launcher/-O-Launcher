@@ -35,3 +35,28 @@ binary paths are recorded in `ENGINE_UPSTREAM_COMPONENTS.md`.
 The libraries are packaged as Android ABI-specific native dependencies, but O
 Engine has not yet activated GL4ES as a renderer or connected it to LWJGL 2's
 native loading path. Packaging is not a claim of successful game rendering.
+
+
+## Android GLFW platform backend
+
+O Launcher now pins the Android platform port of GLFW from
+[MojoLauncher/glfw](https://github.com/MojoLauncher/glfw), commit
+`7a6c6ceb51f20cd0db84dec2914ac1a0237051f6`. This is an Android-specific GLFW 3.5
+fork with Android window, EGL, input queue, monitor, and joystick platform code.
+Its source retains the upstream GLFW zlib-style license in
+`LICENSE.md`; the exact license is copied into the installed application's
+`assets/licenses/LICENSE-Mojo-GLFW.txt`.
+
+## MojoExec Android support library
+
+The Android GLFW port depends on
+[MojoLauncher/mojoexec](https://github.com/MojoLauncher/mojoexec), pinned to
+commit `9ec4b836e93900135bad823eaac16ebc81cf6b98`. MojoExec is distributed under
+the MIT license; its upstream license is copied into
+`assets/licenses/LICENSE-MojoExec.txt`.
+
+Both projects are pinned as Git submodules and built as separate shared libraries
+for the four Android ABIs. This packages the Android GLFW platform backend and
+its support libraries; it does **not** yet mean Minecraft's runtime LWJGL JNI
+library has been replaced or that the game event loop calls O Engine's input
+queue. That integration remains a separate required step.
