@@ -506,26 +506,47 @@ if "surfaceInUse = false;\n        pthread_cond_broadcast(&nw_egl_cond);" not in
 destroy_handler = "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed"
 destroy_function_start = android_text.find(destroy_handler)
 destroy_body_start = android_text.find("{", destroy_function_start)
-destroy_body_end = android_text.find("\n\n}", destroy_body_start)
-if destroy_function_start < 0 or destroy_body_start < 0 or destroy_body_end < 0:
+if destroy_function_start < 0 or destroy_body_start < 0:
     raise SystemExit("Pinned Mojo nativeSurfaceDestroyed function changed")
-destroy_function_body = """
+# The input patch runs first and may already have rewritten this JNI handler.
+# Find its closing brace by balancing braces, not by assuming blank-line spacing.
+depth = 0
+destroy_body_end = -1
+for position in range(destroy_body_start, len(android_text)):
+    if android_text[position] == "{":
+        depth += 1
+    elif android_text[position] == "}":
+        depth -= 1
+        if depth == 0:
+            destroy_body_end = position
+            break
+if destroy_body_end < 0:
+    raise SystemExit("Could not locate the end of nativeSurfaceDestroyed")
+destroy_handler_text = android_text[destroy_body_start + 1:destroy_body_end]
+if "while (surfaceInUse)" not in destroy_handler_text:
+    destroy_function_body = """
+    pthread_mutex_lock(&nw_egl_mutex);
     surfaceDestroyed = true;
+    pthread_mutex_unlock(&nw_egl_mutex);
     /* Wake the GLFW owner thread after the detach has been queued. */
     _glfwPostEmptyEventAndroid();
-    if(!ownedByVulkan) {
+    if (!ownedByVulkan) {
         pthread_mutex_lock(&nw_egl_mutex);
         while (surfaceInUse)
             pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
-        ANativeWindow_release(nativeWindow);
-        nativeWindow = NULL;
+        if (nativeWindow) {
+            ANativeWindow_release(nativeWindow);
+            nativeWindow = NULL;
+        }
         pthread_mutex_unlock(&nw_egl_mutex);
-    }else {
+    } else if (nativeWindow) {
         ANativeWindow_release(nativeWindow);
         nativeWindow = NULL;
     }
 """
-android_text = android_text[:destroy_body_start + 1] + destroy_function_body + android_text[destroy_body_end:]
+    android_text = android_text[:destroy_body_start + 1] + destroy_function_body + android_text[destroy_body_end:]
+elif "_glfwPostEmptyEventAndroid();" not in destroy_handler_text:
+    android_text = android_text[:destroy_body_start + 1] + destroy_handler_text + "\n    _glfwPostEmptyEventAndroid();\n" + android_text[destroy_body_end:]
 
 if "pthread_mutex_lock(&nw_egl_mutex);" not in manage_replacement or "surfaceInUse = true;" not in manage_replacement:
     raise SystemExit("Android GLFW must protect nativeWindow use with the Surface condition mutex")
