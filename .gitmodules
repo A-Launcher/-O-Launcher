@@ -1,0 +1,6 @@
+[submodule "native/upstream/mojo-glfw"]
+	path = native/upstream/mojo-glfw
+	url = https://github.com/MojoLauncher/glfw.git
+[submodule "native/upstream/mojoexec"]
+	path = native/upstream/mojoexec
+	url = https://github.com/MojoLauncher/mojoexec.git
