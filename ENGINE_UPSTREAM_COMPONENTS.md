@@ -218,3 +218,16 @@ Important implementation findings:
 The current O Engine Java EGL bootstrap creates and attaches an EGL window surface, but it does not yet expose that surface to LWJGL's GLFW implementation, provide a native window bridge, or present frames with `eglSwapBuffers`. The next implementation stage must add a narrow native-window/GLFW adapter with explicit create, resize, destroy and input callbacks. It must also define who owns the EGL display/context/surface and the `ANativeWindow` reference; O Engine must not create a second unrelated EGL context and assume Minecraft will render into it.
 
 Do not port a single Pojav C function in isolation: its bridge depends on the matching bridge table, EGL loader, renderer-specific behavior, GLFW Android port, JNI declarations and lifecycle ownership. Any Pojav- or Mojo-derived code integrated into O Launcher must retain the LGPL-3.0 notices and comply with the applicable source/relinking obligations. Prefer a separately built, replaceable native bridge library and keep O Engine's Kotlin/Rust public APIs independent of upstream package names.
+
+
+## O Engine native Android window ownership milestone
+
+O Engine now has an initial Rust JNI adapter for Android's native window reference:
+
+- Resolves `ANativeWindow_fromSurface`, `ANativeWindow_setBuffersGeometry`, and `ANativeWindow_release` from a retained `libandroid.so` handle.
+- Acquires an `ANativeWindow` reference from the exact Java `Surface` received over game-process IPC.
+- Applies the requested buffer dimensions while preserving the Surface's existing native pixel format (format argument 0).
+- Retains the native pointer alongside the EGL window surface and releases it after EGL detaches/destroys that surface.
+- Releases the reference during pre-JVM service teardown as well.
+
+This is the native ownership foundation needed by a future Pojav-style GLFW bridge. It does **not** yet create a GLFW window, intercept LWJGL window calls, translate Android input, call `eglSwapBuffers`, or render Minecraft frames. The Java EGL bootstrap still owns its own EGL context/surface. The next bridge must explicitly decide whether EGL ownership moves into Rust or whether native GLFW is adapted to use the existing EGL context; it must not create competing contexts accidentally. Android device testing remains required.
