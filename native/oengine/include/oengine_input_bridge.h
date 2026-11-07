@@ -22,6 +22,7 @@ typedef struct OEngineNativeInputEvent {
     int32_t modifiers;
     uint32_t codepoint;
     int32_t scan_code;       /* Android physical scan code; passed to GLFW key callback. */
+    int32_t reserved;        /* Must be zero; keeps the event stride 48 bytes on every ABI. */
 } OEngineNativeInputEvent;
 
 /* Drain on the GLFW/game thread. Supply room for up to 1024 reset releases. */
