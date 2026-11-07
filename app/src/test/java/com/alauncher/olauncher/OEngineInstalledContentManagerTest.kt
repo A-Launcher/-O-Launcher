@@ -22,6 +22,19 @@ class OEngineInstalledContentManagerTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun listsDataPacksInsideEachWorld() {
+        val root = Files.createTempDirectory("oengine-world-packs").toFile()
+        try {
+            File(root, "datapacks/root-pack.zip").apply { parentFile.mkdirs(); writeText("wrong location") }
+            File(root, "saves/Survival/datapacks/world-pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
+            File(root, "saves/Creative/datapacks/another-pack.zip").apply { parentFile.mkdirs(); writeText("pack2") }
+            val entries = OEngineInstalledContentManager.list(root)
+                .filter { it.kind == OEngineInstalledContentManager.Kind.DATA_PACK }
+            assertEquals(setOf("Survival", "Creative"), entries.mapNotNull { it.worldName }.toSet())
+            assertEquals(setOf("world-pack.zip", "another-pack.zip"), entries.map { it.name }.toSet())
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun listIgnoresSymbolicLinksToFilesOutsideInstanceFolder() {
         val root = Files.createTempDirectory("oengine-content-links").toFile()
         try {
@@ -50,6 +63,18 @@ class OEngineInstalledContentManagerTest {
             assertTrue(OEngineInstalledContentManager.remove(root, entry))
             assertFalse(mod.exists())
             assertTrue(outside.exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun removesDataPackFromItsOwningWorldOnly() {
+        val root = Files.createTempDirectory("oengine-remove-world-pack").toFile()
+        try {
+            val pack = File(root, "saves/Survival/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
+            val other = File(root, "saves/Creative/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("other") }
+            val entry = OEngineInstalledContentManager.list(root).single()
+            assertTrue(OEngineInstalledContentManager.remove(root, entry))
+            assertFalse(pack.exists())
+            assertTrue(other.exists())
         } finally { root.deleteRecursively() }
     }
 
