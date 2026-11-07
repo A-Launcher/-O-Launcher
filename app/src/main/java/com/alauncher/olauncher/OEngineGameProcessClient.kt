@@ -486,7 +486,17 @@ class OEngineGameProcessClient(
     /** Passes an Android window surface to the persistent EGL context in :game. */
     fun attachGameSurface(surface: Surface, width: Int, height: Int): Boolean {
         val target = serviceMessenger
-        if (closed.get() || target == null || !surface.isValid) return false
+        val invalidReason = when {
+            closed.get() -> "The game-process client is already closed."
+            target == null -> "The isolated game process is not connected."
+            !surface.isValid -> "The Android game Surface is not valid."
+            width <= 0 || height <= 0 -> "Android game Surface dimensions must be positive."
+            else -> null
+        }
+        if (invalidReason != null) {
+            onGameSurface(Result.failure(IllegalStateException(invalidReason)))
+            return false
+        }
         val requestId = surfaceRequestId.incrementAndGet()
         surfaceRequestPending.set(true)
         timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
