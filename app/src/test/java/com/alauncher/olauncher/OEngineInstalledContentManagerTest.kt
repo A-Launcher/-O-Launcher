@@ -78,6 +78,59 @@ class OEngineInstalledContentManagerTest {
         } finally { root.deleteRecursively() }
     }
 
+
+    @Test fun ignoresDataPacksReachedThroughSymlinkedWorldFolders() {
+        val root = Files.createTempDirectory("oengine-world-link").toFile()
+        try {
+            val outside = Files.createTempDirectory("oengine-world-outside").toFile()
+            try {
+                File(outside, "datapacks/hidden.zip").apply { parentFile.mkdirs(); writeText("hidden") }
+                val saves = File(root, "saves").apply { mkdirs() }
+                try {
+                    Files.createSymbolicLink(File(saves, "LinkedWorld").toPath(), outside.toPath())
+                } catch (_: UnsupportedOperationException) {
+                    return
+                } catch (_: SecurityException) {
+                    return
+                }
+                assertTrue(
+                    OEngineInstalledContentManager.list(root)
+                        .none { it.kind == OEngineInstalledContentManager.Kind.DATA_PACK }
+                )
+            } finally {
+                outside.deleteRecursively()
+            }
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun refusesRemovalIfWorldFolderBecomesSymlinkAfterListing() {
+        val root = Files.createTempDirectory("oengine-world-replaced").toFile()
+        try {
+            val world = File(root, "saves/Survival")
+            val pack = File(world, "datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
+            val entry = OEngineInstalledContentManager.list(root).single()
+            val saves = File(root, "saves")
+            val outside = Files.createTempDirectory("oengine-world-replacement").toFile()
+            try {
+                File(outside, "datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("keep") }
+                assertTrue(world.deleteRecursively())
+                try {
+                    Files.createSymbolicLink(world.toPath(), outside.toPath())
+                } catch (_: UnsupportedOperationException) {
+                    return
+                } catch (_: SecurityException) {
+                    return
+                }
+                val failure = runCatching { OEngineInstalledContentManager.remove(root, entry) }.exceptionOrNull()
+                assertTrue(failure is IllegalArgumentException)
+                assertTrue(File(outside, "datapacks/pack.zip").exists())
+                assertFalse(pack.exists())
+            } finally {
+                outside.deleteRecursively()
+            }
+        } finally { root.deleteRecursively() }
+    }
+
     @Test fun sizeFormattingIsReadable() {
         assertEquals("512 B", OEngineInstalledContentManager.formatSize(512))
         assertEquals("1.0 KB", OEngineInstalledContentManager.formatSize(1024))
