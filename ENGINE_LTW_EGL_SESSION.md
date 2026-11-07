@@ -30,3 +30,12 @@ This is not yet a complete Android GLFW implementation. The following still need
 - A successful end-to-end Minecraft launch.
 
 No Pojav or Mojo launcher source files were copied into O Engine for this milestone. Their LGPL-3.0 licensing and the pinned LTW LGPL-3.0 obligations remain documented in `ENGINE_UPSTREAM_COMPONENTS.md`.
+
+
+## Native GLFW context-sharing contract
+
+The Rust engine now exports `oengine_ltw_egl_share_info(session, output)`, declared in `native/oengine/include/oengine_ltw_egl.h`. It returns a borrowed view of the active session's EGL display, config, tracked context, pbuffer/window surfaces, and LTW-wrapped create/make-current/destroy/swap function pointers. The call is rejected unless it runs on the session's creating game thread. The returned pointers remain valid only while the session is alive and must never be used from the Android UI or Binder ingress thread.
+
+This is an integration seam, not a second EGL session and not a renderer by itself. It exists so the Android GLFW port can create any additional context through LTW's wrappers and share the tracked resource group, rather than calling Android EGL directly and leaving LTW's context map unaware. Rust layout tests and an Android CI C-header compile check pin the 10-pointer ABI; APK symbol verification requires the exported function for every supported ABI.
+
+**Still required before enabling GLFW:** patch its Android context creation/surface lifecycle to consume this borrowed view, share the tracked context, and transfer current-context ownership without binding the same EGLSurface to two contexts. The current GLFW Android EGL path owns its own context/surface lifecycle; simply calling `nativeSurfaceCreated` alongside O Engine's LTW session would risk competing contexts. The LWJGL 3 Java/JNI provider bridge is also still outstanding.
