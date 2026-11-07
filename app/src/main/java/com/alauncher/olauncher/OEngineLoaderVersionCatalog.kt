@@ -34,9 +34,11 @@ object OEngineLoaderVersionCatalog {
             OEngineModLoader.QUILT -> parseQuilt(game, requestText(
                 "https://meta.quiltmc.org/v3/versions/loader/" + game
             ))
-            OEngineModLoader.FORGE -> parseForge(game, requestText(
-                "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
-            ))
+            OEngineModLoader.FORGE -> parseForgeMaven(
+                game,
+                requestText("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml"),
+                requestText("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json")
+            )
             OEngineModLoader.NEOFORGE -> parseNeoForge(game, requestText(
                 "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
             ))
@@ -74,6 +76,28 @@ object OEngineLoaderVersionCatalog {
                 ))
             }
         }.distinctBy { it.version }
+    }
+
+    /** Full Forge version list, matching MojoLauncher's ForgelikeUtils Maven metadata flow. */
+    fun parseForgeMaven(game: String, metadataXml: String, promotionsJson: String = "{}"): List<LoaderVersion> {
+        val recommended = runCatching {
+            JSONObject(promotionsJson).optJSONObject("promos")?.optString("$game-recommended").orEmpty()
+        }.getOrDefault("")
+        val versions = Regex("<version>\\s*([^<]+)\\s*</version>")
+            .findAll(metadataXml)
+            .map { it.groupValues[1].trim() }
+            .filter { it.startsWith("$game-") }
+            .map { it.removePrefix("$game-") }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .toList()
+        return versions.map { version ->
+            LoaderVersion(
+                OEngineModLoader.FORGE, game, version, version == recommended,
+                "https://maven.minecraftforge.net/net/minecraftforge/forge/$game-$version/forge-$game-$version-installer.jar",
+                "Forge Maven"
+            )
+        }.sortedWith(compareByDescending<LoaderVersion> { it.stable }.thenByDescending { it.version })
     }
 
     fun parseForge(game: String, body: String): List<LoaderVersion> {
