@@ -946,3 +946,341 @@ mod tests {
         assert_eq!(oengine_native_abi_version(), ABI_VERSION);
     }
 }
+
+
+// ---- LTW-owned EGL context/session -------------------------------------------------
+//
+// LTW tracks desktop-GL compatibility state per EGLContext. Creating an EGLContext
+// through Android's EGL14 API bypasses LTW's eglCreateContext wrapper and leaves
+// LTW's context_map empty; the first wrapped GL call can then abort. O Engine must
+// create, bind, and destroy the context through the retained LTW wrapper symbols.
+type OEngineEglGetDisplay = unsafe extern "C" fn(*mut c_void) -> *mut c_void;
+type OEngineEglInitialize = unsafe extern "C" fn(*mut c_void, *mut i32, *mut i32) -> u32;
+type OEngineEglBindApi = unsafe extern "C" fn(u32) -> u32;
+type OEngineEglChooseConfig = unsafe extern "C" fn(*mut c_void, *const i32, *mut *mut c_void, i32, *mut i32) -> u32;
+type OEngineEglCreatePbuffer = unsafe extern "C" fn(*mut c_void, *mut c_void, *const i32) -> *mut c_void;
+type OEngineEglCreateWindow = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, *const i32) -> *mut c_void;
+type OEngineEglDestroySurface = unsafe extern "C" fn(*mut c_void, *mut c_void) -> u32;
+type OEngineEglTerminate = unsafe extern "C" fn(*mut c_void) -> u32;
+type OEngineEglGetError = unsafe extern "C" fn() -> i32;
+type OEngineEglSwapBuffers = unsafe extern "C" fn(*mut c_void, *mut c_void) -> u32;
+type OEngineLtwCreateContext = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, *const i32) -> *mut c_void;
+type OEngineLtwDestroyContext = unsafe extern "C" fn(*mut c_void, *mut c_void) -> u32;
+type OEngineLtwMakeCurrent = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, *mut c_void) -> u32;
+type OEngineEglGetProcAddress = unsafe extern "C" fn(*const c_char) -> *mut c_void;
+type OEngineGlGetString = unsafe extern "C" fn(u32) -> *const u8;
+type OEngineGlViewport = unsafe extern "C" fn(i32, i32, i32, i32);
+
+struct OEngineLtwEglSession {
+    egl_library: *mut c_void,
+    gles_library: *mut c_void,
+    display: *mut c_void,
+    config: *mut c_void,
+    context: *mut c_void,
+    pbuffer: *mut c_void,
+    window_surface: *mut c_void,
+    egl_destroy_surface: OEngineEglDestroySurface,
+    egl_terminate: OEngineEglTerminate,
+    egl_get_error: OEngineEglGetError,
+    egl_swap_buffers: OEngineEglSwapBuffers,
+    ltw_destroy_context: OEngineLtwDestroyContext,
+    ltw_make_current: OEngineLtwMakeCurrent,
+    gl_viewport: Option<OEngineGlViewport>,
+    owner_thread: ThreadId,
+    version: String,
+    renderer: String,
+}
+
+static LTW_EGL_ERROR: OnceLock<Mutex<String>> = OnceLock::new();
+
+fn set_ltw_egl_error(message: String) {
+    if let Ok(mut value) = LTW_EGL_ERROR.get_or_init(|| Mutex::new(String::new())).lock() {
+        *value = message;
+    }
+}
+
+unsafe fn oengine_symbol<T: Copy>(handle: *mut c_void, name: &'static [u8]) -> Result<T, String> {
+    let symbol = libc::dlsym(handle, name.as_ptr() as *const c_char);
+    if symbol.is_null() {
+        return Err(format!("Missing native symbol {}", String::from_utf8_lossy(&name[..name.len().saturating_sub(1)])));
+    }
+    Ok(std::mem::transmute_copy(&symbol))
+}
+
+unsafe fn oengine_egl_error(get_error: OEngineEglGetError, operation: &str) -> String {
+    format!("{operation} failed with EGL error 0x{:04x}", get_error())
+}
+
+unsafe fn destroy_ltw_egl_session(session: &mut OEngineLtwEglSession) {
+    if !session.window_surface.is_null() {
+        let _ = (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context);
+        let _ = (session.egl_destroy_surface)(session.display, session.window_surface);
+        session.window_surface = ptr::null_mut();
+    }
+    if !session.display.is_null() {
+        let _ = (session.ltw_make_current)(session.display, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+    }
+    if !session.context.is_null() {
+        let _ = (session.ltw_destroy_context)(session.display, session.context);
+        session.context = ptr::null_mut();
+    }
+    if !session.pbuffer.is_null() {
+        let _ = (session.egl_destroy_surface)(session.display, session.pbuffer);
+        session.pbuffer = ptr::null_mut();
+    }
+    if !session.display.is_null() {
+        let _ = (session.egl_terminate)(session.display);
+        session.display = ptr::null_mut();
+    }
+    if !session.gles_library.is_null() {
+        libc::dlclose(session.gles_library);
+        session.gles_library = ptr::null_mut();
+    }
+    if !session.egl_library.is_null() {
+        libc::dlclose(session.egl_library);
+        session.egl_library = ptr::null_mut();
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeCreateLtwEglSession(
+    raw_env: *mut RawJNIEnv, _receiver: jobject, renderer_handle: jlong, minimum_gles: jint,
+) -> jlong {
+    if raw_env.is_null() || renderer_handle == 0 || !(3..=3).contains(&minimum_gles) {
+        set_ltw_egl_error("LTW EGL session requires a loaded renderer and GLES 3.".to_owned());
+        return 0;
+    }
+    let ltw = renderer_handle as *mut c_void;
+    let egl_library = libc::dlopen(b"libEGL.so\0".as_ptr() as *const c_char, libc::RTLD_NOW | libc::RTLD_LOCAL);
+    if egl_library.is_null() {
+        set_ltw_egl_error("Could not load Android libEGL.so for the LTW session.".to_owned());
+        return 0;
+    }
+    let gles_library = {
+        let first = libc::dlopen(b"libGLESv3.so\0".as_ptr() as *const c_char, libc::RTLD_NOW | libc::RTLD_LOCAL);
+        if first.is_null() {
+            libc::dlopen(b"libGLESv2.so\0".as_ptr() as *const c_char, libc::RTLD_NOW | libc::RTLD_LOCAL)
+        } else { first }
+    };
+    if gles_library.is_null() {
+        libc::dlclose(egl_library);
+        set_ltw_egl_error("Could not load Android GLES entry points.".to_owned());
+        return 0;
+    }
+
+    let setup = (|| -> Result<OEngineLtwEglSession, String> {
+        let get_display: OEngineEglGetDisplay = oengine_symbol(egl_library, b"eglGetDisplay\0")?;
+        let initialize: OEngineEglInitialize = oengine_symbol(egl_library, b"eglInitialize\0")?;
+        let bind_api: OEngineEglBindApi = oengine_symbol(egl_library, b"eglBindAPI\0")?;
+        let choose_config: OEngineEglChooseConfig = oengine_symbol(egl_library, b"eglChooseConfig\0")?;
+        let create_pbuffer: OEngineEglCreatePbuffer = oengine_symbol(egl_library, b"eglCreatePbufferSurface\0")?;
+        let destroy_surface: OEngineEglDestroySurface = oengine_symbol(egl_library, b"eglDestroySurface\0")?;
+        let terminate: OEngineEglTerminate = oengine_symbol(egl_library, b"eglTerminate\0")?;
+        let get_error: OEngineEglGetError = oengine_symbol(egl_library, b"eglGetError\0")?;
+        let swap_buffers: OEngineEglSwapBuffers = oengine_symbol(egl_library, b"eglSwapBuffers\0")?;
+        let ltw_create: OEngineLtwCreateContext = oengine_symbol(ltw, b"eglCreateContext\0")?;
+        let ltw_destroy: OEngineLtwDestroyContext = oengine_symbol(ltw, b"eglDestroyContext\0")?;
+        let ltw_make_current: OEngineLtwMakeCurrent = oengine_symbol(ltw, b"eglMakeCurrent\0")?;
+        let display = get_display(ptr::null_mut());
+        if display.is_null() { return Err(oengine_egl_error(get_error, "eglGetDisplay")); }
+        let mut major = 0;
+        let mut minor = 0;
+        if initialize(display, &mut major, &mut minor) == 0 {
+            return Err(oengine_egl_error(get_error, "eglInitialize"));
+        }
+        if bind_api(0x30A0) == 0 {
+            let detail = oengine_egl_error(get_error, "eglBindAPI(OpenGL ES)");
+            let _ = terminate(display);
+            return Err(detail);
+        }
+        let attributes = [
+            0x3033, 0x0001 | 0x0004, // EGL_SURFACE_TYPE: pbuffer + window
+            0x3040, 0x0040,          // EGL_RENDERABLE_TYPE: OpenGL ES 3
+            0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 8,
+            0x3038,
+        ];
+        let mut config = ptr::null_mut();
+        let mut count = 0;
+        if choose_config(display, attributes.as_ptr(), &mut config, 1, &mut count) == 0 || count < 1 || config.is_null() {
+            let detail = oengine_egl_error(get_error, "eglChooseConfig(GLES3 window+pbuffer)");
+            let _ = terminate(display);
+            return Err(detail);
+        }
+        let pbuffer_attributes = [0x3057, 1, 0x3056, 1, 0x3038];
+        let pbuffer = create_pbuffer(display, config, pbuffer_attributes.as_ptr());
+        if pbuffer.is_null() {
+            let detail = oengine_egl_error(get_error, "eglCreatePbufferSurface");
+            let _ = terminate(display);
+            return Err(detail);
+        }
+        let context_attributes = [0x3098, minimum_gles, 0x3038];
+        let context = ltw_create(display, config, ptr::null_mut(), context_attributes.as_ptr());
+        if context.is_null() {
+            let detail = oengine_egl_error(get_error, "LTW eglCreateContext");
+            let _ = destroy_surface(display, pbuffer);
+            let _ = terminate(display);
+            return Err(detail);
+        }
+        if ltw_make_current(display, pbuffer, pbuffer, context) == 0 {
+            let detail = oengine_egl_error(get_error, "LTW eglMakeCurrent(pbuffer)");
+            let _ = ltw_destroy(display, context);
+            let _ = destroy_surface(display, pbuffer);
+            let _ = terminate(display);
+            return Err(detail);
+        }
+        let get_string: OEngineGlGetString = oengine_symbol(gles_library, b"glGetString\0")?;
+        let version_ptr = get_string(0x1F02);
+        let renderer_ptr = get_string(0x1F01);
+        if version_ptr.is_null() || renderer_ptr.is_null() {
+            let _ = ltw_make_current(display, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+            let _ = ltw_destroy(display, context);
+            let _ = destroy_surface(display, pbuffer);
+            let _ = terminate(display);
+            return Err("GLES driver returned no version or renderer for the LTW context.".to_owned());
+        }
+        let version = CStr::from_ptr(version_ptr as *const c_char).to_string_lossy().into_owned();
+        let renderer = CStr::from_ptr(renderer_ptr as *const c_char).to_string_lossy().into_owned();
+        if !version.contains("OpenGL ES 3") {
+            let _ = ltw_make_current(display, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+            let _ = ltw_destroy(display, context);
+            let _ = destroy_surface(display, pbuffer);
+            let _ = terminate(display);
+            return Err(format!("LTW requires GLES 3; the active driver reported {version}."));
+        }
+        let viewport = libc::dlsym(gles_library, b"glViewport\0".as_ptr() as *const c_char);
+        Ok(OEngineLtwEglSession {
+            egl_library, gles_library, display, config, context, pbuffer,
+            window_surface: ptr::null_mut(), egl_destroy_surface: destroy_surface,
+            egl_terminate: terminate, egl_get_error: get_error, egl_swap_buffers: swap_buffers,
+            ltw_destroy_context: ltw_destroy, ltw_make_current,
+            gl_viewport: if viewport.is_null() { None } else { Some(std::mem::transmute_copy(&viewport)) },
+            owner_thread: std::thread::current().id(), version, renderer,
+        })
+    })();
+
+    match setup {
+        Ok(session) => {
+            set_ltw_egl_error(String::new());
+            Box::into_raw(Box::new(session)) as jlong
+        }
+        Err(error) => {
+            libc::dlclose(gles_library);
+            libc::dlclose(egl_library);
+            set_ltw_egl_error(error);
+            0
+        }
+    }
+}
+
+unsafe fn with_ltw_egl_session<'a>(handle: jlong) -> Result<&'a mut OEngineLtwEglSession, String> {
+    if handle == 0 { return Err("LTW EGL session handle is null.".to_owned()); }
+    let session = &mut *(handle as *mut OEngineLtwEglSession);
+    if session.owner_thread != std::thread::current().id() {
+        return Err("LTW EGL operation called from a thread other than its creating game thread.".to_owned());
+    }
+    Ok(session)
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeAttachLtwWindow(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong, window: jlong, width: jint, height: jint,
+) -> jboolean {
+    let result = (|| -> Result<(), String> {
+        if window == 0 || width <= 0 || height <= 0 { return Err("Invalid ANativeWindow or dimensions.".to_owned()); }
+        let session = with_ltw_egl_session(handle)?;
+        if !session.window_surface.is_null() {
+            let _ = (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context);
+            let _ = (session.egl_destroy_surface)(session.display, session.window_surface);
+            session.window_surface = ptr::null_mut();
+        }
+        let create_window: OEngineEglCreateWindow = oengine_symbol(session.egl_library, b"eglCreateWindowSurface\0")?;
+        let surface = create_window(session.display, session.config, window as *mut c_void, [0x3038].as_ptr());
+        if surface.is_null() { return Err(oengine_egl_error(session.egl_get_error, "eglCreateWindowSurface")); }
+        if (session.ltw_make_current)(session.display, surface, surface, session.context) == 0 {
+            let detail = oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(window)");
+            let _ = (session.egl_destroy_surface)(session.display, surface);
+            return Err(detail);
+        }
+        if let Some(viewport) = session.gl_viewport { viewport(0, 0, width, height); }
+        session.window_surface = surface;
+        Ok(())
+    })();
+    match result {
+        Ok(()) => 1,
+        Err(error) => { set_ltw_egl_error(error); 0 }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDetachLtwWindow(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong,
+) -> jboolean {
+    let result = (|| -> Result<(), String> {
+        let session = with_ltw_egl_session(handle)?;
+        if session.window_surface.is_null() { return Ok(()); }
+        if (session.ltw_make_current)(session.display, session.pbuffer, session.pbuffer, session.context) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "LTW eglMakeCurrent(pbuffer)"));
+        }
+        if (session.egl_destroy_surface)(session.display, session.window_surface) == 0 {
+            return Err(oengine_egl_error(session.egl_get_error, "eglDestroySurface(window)"));
+        }
+        session.window_surface = ptr::null_mut();
+        if let Some(viewport) = session.gl_viewport { viewport(0, 0, 1, 1); }
+        Ok(())
+    })();
+    match result { Ok(()) => 1, Err(error) => { set_ltw_egl_error(error); 0 } }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeSwapLtwBuffers(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong,
+) -> jboolean {
+    match with_ltw_egl_session(handle) {
+        Ok(session) if !session.window_surface.is_null() => {
+            if (session.egl_swap_buffers)(session.display, session.window_surface) != 0 { 1 }
+            else { set_ltw_egl_error(oengine_egl_error(session.egl_get_error, "eglSwapBuffers")); 0 }
+        }
+        Ok(_) => { set_ltw_egl_error("No LTW window surface is attached.".to_owned()); 0 }
+        Err(error) => { set_ltw_egl_error(error); 0 }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglInfo(
+    raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong,
+) -> jstring {
+    if raw_env.is_null() { return ptr::null_mut(); }
+    let mut env = match JNIEnv::from_raw(raw_env) { Ok(value) => value, Err(_) => return ptr::null_mut() };
+    let detail = match with_ltw_egl_session(handle) {
+        Ok(session) => format!("{} • {}", session.version, session.renderer),
+        Err(error) => error,
+    };
+    env.new_string(detail).map(|value| value.into_raw()).unwrap_or(ptr::null_mut())
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglError(
+    raw_env: *mut RawJNIEnv, _receiver: jobject,
+) -> jstring {
+    if raw_env.is_null() { return ptr::null_mut(); }
+    let mut env = match JNIEnv::from_raw(raw_env) { Ok(value) => value, Err(_) => return ptr::null_mut() };
+    let detail = LTW_EGL_ERROR.get_or_init(|| Mutex::new(String::new()))
+        .lock().map(|value| value.clone()).unwrap_or_else(|_| "LTW EGL diagnostic lock is poisoned".to_owned());
+    env.new_string(detail).map(|value| value.into_raw()).unwrap_or(ptr::null_mut())
+}
+
+#[no_mangle]
+pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDestroyLtwEglSession(
+    _raw_env: *mut RawJNIEnv, _receiver: jobject, handle: jlong,
+) {
+    if handle == 0 { return; }
+    let mut session = Box::from_raw(handle as *mut OEngineLtwEglSession);
+    if session.owner_thread != std::thread::current().id() {
+        // Do not destroy EGL objects from the wrong thread. The process owns this
+        // session and will reclaim it on process exit if the owner thread is gone.
+        std::mem::forget(session);
+        set_ltw_egl_error("Refused to destroy the LTW EGL session from a non-owner thread.".to_owned());
+        return;
+    }
+    destroy_ltw_egl_session(&mut session);
+}
