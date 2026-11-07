@@ -2780,7 +2780,12 @@ private fun InstallationsDestination(images: LauncherImages) {
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 AndroidView(
                     factory = { viewContext ->
-                        SurfaceView(viewContext).apply {
+                        object : SurfaceView(viewContext) {
+                            override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+                                super.onWindowFocusChanged(hasWindowFocus)
+                                if (!hasWindowFocus) gameInputForwarder.releaseAll()
+                            }
+                        }.apply {
                             isFocusable = true
                             isFocusableInTouchMode = true
                             setOnKeyListener { _, keyCode, event ->
