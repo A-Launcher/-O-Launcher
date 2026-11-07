@@ -101,7 +101,7 @@ object OEngineTouchControls {
     fun move(controls: List<OEngineTouchControl>, id: String, x: Float, y: Float): List<OEngineTouchControl> {
         require(x.isFinite() && y.isFinite())
         val updated = controls.map { c ->
-            if (c.id == id) c.copy(x = x.coerceIn(0f, 1f), y = y.coerceIn(0f, 1f)) else c
+            if (c.id == id) c.copy(x = x.coerceIn(0f, 1f - c.width), y = y.coerceIn(0f, 1f - c.height)) else c
         }
         validate(updated)
         require(updated.any { it.id == id }) { "Unknown touch control: $id" }
@@ -113,7 +113,9 @@ object OEngineTouchControls {
         val updated = controls.map { c ->
             if (c.id == id) c.copy(
                 width = (c.width * scale).coerceIn(.04f, .3f),
-                height = (c.height * scale).coerceIn(.06f, .35f)
+                height = (c.height * scale).coerceIn(.06f, .35f),
+                x = c.x.coerceAtMost(1f - (c.width * scale).coerceIn(.04f, .3f)),
+                y = c.y.coerceAtMost(1f - (c.height * scale).coerceIn(.06f, .35f))
             ) else c
         }
         validate(updated)
@@ -221,6 +223,6 @@ fun OEngineTouchControlsOverlay(
                         else if (editing) androidx.compose.ui.graphics.Color(0xFFFFD27A) else androidx.compose.ui.graphics.Color(0x66FFFFFF),
                         androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                     )
-                    .pointerInput(control.id, editing, control.x, control.y, control.toggle) {
+                    .pointerInput(control.id, editing, control.toggle) {
                         if (editing) {
                             androidx.compose.foundation.gestures.detectTapGestures(onTap = { selectedId = control.id })
