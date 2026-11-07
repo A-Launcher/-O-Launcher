@@ -3,7 +3,7 @@
 #include <stddef.h>
 
 _Static_assert(sizeof(OEngineNativeInputCallbacks) == 7 * sizeof(void *),
-               "callback table must contain six native function pointers");
+               "callback table must contain seven native function pointers");
 _Static_assert(offsetof(OEngineNativeInputEvent, device) == 0,
                "device offset changed");
 _Static_assert(offsetof(OEngineNativeInputEvent, action) == 4,
