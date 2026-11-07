@@ -60,6 +60,7 @@ class OEngineGameProcessClient(
     private val rendererHookRequestPending = AtomicBoolean(false)
     private val mainRequestPending = AtomicBoolean(false)
     private var serviceMessenger: Messenger? = null
+    @Volatile private var inputMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val surfaceTimeoutRunnable = Runnable {
         if (surfaceRequestPending.compareAndSet(true, false)) {
@@ -183,6 +184,12 @@ class OEngineGameProcessClient(
             OEngineGameProcessService.MSG_HEALTH_CHECK_RESULT -> {
                 val data = message.data
                 val status = OEngineGameProcessStatus(
+                data.getBinder(OEngineGameProcessService.KEY_INPUT_MESSENGER)?.let {
+                    inputMessenger = Messenger(it)
+                    OEngineSessionLog.append(appContext, "IPC_INPUT_CHANNEL_READY",
+                        "Dedicated input ingress Binder endpoint connected; native game-thread consumption is not yet installed.")
+                }
+
                     ready = data.getBoolean(OEngineGameProcessService.KEY_READY),
                     pid = data.getInt(OEngineGameProcessService.KEY_PID),
                     processName = data.getString(OEngineGameProcessService.KEY_PROCESS).orEmpty(),
@@ -521,6 +528,37 @@ class OEngineGameProcessClient(
     }
 
     /** Releases the EGL window surface and returns to the bootstrap pbuffer. */
+
+    /**
+     * Sends a bounded input batch over the independent ingress endpoint. This channel remains
+     * responsive while Minecraft main blocks the JVM/graphics owner thread; it only queues events.
+     * It does not yet inject them into GLFW or Minecraft.
+     */
+    fun sendInputEvents(events: List<OEngineInputEvent>): Boolean {
+        if (closed.get() || events.isEmpty() || events.size > OEngineGameProcessService.MAX_INPUT_BATCH) return false
+        val target = inputMessenger ?: return false
+        val request = Message.obtain(null, OEngineGameProcessService.MSG_INPUT_BATCH).apply {
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_DEVICE, events.map { it.device.ordinal }.toIntArray())
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_ACTION, events.map { it.action.ordinal }.toIntArray())
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_CODE, events.map { it.code }.toIntArray())
+            data.putFloatArray(OEngineGameProcessService.KEY_INPUT_X, events.map { it.x }.toFloatArray())
+            data.putFloatArray(OEngineGameProcessService.KEY_INPUT_Y, events.map { it.y }.toFloatArray())
+            data.putFloatArray(OEngineGameProcessService.KEY_INPUT_VALUE, events.map { it.value }.toFloatArray())
+            data.putLongArray(OEngineGameProcessService.KEY_INPUT_TIME, events.map { it.timestampNanos }.toLongArray())
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_MODIFIERS, events.map { it.modifiers }.toIntArray())
+            data.putIntArray(OEngineGameProcessService.KEY_INPUT_CODEPOINT, events.map { it.codepoint }.toIntArray())
+            data.putStringArray(OEngineGameProcessService.KEY_INPUT_TEXT, events.map { it.text }.toTypedArray())
+        }
+        return try {
+            target.send(request)
+            true
+        } catch (error: RemoteException) {
+            OEngineSessionLog.append(appContext, "IPC_INPUT_SEND_FAILED", error.message ?: "Input ingress Binder send failed", error)
+            inputMessenger = null
+            false
+        }
+    }
+
     fun detachGameSurface(): Boolean {
         val target = serviceMessenger
         if (closed.get() || target == null) return false
@@ -570,6 +608,7 @@ class OEngineGameProcessClient(
             surfaceRequestPending.set(false)
             surfaceRequestId.incrementAndGet()
             serviceMessenger = null
+            inputMessenger = null
             OEngineSessionLog.append(appContext, "IPC_CLIENT_CLOSED", "Game-process client closed")
             runCatching { appContext.unbindService(connection) }
         }
