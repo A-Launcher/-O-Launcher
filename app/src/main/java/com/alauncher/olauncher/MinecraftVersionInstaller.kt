@@ -398,7 +398,7 @@ object MinecraftVersionInstaller {
         val assetIndex = metadata.optJSONObject("assetIndex")?.optString("id").orEmpty()
         val values = mapOf(
             "auth_player_name" to playerName,
-            "version_name" to version.id,
+            "version_name" to launchVersionId,
             "game_directory" to gameDirectory.absolutePath,
             "assets_root" to File(gameDirectory, "assets").absolutePath,
             "assets_index_name" to assetIndex,
@@ -453,7 +453,7 @@ object MinecraftVersionInstaller {
         val jvmArguments = mutableListOf<String>()
         argumentSources.forEach { collectArguments(it.optJSONArray("jvm"), jvmArguments) }
         LaunchPlan(
-            version = version.id,
+            version = launchVersionId,
             mainClass = mainClass,
             javaMajorVersion = javaMajorVersion,
             targetJavaMajor = javaCompatibility.targetJavaMajor,
