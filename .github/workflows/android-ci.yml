@@ -232,8 +232,17 @@ jobs:
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_initialize",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceCreated",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",\n                  "oengine_wake_input",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",
+                  "oengine_wake_input",
               }
+              lwjgl_required_symbols = {
+                  line.strip()
+                  for line in open("native/android-glfw/lwjgl-3.3.3-required-symbols.txt", encoding="utf-8")
+                  if line.strip() and not line.lstrip().startswith("#")
+              }
+              if len(lwjgl_required_symbols) < 100:
+                  raise SystemExit("Pinned LWJGL GLFW export manifest is unexpectedly incomplete")
+              glfw_symbols |= lwjgl_required_symbols
               for abi in sorted(expected_abis):
                   path = f"lib/{abi}/libglfw.so"
                   with tempfile.NamedTemporaryFile(suffix=".so") as native:
