@@ -1822,7 +1822,7 @@ private fun InstallationsDestination(images: LauncherImages) {
     var gameSurfaceReady by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
     val gameInputForwarder = remember(gameProcessClient) {
-        OEngineGameInputForwarder { batch -> gameProcessClient?.sendInputEvents(batch) == true }
+        OEngineGameInputForwarder(sendBatch = { batch -> gameProcessClient?.sendInputEvents(batch) == true })
     }
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
