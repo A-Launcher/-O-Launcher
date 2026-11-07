@@ -210,7 +210,7 @@ jobs:
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_initialize",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceCreated",
                   "Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed",
-                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",
+                  "Java_git_artdeell_dnbootstrap_glfw_GLFW_sendRawKeyEvent",\n                  "oengine_wake_input",
               }
               for abi in sorted(expected_abis):
                   path = f"lib/{abi}/libglfw.so"
