@@ -1128,7 +1128,16 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
             let _ = terminate(display);
             return Err(detail);
         }
-        let get_string: OEngineGlGetString = oengine_symbol(gles_library, b"glGetString\0")?;
+        let get_string: OEngineGlGetString = match oengine_symbol(gles_library, b"glGetString\0") {
+            Ok(value) => value,
+            Err(error) => {
+                let _ = ltw_make_current(display, ptr::null_mut(), ptr::null_mut(), ptr::null_mut());
+                let _ = ltw_destroy(display, context);
+                let _ = destroy_surface(display, pbuffer);
+                let _ = terminate(display);
+                return Err(error);
+            }
+        };
         let version_ptr = get_string(0x1F02);
         let renderer_ptr = get_string(0x1F01);
         if version_ptr.is_null() || renderer_ptr.is_null() {
