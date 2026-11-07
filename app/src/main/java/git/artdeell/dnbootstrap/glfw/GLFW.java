@@ -4,6 +4,9 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.view.Surface;
+import android.view.PointerIcon;
+import android.view.View;
+import android.os.Build;
 import java.nio.ByteBuffer;
 
 /**
@@ -21,6 +24,7 @@ public final class GLFW {
     private static volatile boolean cursorGrabbed;
     private static volatile double cursorX;
     private static volatile double cursorY;
+    private static volatile View hostView;
 
     public static synchronized void initializeOnce(Context context) {
         if (context != null) applicationContext = context.getApplicationContext();
@@ -32,6 +36,40 @@ public final class GLFW {
     // Called by Mojo's native initialize() to cache the ART JavaVM and callbacks.
     public static void receiveGrabState(boolean grabbing) {
         cursorGrabbed = grabbing;
+        View view = hostView;
+        if (view == null) return;
+        view.post(() -> {
+            if (hostView != view || Build.VERSION.SDK_INT < 26) return;
+            if (grabbing) {
+                view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_NULL));
+                if (view.hasWindowFocus()) view.requestPointerCapture();
+            } else {
+                view.releasePointerCapture();
+                view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_DEFAULT));
+            }
+        });
+    }
+
+    /** Connects native cursor-grab state to the currently displayed game SurfaceView. */
+    public static void attachHostView(View view) {
+        hostView = view;
+        if (view != null && Build.VERSION.SDK_INT >= 26 && cursorGrabbed) {
+            view.post(() -> {
+                if (hostView == view && view.hasWindowFocus()) {
+                    view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_NULL));
+                    view.requestPointerCapture();
+                }
+            });
+        }
+    }
+
+    public static void detachHostView(View view) {
+        if (hostView != view) return;
+        hostView = null;
+        if (Build.VERSION.SDK_INT >= 26) {
+            view.releasePointerCapture();
+            view.setPointerIcon(PointerIcon.getSystemIcon(view.getContext(), PointerIcon.TYPE_DEFAULT));
+        }
     }
 
     public static void receiveCursorPos(double x, double y) {
