@@ -18,15 +18,22 @@ object OEngineAndroidInputAdapter {
             event.action == KeyEvent.ACTION_DOWN -> OEngineInputAction.DOWN
             else -> return null
         }
-        val code = if (isGamepad) OEngineAndroidGamepadMapper.buttonIndex(event.keyCode) ?: return null else
-            OEngineGlfwKeyMapper.key(event.keyCode) ?: return null
+        val gamepadButton = if (isGamepad) OEngineAndroidGamepadMapper.buttonIndex(event.keyCode) else null
+        val triggerAxis = if (isGamepad) OEngineAndroidGamepadMapper.triggerAxisIndex(event.keyCode) else null
+        if (isGamepad && gamepadButton == null && triggerAxis == null) return null
+        val code = when {
+            gamepadButton != null -> gamepadButton
+            triggerAxis != null -> triggerAxis
+            else -> OEngineGlfwKeyMapper.key(event.keyCode) ?: return null
+        }
+        val mappedAction = if (triggerAxis != null) OEngineInputAction.MOVE else action
         val meta = OEngineGlfwKeyMapper.modifiers(event.metaState)
         val rawCodepoint = event.getUnicodeChar(event.metaState)
         val codepoint = if (rawCodepoint < 0) 0 else
             rawCodepoint and KeyCharacterMap.COMBINING_ACCENT_MASK.inv()
         return OEngineInputEvent(
             device = device,
-            action = action,
+            action = mappedAction,
             code = code,
             scanCode = event.scanCode,
             value = if (action == OEngineInputAction.UP) 0f else 1f,
