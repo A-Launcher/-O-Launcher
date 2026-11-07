@@ -383,7 +383,7 @@ print("Patched pinned Mojo Android GLFW poll/wait paths and lifetime-safe Surfac
 # from the independent Binder ingress thread.
 gamepad_source = Path("native/upstream/mojo-glfw/src/android_joystick.c")
 gamepad_text = gamepad_source.read_text(encoding="utf-8")
-gamepad_anchor = "void _glfwTerminateJoysticksAndroid(void)\\n{"
+gamepad_anchor = "void _glfwTerminateJoysticksAndroid(void)\n{"
 gamepad_impl = r"""
 /*
  * O Engine feeds this function only from GLFW's event-poll owner thread.
@@ -394,27 +394,6 @@ gamepad_impl = r"""
  * A, B, X, Y, L1, R1, SELECT, START, L3, R3, DPAD_UP, RIGHT, DOWN, LEFT.
  * GUIDE has no slot in the pinned Mojo allocation.
  */
-static int oengine_android_gamepad_button(int32_t keycode)
-{
-    switch (keycode) {
-        case 96: return 0;  /* KEYCODE_BUTTON_A */
-        case 97: return 1;  /* KEYCODE_BUTTON_B */
-        case 99: return 2;  /* KEYCODE_BUTTON_X */
-        case 100: return 3; /* KEYCODE_BUTTON_Y */
-        case 102: return 4; /* KEYCODE_BUTTON_L1 */
-        case 103: return 5; /* KEYCODE_BUTTON_R1 */
-        case 109: return 6; /* KEYCODE_BUTTON_SELECT */
-        case 108: return 7; /* KEYCODE_BUTTON_START */
-        case 106: return 8; /* KEYCODE_BUTTON_THUMBL */
-        case 107: return 9; /* KEYCODE_BUTTON_THUMBR */
-        case 19: return 10; /* DPAD_UP */
-        case 22: return 11; /* DPAD_RIGHT */
-        case 20: return 12; /* DPAD_DOWN */
-        case 21: return 13; /* DPAD_LEFT */
-        default: return -1;
-    }
-}
-
 static float oengine_clamp_axis(float value)
 {
     if (value < -1.0f) return -1.0f;
@@ -430,10 +409,9 @@ void oengine_glfw_update_gamepad(int32_t action, int32_t code,
         return;
 
     if (action == 0 || action == 1) {
-        const int button = oengine_android_gamepad_button(code);
-        if (button < 0 || button >= 14)
+        if (code < 0 || code >= 14)
             return;
-        android_joystick->buttons[button] = action == 0 ? GLFW_PRESS : GLFW_RELEASE;
+        android_joystick->buttons[code] = action == 0 ? GLFW_PRESS : GLFW_RELEASE;
     } else if (action == 3) {
         if (code >= 0 && code < 4) {
             android_joystick->axes[code] = oengine_clamp_axis(value);
@@ -462,7 +440,7 @@ void oengine_glfw_update_gamepad(int32_t action, int32_t code,
 if "oengine_glfw_update_gamepad" not in gamepad_text:
     if gamepad_anchor not in gamepad_text:
         raise SystemExit("Pinned Mojo Android joystick termination anchor changed")
-    gamepad_text = gamepad_text.replace(gamepad_anchor, gamepad_impl + "\\n" + gamepad_anchor, 1)
+    gamepad_text = gamepad_text.replace(gamepad_anchor, gamepad_impl + "\n" + gamepad_anchor, 1)
 gamepad_source.write_text(gamepad_text, encoding="utf-8")
 print("Patched Mojo Android joystick with owner-thread gamepad state adapter.")
 
