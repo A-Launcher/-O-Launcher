@@ -1434,6 +1434,12 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var installingFile by remember { mutableStateOf(false) }
     var installStatus by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val activeGameRoot = remember { OEngineInstanceManager.active(context).root }
+    var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
+    var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
+    fun refreshInstalledContent() {
+        installedContent = OEngineInstalledContentManager.list(activeGameRoot)
+    }
 
     fun prepareProjectInstall(project: OEngineModrinthCatalog.Project) {
         if (project.projectType == OEngineModrinthCatalog.ProjectType.MODPACK ||
@@ -1593,6 +1599,46 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 }
             }
             Text("Install into active instance: " + OEngineInstanceManager.active(context).name + ". Check Minecraft and loader compatibility before choosing a version.", color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            Surface(color = Panel, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("INSTALLED CONTENT", color = Ink, fontWeight = FontWeight.Black, fontSize = 13.sp)
+                            Text("${installedContent.size} files in this instance", color = Muted, fontSize = 10.sp)
+                        }
+                        TextButton(onClick = { refreshInstalledContent() }) { Text("REFRESH", color = Color(0xFF8B5731), fontWeight = FontWeight.Bold) }
+                    }
+                    if (installedContent.isEmpty()) {
+                        Text("No installed mods, resource packs, shaders or data packs found yet.", color = Muted, fontSize = 11.sp)
+                    } else {
+                        installedContent.forEach { entry ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(entry.name, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.kind.name.replace('_', ' ') + " • " + OEngineInstalledContentManager.formatSize(entry.sizeBytes), color = Muted, fontSize = 9.sp)
+                                }
+                                TextButton(onClick = { removingContent = entry }) { Text("REMOVE", color = Color(0xFFB34A38), fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                            }
+                        }
+                    }
+                }
+            }
+            removingContent?.let { entry ->
+                AlertDialog(
+                    onDismissRequest = { removingContent = null },
+                    title = { Text("Remove installed content?") },
+                    text = { Text("Delete ${entry.name} from this instance? This cannot be undone.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            runCatching { OEngineInstalledContentManager.remove(activeGameRoot, entry) }
+                                .onSuccess { refreshInstalledContent() }
+                                .onFailure { installStatus = it.message ?: "Could not remove file." }
+                            removingContent = null
+                        }) { Text("REMOVE") }
+                    },
+                    dismissButton = { TextButton(onClick = { removingContent = null }) { Text("CANCEL") } }
+                )
+            }
             if (installingProject != null) {
                 AlertDialog(
                     onDismissRequest = { if (!installingFile) { installingProject = null; installVersions = emptyList(); installStatus = null } },
