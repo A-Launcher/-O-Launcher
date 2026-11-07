@@ -28,6 +28,7 @@ class OEngineGameProcessService : Service() {
     @Volatile private var rendererHandle: Long = 0L
     @Volatile private var rendererLibraryName: String? = null
     @Volatile private var rendererHookInstalled = false
+    @Volatile private var eglBootstrap: OEngineEglBootstrap? = null
     private val messenger by lazy {
         val thread = HandlerThread("OEngineGameProcess").apply { start() }
         workerThread = thread
@@ -76,6 +77,15 @@ class OEngineGameProcessService : Service() {
                             "Applied " + ltwEnvironment.size + " Mojo-informed LTW compatibility variables before HotSpot: " +
                                 ltwEnvironment.keys.sorted().joinToString()
                         )
+                        check(eglBootstrap == null) { "The persistent EGL bootstrap is already initialized." }
+                        eglBootstrap = OEngineEglBootstrap.create(OEngineGraphicsStack.LTW_MIN_GLES_MAJOR).also { egl ->
+                            OEngineSessionLog.append(
+                                this,
+                                "EGL_BOOTSTRAP_READY",
+                                "Persistent pbuffer context current on game worker thread • EGL " + egl.eglVersion +
+                                    " • GLES " + egl.glesMajor + " • " + egl.glVersion + " • " + egl.glRenderer
+                            )
+                        }
                         rendererHandle = OEngineJvmNativeBridge.preloadRenderer(rendererFile, rendererRoot)
                         OEngineSessionLog.append(
                             this,
@@ -283,7 +293,15 @@ class OEngineGameProcessService : Service() {
         // JNI requires the VM-creating thread to remain attached until we implement a
         // coordinated DetachCurrentThread shutdown path.
         if (!jvmCreationAttempted) {
-            workerThread?.quitSafely()
+            val thread = workerThread
+            if (thread != null) {
+                Handler(thread.looper).post {
+                    runCatching { eglBootstrap?.close() }
+                        .onFailure { OEngineSessionLog.append(this, "EGL_BOOTSTRAP_RELEASE_FAILED", it.message ?: it.javaClass.simpleName, it) }
+                    eglBootstrap = null
+                    thread.quitSafely()
+                }
+            }
             workerThread = null
         }
         super.onDestroy()
