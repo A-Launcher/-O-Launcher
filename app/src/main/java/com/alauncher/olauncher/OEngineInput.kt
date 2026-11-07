@@ -8,14 +8,14 @@ data class OEngineInputEvent(
     val device: OEngineInputDevice,
     val action: OEngineInputAction,
     val code: Int,
-    val scanCode: Int = 0,
     val x: Float = 0f,
     val y: Float = 0f,
     val value: Float = 0f,
     val text: String? = null,
     val timestampNanos: Long = 0L,
     val modifiers: Int = 0,
-    val codepoint: Int = 0
+    val codepoint: Int = 0,
+    val scanCode: Int = 0
 ) {
     init {
         require(x.isFinite() && y.isFinite() && value.isFinite())
