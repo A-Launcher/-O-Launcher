@@ -155,7 +155,8 @@ object MinecraftAuth {
         MinecraftAccount(name, uuid, refresh, mc.getString("access_token"))
     }
 
-    private fun readBoundedResponse(stream: java.io.InputStream, maxBytes: Int): String {
+    private fun readBoundedResponse(stream: java.io.InputStream?, maxBytes: Int): String {
+        if (stream == null) return ""
         stream.use { input ->
             val output = java.io.ByteArrayOutputStream()
             val buffer = ByteArray(8192)
