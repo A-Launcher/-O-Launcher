@@ -87,6 +87,8 @@ object OEngineJvmNativeBridge {
     private external fun nativeLtwEglInfo(session: Long): String
     private external fun nativeLtwEglError(): String
     private external fun nativeDestroyLtwEglSession(session: Long)
+    private external fun nativeQueueLtwWindow(session: Long, window: Long, width: Int, height: Int): Boolean
+    private external fun nativeProcessPendingLtwWindow(): Boolean
 
     internal fun createLtwEglSession(rendererHandle: Long, minimumGlesMajor: Int): Long {
         check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
@@ -119,6 +121,20 @@ object OEngineJvmNativeBridge {
     }
 
     internal fun ltwEglInfo(session: Long): String = nativeLtwEglInfo(session)
+
+    /** Transfers one acquired ANativeWindow reference to the native owner-thread event queue. */
+    internal fun queueLtwWindow(session: Long, window: Long, width: Int, height: Int) {
+        check(nativeQueueLtwWindow(session, window, width, height)) {
+            nativeLtwEglError().ifBlank { "Could not queue the Android Surface transition." }
+        }
+    }
+
+    /** Applies a queued Surface transition; only call on the LTW session's creating thread. */
+    internal fun processPendingLtwWindow() {
+        check(nativeProcessPendingLtwWindow()) {
+            nativeLtwEglError().ifBlank { "Could not apply the queued Android Surface transition." }
+        }
+    }
 
     internal fun destroyLtwEglSession(session: Long) {
         if (session != 0L) nativeDestroyLtwEglSession(session)
