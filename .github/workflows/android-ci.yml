@@ -78,6 +78,48 @@ jobs:
           test "$(git hash-object "$license")" = "57dbca92b4cbc989e95d3a6fcb63ea2e70825381"
           echo "Verified GL4ES MIT license text."
 
+      - name: Checkout pinned Pojav Android LWJGL runtime libraries
+        uses: actions/checkout@v4
+        with:
+          repository: PojavLauncherTeam/PojavLauncher
+          ref: b12ad048157b3aa255d078c235dd4571e1900309
+          path: .third_party/PojavLauncher
+          sparse-checkout: |
+            app_pojavlauncher/src/main/jniLibs
+            LICENSE
+
+      - name: Package verified Android LWJGL native modules
+        env:
+          POJAV_SOURCE_COMMIT: b12ad048157b3aa255d078c235dd4571e1900309
+        run: |
+          set -euo pipefail
+          base="https://raw.githubusercontent.com/PojavLauncherTeam/PojavLauncher/$POJAV_SOURCE_COMMIT/app_pojavlauncher/src/main/jniLibs"
+          mkdir -p app/src/main/assets/licenses
+          declare -A blobs=(
+            [arm64-v8a]="liblwjgl.so:db7926eee2f63f33a450924ea378bd9f07ab502b liblwjgl_opengl.so:42affb58044fd819f8ca69b8480fd9690580769e liblwjgl_nanovg.so:e882a7ecc4915288bb2067f2daf06bd11c33b288 liblwjgl_stb.so:f5b7636dd90c8754509cbd6314e6238de3bb27f1 liblwjgl_tinyfd.so:4cd5dad05a3b812c2afe483ea749ab35f3864a33"
+            [armeabi-v7a]="liblwjgl.so:f60e066e203a3ba0e045b4069df47f283a518811 liblwjgl_opengl.so:43a127d904733fc29fe2d6cfd22c62c7a00a81a4 liblwjgl_nanovg.so:d2a325ce0f42e10682bc356814b4c00dad57f059 liblwjgl_stb.so:4e9f6a09a3a4c04a7b3f4b89560e62453af9a73a liblwjgl_tinyfd.so:9687cbb6c4f6293432736de5653bbfcc0feed51e"
+            [x86]="liblwjgl.so:2abc1bdcf550107180e801abb6405d89ccfad056 liblwjgl_opengl.so:06b7487f7c3cb72c6e656a617c88fe7d518271f3 liblwjgl_nanovg.so:7c4d6750164a917f182c0bde67a0cd084d99a78b liblwjgl_stb.so:3b06eb6c794bdb8fb8311ec15b3780f1d342e8af liblwjgl_tinyfd.so:9bedb534a89cd51fa50423b30bdeed42cd66711d"
+            [x86_64]="liblwjgl.so:cadba70357a73fb3c8d1ad6b18cf6f2ec9fe79d9 liblwjgl_opengl.so:a9fcee9a6194c89e6c464f4eba7461b908e74f38 liblwjgl_nanovg.so:5979a2b6d13337504848b7d8a2729976103a3ce2 liblwjgl_stb.so:29bfb738cdf665cf54e29a1b59b9645416839bc6 liblwjgl_tinyfd.so:ba103170583fe35bb32b93ec3da0a300b539c0b1"
+          )
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            destination="app/src/main/jniLibs/$abi"
+            mkdir -p "$destination"
+            for item in ${blobs[$abi]}; do
+              library="${item%%:*}"
+              expected="${item##*:}"
+              file="$destination/$library"
+              curl -fsSL "$base/$abi/$library" -o "$file"
+              actual="$(git hash-object "$file")"
+              test "$actual" = "$expected" || { echo "$abi/$library blob mismatch"; exit 1; }
+              echo "$abi/$library: verified Pojav pinned blob $actual"
+            done
+          done
+          curl -fsSL "https://raw.githubusercontent.com/LWJGL/lwjgl3/3.3.3/LICENSE.md" \
+            -o app/src/main/assets/licenses/LICENSE-LWJGL.txt
+          cp .third_party/PojavLauncher/LICENSE app/src/main/assets/licenses/LICENSE-PojavLauncher.txt
+          test -s app/src/main/assets/licenses/LICENSE-LWJGL.txt
+          test -s app/src/main/assets/licenses/LICENSE-PojavLauncher.txt
+
       - name: Install Android GLFW and MojoExec license texts
         run: |
           set -euo pipefail
