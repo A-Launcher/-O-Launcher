@@ -67,14 +67,9 @@ class OEngineGameProcessService : Service() {
                         codepoint = codepoints[index], text = texts?.get(index)
                     )
                 }
-                // Mojo's Android GLFW backend exposes direct native joystick buffers.
-                // Update them inside the isolated game process (never from the launcher
-                // process) while retaining O Engine's bounded Rust queue for other input.
-                events.asSequence().filter { it.device == OEngineInputDevice.GAMEPAD }.forEach { event ->
-                    GLFW.updateGamepadEvent(
-                        event.code, event.action.ordinal, event.x, event.y, event.value
-                    )
-                }
+                // All input, including gamepad samples, enters the bounded native queue.
+                // The pinned Mojo Java API has no updateGamepadEvent method; joystick
+                // state must be applied by the GLFW owner thread in the native adapter.
                 val accepted = OEngineJvmNativeBridge.enqueueInputEvents(events)
                 require(accepted >= 0) { "The Rust native input queue rejected the event batch." }
                 val resetPending = OEngineJvmNativeBridge.inputResetPending()
