@@ -1220,6 +1220,78 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
 }
 
 #[cfg(test)]
+mod native_input_dispatch_tests {
+    use super::*;
+
+    static TRACE: OnceLock<Mutex<Vec<(i32, i64, i64)>>> = OnceLock::new();
+
+    fn record(kind: i32, first: i64, second: i64) {
+        TRACE.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap().push((kind, first, second));
+    }
+
+    unsafe extern "C" fn key(_window: *mut c_void, code: i32, _scan: i32, action: i32, _mods: i32) {
+        record(1, code as i64, action as i64);
+    }
+    unsafe extern "C" fn character(_window: *mut c_void, codepoint: u32) {
+        record(2, codepoint as i64, 0);
+    }
+    unsafe extern "C" fn cursor(_window: *mut c_void, x: f64, y: f64) {
+        record(3, x as i64, y as i64);
+    }
+    unsafe extern "C" fn mouse(_window: *mut c_void, button: i32, action: i32, _mods: i32) {
+        record(4, button as i64, action as i64);
+    }
+    unsafe extern "C" fn scroll(_window: *mut c_void, x: f64, y: f64) {
+        record(5, x as i64, y as i64);
+    }
+    unsafe extern "C" fn platform(
+        _window: *mut c_void, device: i32, action: i32, _code: i32,
+        _x: f32, _y: f32, _value: f32, _time: i64, _mods: i32, _codepoint: u32
+    ) {
+        record(6, device as i64, action as i64);
+    }
+
+    #[test]
+    fn dispatch_maps_keyboard_mouse_and_platform_events_to_callbacks() {
+        let trace = TRACE.get_or_init(|| Mutex::new(Vec::new()));
+        trace.lock().unwrap().clear();
+        let callbacks = OEngineNativeInputCallbacks {
+            key: Some(key), character: Some(character), cursor_position: Some(cursor),
+            mouse_button: Some(mouse), scroll: Some(scroll), platform_event: Some(platform),
+        };
+        let window = ptr::null_mut();
+        unsafe {
+            dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
+                device: 1, action: 0, code: 87, codepoint: 119, modifiers: 1, ..Default::default()
+            });
+            dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
+                device: 2, action: 0, code: 0, modifiers: 2, ..Default::default()
+            });
+            dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
+                device: 2, action: 3, x: 12.0, y: 34.0, ..Default::default()
+            });
+            dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
+                device: 2, action: 4, x: 1.0, y: -2.0, ..Default::default()
+            });
+            dispatch_native_input_event(window, &callbacks, OEngineNativeInputEvent {
+                device: 0, action: 0, code: 7, ..Default::default()
+            });
+        }
+        assert_eq!(*trace.lock().unwrap(), vec![
+            (1, 87, 0), (2, 119, 0), (4, 0, 0), (3, 12, 34), (5, 1, -2), (6, 0, 0)
+        ]);
+    }
+
+    #[test]
+    fn callback_table_is_a_c_compatible_pointer_table() {
+        assert_eq!(
+            std::mem::size_of::<OEngineNativeInputCallbacks>(),
+            6 * std::mem::size_of::<usize>()
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
