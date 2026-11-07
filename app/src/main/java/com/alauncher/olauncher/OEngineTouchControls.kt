@@ -101,3 +101,79 @@ object OEngineTouchControls {
         require(controls.map { it.id }.distinct().size == controls.size) { "Touch control IDs must be unique." }
     }
 }
+
+
+@androidx.compose.runtime.Composable
+fun OEngineTouchControlsOverlay(
+    initialControls: List<OEngineTouchControl>,
+    onKey: (Int, Boolean) -> Unit,
+    onLayoutChanged: (List<OEngineTouchControl>) -> Unit
+) {
+    val controls = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<OEngineTouchControl>().apply { addAll(initialControls) } }
+    var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        androidx.compose.ui.Modifier.fillMaxSize()
+    ) {
+        androidx.compose.foundation.layout.Box(
+            androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopEnd)
+                .padding(12.dp)
+        ) {
+            androidx.compose.material3.TextButton(
+                onClick = { editing = !editing },
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color.White)
+            ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
+        }
+        controls.forEach { control ->
+            androidx.compose.foundation.layout.Box(
+                modifier = androidx.compose.ui.Modifier
+                    .offset {
+                        androidx.compose.ui.unit.IntOffset(
+                            (constraints.maxWidth * control.x).toInt(),
+                            (constraints.maxHeight * control.y).toInt()
+                        )
+                    }
+                    .size(maxWidth * control.width, maxHeight * control.height)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .background(if (editing) androidx.compose.ui.graphics.Color(0xAA8B6B35) else androidx.compose.ui.graphics.Color(0x66505050))
+                    .border(
+                        1.dp,
+                        if (editing) androidx.compose.ui.graphics.Color(0xFFFFD27A) else androidx.compose.ui.graphics.Color(0x66FFFFFF),
+                        androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    .pointerInput(control.id, editing) {
+                        if (editing) {
+                            androidx.compose.foundation.gestures.detectDragGestures { change, drag ->
+                                change.consume()
+                                val moved = OEngineTouchControls.move(
+                                    controls.toList(), control.id,
+                                    control.x + drag.x / size.width.coerceAtLeast(1),
+                                    control.y + drag.y / size.height.coerceAtLeast(1)
+                                )
+                                controls.clear()
+                                controls.addAll(moved)
+                                onLayoutChanged(moved)
+                            }
+                        } else {
+                            androidx.compose.foundation.gestures.awaitEachGesture {
+                                val down = androidx.compose.ui.input.pointer.awaitFirstDown()
+                                onKey(control.keyCode, true)
+                                try {
+                                    androidx.compose.ui.input.pointer.waitForUpOrCancellation()
+                                } finally {
+                                    onKey(control.keyCode, false)
+                                }
+                            }
+                        }
+                    },
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.Text(
+                    control.label,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
