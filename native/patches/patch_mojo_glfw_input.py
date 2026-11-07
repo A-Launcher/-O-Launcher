@@ -391,7 +391,7 @@ if "#include <stdatomic.h>" not in gamepad_text:
 # optional Java GamepadEnableHandler to install direct buffers: this process
 # does not host Mojo's UI handler, and those buffers would race Binder input.
 gamepad_text = gamepad_text.replace(
-    "extern void _glfwEnableGamepadAndroid(unsigned char* buttons, int buttonCount, float* axes, int axisCount);\\n",
+    "extern void _glfwEnableGamepadAndroid(unsigned char* buttons, int buttonCount, float* axes, int axisCount);\n",
     ""
 )
 gamepad_text = gamepad_text.replace(
