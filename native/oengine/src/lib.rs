@@ -158,6 +158,82 @@ fn native_input_queue() -> &'static Mutex<OEngineNativeInputQueue> {
     NATIVE_INPUT_QUEUE.get_or_init(|| Mutex::new(OEngineNativeInputQueue::default()))
 }
 
+/// Native GLFW callback table. Function pointers must belong to the active HotSpot
+/// GLFW implementation and are invoked only by the thread calling oengine_input_dispatch.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct OEngineNativeInputCallbacks {
+    pub key: Option<unsafe extern "C" fn(*mut c_void, i32, i32, i32, i32)>,
+    pub character: Option<unsafe extern "C" fn(*mut c_void, u32)>,
+    pub cursor_position: Option<unsafe extern "C" fn(*mut c_void, f64, f64)>,
+    pub mouse_button: Option<unsafe extern "C" fn(*mut c_void, i32, i32, i32)>,
+    pub scroll: Option<unsafe extern "C" fn(*mut c_void, f64, f64)>,
+    pub platform_event: Option<unsafe extern "C" fn(
+        *mut c_void, i32, i32, i32, f32, f32, f32, i64, i32, u32
+    )>,
+}
+
+unsafe fn dispatch_native_input_event(
+    window: *mut c_void,
+    callbacks: &OEngineNativeInputCallbacks,
+    event: OEngineNativeInputEvent,
+) {
+    match event.device {
+        1 => { // KEYBOARD: GLFW key action and optional Unicode character.
+            if let Some(callback) = callbacks.key {
+                callback(window, event.code, 0, event.action, event.modifiers);
+            }
+            if event.action != 1 && event.codepoint != 0 {
+                if let Some(callback) = callbacks.character {
+                    callback(window, event.codepoint);
+                }
+            }
+        }
+        2 => match event.action {
+            0 | 1 => if let Some(callback) = callbacks.mouse_button {
+                callback(window, event.code, event.action, event.modifiers);
+            },
+            3 => if let Some(callback) = callbacks.cursor_position {
+                callback(window, event.x as f64, event.y as f64);
+            },
+            4 => if let Some(callback) = callbacks.scroll {
+                callback(window, event.x as f64, event.y as f64);
+            },
+            _ => {}
+        },
+        // Touch and gamepad remain backend-specific. Preserve their complete payload rather
+        // than incorrectly pretending Android pointer IDs are GLFW mouse buttons.
+        0 | 3 => if let Some(callback) = callbacks.platform_event {
+            callback(window, event.device, event.action, event.code, event.x, event.y,
+                event.value, event.timestamp_nanos, event.modifiers, event.codepoint);
+        },
+        _ => {}
+    }
+}
+
+/// Drains and dispatches queued events to GLFW callbacks on the caller's game/event thread.
+/// The queue lock is released before callbacks run, so callback re-entry cannot deadlock ingress.
+#[no_mangle]
+pub unsafe extern "C" fn oengine_input_dispatch(
+    window: *mut c_void,
+    callbacks: *const OEngineNativeInputCallbacks,
+    capacity: usize,
+) -> usize {
+    if callbacks.is_null() || capacity == 0 || capacity > 4096 {
+        return 0;
+    }
+    let callbacks = *callbacks;
+    let mut events = vec![OEngineNativeInputEvent::default(); capacity];
+    let count = {
+        let Ok(mut queue) = native_input_queue().lock() else { return 0; };
+        queue.drain(&mut events)
+    };
+    for event in events.into_iter().take(count) {
+        dispatch_native_input_event(window, &callbacks, event);
+    }
+    count
+}
+
 /// Drains pending platform events on the actual GLFW/game thread. On transition overflow,
 /// the caller must provide enough room for every tracked release (at most 1024).
 #[no_mangle]
