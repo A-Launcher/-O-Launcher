@@ -3,28 +3,40 @@ package com.alauncher.olauncher
 import java.util.ArrayDeque
 
 /**
- * Bounded, thread-safe handoff between Android input callbacks and the future game-input pump.
- * Motion/scroll samples are disposable under pressure; key/button transitions are preserved
- * preferentially so a full queue does not routinely leave controls stuck.
+ * Bounded, thread-safe handoff between Android callbacks and the future game-thread input pump.
+ * Motion is coalesced/evicted before transitions. If a transition cannot fit, the consumer is
+ * explicitly told to release every pressed control, preventing silently stuck keys/buttons.
  */
 class OEngineInputQueue(capacity: Int = DEFAULT_CAPACITY) {
-    companion object {
-        const val DEFAULT_CAPACITY = 512
-    }
+    companion object { const val DEFAULT_CAPACITY = 512 }
 
     private val lock = Any()
     private val events = ArrayDeque<OEngineInputEvent>()
     private var dropped = 0L
+    private var resetRequired = false
 
-    val capacity: Int = capacity.also { require(it >= 8) { "Input queue capacity must be at least 8." } }
-
-    val size: Int
-        get() = synchronized(lock) { events.size }
-
-    val droppedEventCount: Long
-        get() = synchronized(lock) { dropped }
+    val capacity: Int = capacity.also {
+        require(it >= 8) { "Input queue capacity must be at least 8." }
+    }
+    val size: Int get() = synchronized(lock) { events.size }
+    val droppedEventCount: Long get() = synchronized(lock) { dropped }
+    val inputResetRequired: Boolean get() = synchronized(lock) { resetRequired }
 
     fun offer(event: OEngineInputEvent): Boolean = synchronized(lock) {
+        val disposableAction = event.action == OEngineInputAction.MOVE ||
+            event.action == OEngineInputAction.SCROLL
+
+        if (event.action == OEngineInputAction.MOVE) {
+            val previous = events.lastOrNull {
+                it.action == OEngineInputAction.MOVE &&
+                    it.device == event.device && it.code == event.code
+            }
+            if (previous != null) {
+                events.removeLastOccurrence(previous)
+                dropped++
+            }
+        }
+
         if (events.size < capacity) {
             events.addLast(event)
             return@synchronized true
@@ -40,16 +52,16 @@ class OEngineInputQueue(capacity: Int = DEFAULT_CAPACITY) {
             return@synchronized true
         }
 
-        if (event.action == OEngineInputAction.MOVE || event.action == OEngineInputAction.SCROLL) {
-            dropped++
-            return@synchronized false
-        }
-
-        // A transition is more important than a stale queued transition when no samples can be evicted.
-        events.removeFirst()
         dropped++
-        events.addLast(event)
-        true
+        if (!disposableAction) resetRequired = true
+        false
+    }
+
+    /** Atomically acknowledges an overflow request to release all pressed controls. */
+    fun consumeInputResetRequired(): Boolean = synchronized(lock) {
+        val required = resetRequired
+        resetRequired = false
+        required
     }
 
     fun poll(): OEngineInputEvent? = synchronized(lock) {
@@ -63,7 +75,5 @@ class OEngineInputQueue(capacity: Int = DEFAULT_CAPACITY) {
         }
     }
 
-    fun clear() = synchronized(lock) {
-        events.clear()
-    }
+    fun clear() = synchronized(lock) { events.clear() }
 }
