@@ -1446,11 +1446,7 @@ private fun AccountDestination(images: LauncherImages) {
                     Image(images.avatar, contentDescription = "Offline player", modifier = Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp)), contentScale = ContentScale.Crop)
                     Text("Offline Account", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
                     Text("Play without signing in to Microsoft.", color = Muted, fontSize = 11.sp)
-                    if (isOffline && !showOfflineForm) {
-                        Text("Saved profile: $playerName", color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        OutlinedButton(onClick = { showOfflineForm = true; offlineName = playerName }, modifier = Modifier.fillMaxWidth()) { Text("EDIT PROFILE") }
-                    }
-                    if (showOfflineForm || !isOffline) {
+                    if (showOfflineForm) {
                         OutlinedTextField(value = offlineName, onValueChange = { offlineName = it; offlineError = "" }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Player name") }, placeholder = { Text("Enter Minecraft name") })
                         if (offlineError.isNotBlank()) Text(offlineError, color = MaterialTheme.colorScheme.error, fontSize = 10.sp)
                         Button(onClick = {
@@ -1465,9 +1461,13 @@ private fun AccountDestination(images: LauncherImages) {
                                     status = "Offline profile saved on this device."
                                 }
                             }
-                        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("SELECT", fontWeight = FontWeight.Black) }
+                        }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("SAVE & SELECT", fontWeight = FontWeight.Black) }
+                        TextButton(onClick = { showOfflineForm = false; offlineError = "" }) { Text("CANCEL") }
                     } else {
-                        Button(onClick = { showOfflineForm = true; offlineName = playerName }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) { Text("SELECT  →", fontWeight = FontWeight.Black) }
+                        if (isOffline) Text("Saved profile: $playerName", color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Button(onClick = { showOfflineForm = true; offlineName = if (isOffline) playerName else "" }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
+                            Text(if (isOffline) "EDIT PROFILE" else "SELECT  →", fontWeight = FontWeight.Black)
+                        }
                     }
                 }
             }
