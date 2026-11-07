@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.security.MessageDigest
 
 /** Verified individual-project installer. Modpacks use a separate archive import flow. */
@@ -30,6 +31,18 @@ object OEngineModrinthInstaller {
   require(name.length<=180 && name.matches(Regex("[A-Za-z0-9._() +\\-]+"))) { "Unsafe Modrinth filename." }
   return name
  }
+ /** URL-encodes Modrinth's JSON-array filters without changing their JSON meaning. */
+ fun buildVersionQuery(gameVersion:String?,loader:String?):String = buildList {
+  if(!gameVersion.isNullOrBlank()) {
+   val json=JSONArray().put(gameVersion.trim()).toString()
+   add("game_versions="+URLEncoder.encode(json,"UTF-8"))
+  }
+  if(!loader.isNullOrBlank()) {
+   val json=JSONArray().put(loader.trim().lowercase()).toString()
+   add("loaders="+URLEncoder.encode(json,"UTF-8"))
+  }
+ }.joinToString("&")
+
  fun parseVersions(body:String):List<ProjectVersion> {
   val trimmed = body.trimStart()
   val array = if (trimmed.startsWith("{")) JSONArray().put(JSONObject(body)) else JSONArray(body)
@@ -64,10 +77,7 @@ object OEngineModrinthInstaller {
  }
  suspend fun versions(projectId:String,gameVersion:String?=null,loader:String?=null):List<ProjectVersion> = withContext(Dispatchers.IO) {
   require(projectId.matches(Regex("[A-Za-z0-9_-]{1,64}")))
-  val query=buildList {
-   if(!gameVersion.isNullOrBlank()) add("game_versions=[%22"+gameVersion.trim()+"%22]")
-   if(!loader.isNullOrBlank()) add("loaders=[%22"+loader.trim().lowercase()+"%22]")
-  }.joinToString("&")
+  val query=buildVersionQuery(gameVersion,loader)
   parseVersions(request("https://api.modrinth.com/v2/project/"+projectId+"/version"+if(query.isBlank()) "" else "?"+query))
  }
  suspend fun install(projectId:String,versionId:String,type:OEngineModrinthCatalog.ProjectType,gameRoot:File,onProgress:(Long,Long)->Unit={_,_->}):InstallResult = withContext(Dispatchers.IO) {
