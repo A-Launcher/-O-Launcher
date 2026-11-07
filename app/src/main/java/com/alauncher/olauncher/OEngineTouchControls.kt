@@ -242,7 +242,7 @@ fun OEngineTouchControlsOverlay(
                         val updated = controls.map { if (it.id == selectedId) it.copy(toggle = !it.toggle) else it }
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
-                }) { androidx.compose.material3.Text(if (selected?.toggle == true) "HOLD" else "TOGGLE") }
+                }) { androidx.compose.material3.Text(if (selected?.toggle == true) "TOGGLE" else "HOLD") }
                 androidx.compose.material3.Text(
                     selected?.let { KeyEvent.keyCodeToString(it.keyCode).removePrefix("KEYCODE_") } ?: "KEY",
                     color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp
