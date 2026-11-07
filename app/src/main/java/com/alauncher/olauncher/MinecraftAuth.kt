@@ -130,8 +130,12 @@ object MinecraftAuth {
             }
         }
         val msaData = msa ?: error("Microsoft sign-in did not complete.")
-        val msaToken = msaData.getString("access_token")
+        val msaToken = msaData.optString("access_token")
+        if (msaToken.isBlank()) error("Microsoft did not return an access token. Please try signing in again.")
         val refresh = msaData.optString("refresh_token")
+        if (refresh.isBlank()) {
+            error("Microsoft did not return a refresh token. O Launcher cannot safely keep this account signed in; please restart sign-in.")
+        }
         val xbl = json("https://user.auth.xboxlive.com/user/authenticate", JSONObject()
             .put("Properties", JSONObject().put("AuthMethod", "RPS").put("SiteName", "user.auth.xboxlive.com").put("RpsTicket", "d=$msaToken"))
             .put("RelyingParty", "http://auth.xboxlive.com").put("TokenType", "JWT"))
