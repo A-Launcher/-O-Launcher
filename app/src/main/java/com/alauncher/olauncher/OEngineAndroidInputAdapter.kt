@@ -40,7 +40,12 @@ object OEngineAndroidInputAdapter {
         val source = event.source
         val isGamepad = source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
             source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
-        val isMouse = source and InputDevice.SOURCE_MOUSE == InputDevice.SOURCE_MOUSE
+        val isRelativeMouse = android.os.Build.VERSION.SDK_INT >= 26 &&
+            source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE
+        val isTouchpad = android.os.Build.VERSION.SDK_INT >= 26 &&
+            source and InputDevice.SOURCE_TOUCHPAD == InputDevice.SOURCE_TOUCHPAD
+        val isMouse = source and InputDevice.SOURCE_MOUSE == InputDevice.SOURCE_MOUSE ||
+            isRelativeMouse || isTouchpad
         val device = when {
             isGamepad -> OEngineInputDevice.GAMEPAD
             isMouse -> OEngineInputDevice.MOUSE
@@ -72,13 +77,23 @@ object OEngineAndroidInputAdapter {
                         x = hatX, y = hatY, timestampNanos = timestamp
                     )
                 } else if (isMouse) {
-                    // Captured-pointer events report relative deltas on Android 8+.
-                    // Feeding event.x/event.y here would turn camera motion into
-                    // absolute coordinates and make mouse-look unusable.
-                    val relative = android.os.Build.VERSION.SDK_INT >= 26 &&
-                        source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE
-                    val mouseX = if (relative) event.getAxisValue(MotionEvent.AXIS_RELATIVE_X) else event.x
-                    val mouseY = if (relative) event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y) else event.y
+                    // Android sends captured mouse deltas in getX()/getY() for
+                    // SOURCE_MOUSE_RELATIVE. Captured touchpads expose their deltas
+                    // through AXIS_RELATIVE_X/Y. Preserve every batched sample.
+                    if (isRelativeMouse || isTouchpad) {
+                        for (history in 0 until event.historySize) {
+                            val dx = if (isTouchpad) event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_X, history)
+                                else event.getHistoricalX(0, history)
+                            val dy = if (isTouchpad) event.getHistoricalAxisValue(MotionEvent.AXIS_RELATIVE_Y, history)
+                                else event.getHistoricalY(0, history)
+                            output += OEngineInputEvent(
+                                OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, dx, dy,
+                                timestampNanos = event.getHistoricalEventTime(history) * 1_000_000L
+                            )
+                        }
+                    }
+                    val mouseX = if (isTouchpad) event.getAxisValue(MotionEvent.AXIS_RELATIVE_X) else event.x
+                    val mouseY = if (isTouchpad) event.getAxisValue(MotionEvent.AXIS_RELATIVE_Y) else event.y
                     output += OEngineInputEvent(
                         OEngineInputDevice.MOUSE, OEngineInputAction.MOVE, 0, mouseX, mouseY,
                         timestampNanos = timestamp
