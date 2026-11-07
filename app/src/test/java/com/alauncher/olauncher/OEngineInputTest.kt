@@ -99,6 +99,24 @@ class OEngineInputTest {
     }
 
 
+    @Test fun androidGamepadButtonsMapToMojoFourteenSlotLayout() {
+        assertEquals(0, OEngineAndroidGamepadMapper.buttonIndex(96))  // A
+        assertEquals(1, OEngineAndroidGamepadMapper.buttonIndex(97))  // B
+        assertEquals(2, OEngineAndroidGamepadMapper.buttonIndex(99))  // X
+        assertEquals(3, OEngineAndroidGamepadMapper.buttonIndex(100)) // Y
+        assertEquals(4, OEngineAndroidGamepadMapper.buttonIndex(102)) // L1
+        assertEquals(5, OEngineAndroidGamepadMapper.buttonIndex(103)) // R1
+        assertEquals(6, OEngineAndroidGamepadMapper.buttonIndex(109)) // Select/back
+        assertEquals(7, OEngineAndroidGamepadMapper.buttonIndex(108)) // Start
+        assertEquals(8, OEngineAndroidGamepadMapper.buttonIndex(106)) // L3
+        assertEquals(9, OEngineAndroidGamepadMapper.buttonIndex(107)) // R3
+        assertEquals(10, OEngineAndroidGamepadMapper.buttonIndex(19)) // D-pad up
+        assertEquals(11, OEngineAndroidGamepadMapper.buttonIndex(22)) // D-pad right
+        assertEquals(12, OEngineAndroidGamepadMapper.buttonIndex(20)) // D-pad down
+        assertEquals(13, OEngineAndroidGamepadMapper.buttonIndex(21)) // D-pad left
+        assertNull(OEngineAndroidGamepadMapper.buttonIndex(110)) // GUIDE has no Mojo slot
+    }
+
     @Test fun androidKeysMapToGlfwKeyNamespace() {
         assertEquals(65, OEngineGlfwKeyMapper.key(29)) // Android A
         assertEquals(87, OEngineGlfwKeyMapper.key(51)) // Android W
