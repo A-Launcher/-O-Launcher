@@ -221,6 +221,10 @@ surface_create_replacement = '''    ANativeWindow* window = ANativeWindow_fromSu
         LOGE("Could not acquire ANativeWindow from Android Surface");
         return;
     }
+    pthread_mutex_lock(&nw_egl_mutex);
+    nativeWindow = window;
+    surfaceDestroyed = false;
+    pthread_mutex_unlock(&nw_egl_mutex);
     LOGI("Acquired native window: %p", window);
 '''
 if "Could not acquire ANativeWindow from Android Surface" not in text:
@@ -237,9 +241,11 @@ surface_update_anchor = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurface
 }'''
 surface_update_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceUpdated(JNIEnv *env, jclass clazz) {
     surfaceUpdated = true;
-    input_event_t wake = {0};
-    wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
-    android_send_event(&wake);
+    if (atomic_load(&oengine_glfw_ready)) {
+        input_event_t wake = {0};
+        wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
+        android_send_event(&wake);
+    }
 }'''
 if "input_event_t wake = {0};" not in text:
     if surface_update_anchor not in text:
@@ -266,10 +272,14 @@ Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
 surface_destroy_replacement = '''JNIEXPORT void JNICALL
 Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeSurfaceDestroyed(JNIEnv *env,
                                                                            jclass clazz) {
+    pthread_mutex_lock(&nw_egl_mutex);
     surfaceDestroyed = true;
-    input_event_t wake = {0};
-    wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
-    android_send_event(&wake);
+    pthread_mutex_unlock(&nw_egl_mutex);
+    if (atomic_load(&oengine_glfw_ready)) {
+        input_event_t wake = {0};
+        wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
+        android_send_event(&wake);
+    }
     if (!ownedByVulkan) {
         pthread_mutex_lock(&nw_egl_mutex);
         /* Test the predicate under the condition mutex to avoid a lost wake
