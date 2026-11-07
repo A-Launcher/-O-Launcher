@@ -1430,7 +1430,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var offset by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
 
-    fun loadProjects(reset: Boolean = true) {
+    fun loadProjects(reset: Boolean = true, typeOverride: OEngineModrinthCatalog.ProjectType = OEngineModrinthCatalog.ProjectType.fromLabel(selectedCategory)) {
         if (loading) return
         loading = true
         error = null
@@ -1439,7 +1439,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 val nextOffset = if (reset) 0 else offset + 20
                 val page = OEngineModrinthCatalog.search(
                     query = search,
-                    type = OEngineModrinthCatalog.ProjectType.fromLabel(selectedCategory),
+                    type = typeOverride,
                     offset = nextOffset,
                     limit = 20
                 )
@@ -1485,7 +1485,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                 categories.forEach { category ->
                     val selected = selectedCategory == category
                     Surface(
-                        onClick = { if (!loading) { selectedCategory = category; loadProjects() } },
+                        onClick = { if (!loading) { selectedCategory = category; loadProjects(typeOverride = OEngineModrinthCatalog.ProjectType.fromLabel(category)) } },
                         color = if (selected) Color(0xFF704329) else Panel,
                         shape = RoundedCornerShape(30.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)
