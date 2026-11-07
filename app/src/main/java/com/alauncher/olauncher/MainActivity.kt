@@ -1805,6 +1805,8 @@ private fun InstallationsDestination(images: LauncherImages) {
     var graphicsProbeStatus by remember { mutableStateOf("Android graphics backend has not been probed.") }
     var probingGameProcess by remember { mutableStateOf(false) }
     var gameProcessStatus by remember { mutableStateOf("The isolated game process has not been checked.") }
+    var gameSessionLog by remember { mutableStateOf("No O Engine session log has been loaded.") }
+    var showGameSessionLog by remember { mutableStateOf(false) }
     var launchingMinecraft by remember { mutableStateOf(false) }
     var gameProcessClient by remember { mutableStateOf<OEngineGameProcessClient?>(null) }
     DisposableEffect(gameProcessClient) {
