@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
@@ -102,32 +103,34 @@ object OEngineTouchControls {
 
     fun move(controls: List<OEngineTouchControl>, id: String, x: Float, y: Float): List<OEngineTouchControl> {
         require(x.isFinite() && y.isFinite())
+        require(controls.any { it.id == id }) { "Unknown touch control: $id" }
         val updated = controls.map { c ->
             if (c.id == id) c.copy(x = x.coerceIn(0f, 1f - c.width), y = y.coerceIn(0f, 1f - c.height)) else c
         }
         validate(updated)
-        require(updated.any { it.id == id }) { "Unknown touch control: $id" }
         return updated
     }
 
     fun resize(controls: List<OEngineTouchControl>, id: String, scale: Float): List<OEngineTouchControl> {
         require(scale.isFinite() && scale > 0f)
+        require(controls.any { it.id == id }) { "Unknown touch control: $id" }
         val updated = controls.map { c ->
-            if (c.id == id) c.copy(
-                width = (c.width * scale).coerceIn(.04f, .3f),
-                height = (c.height * scale).coerceIn(.06f, .35f),
-                x = c.x.coerceAtMost(1f - (c.width * scale).coerceIn(.04f, .3f)),
-                y = c.y.coerceAtMost(1f - (c.height * scale).coerceIn(.06f, .35f))
-            ) else c
+            if (c.id == id) {
+                val w = (c.width * scale).coerceIn(.04f, .3f)
+                val h = (c.height * scale).coerceIn(.06f, .35f)
+                c.copy(width = w, height = h, x = c.x.coerceAtMost(1f - w), y = c.y.coerceAtMost(1f - h))
+            } else c
         }
         validate(updated)
-        require(updated.any { it.id == id }) { "Unknown touch control: $id" }
         return updated
     }
 
     fun add(controls: List<OEngineTouchControl>, label: String, keyCode: Int): List<OEngineTouchControl> {
         require(controls.size < 48) { "The touch layout already has 48 controls." }
-        val id = "custom_${(controls.maxOfOrNull { it.id.hashCode() } ?: 0) + controls.size + 1}"
+        require(keyCode >= 0)
+        var suffix = controls.size + 1
+        var id = "custom_$suffix"
+        while (controls.any { it.id == id }) { suffix++; id = "custom_$suffix" }
         val added = controls + OEngineTouchControl(
             id = id, label = label.take(12).ifBlank { "KEY" }, keyCode = keyCode,
             x = .5f, y = .5f, width = .085f, height = .13f
@@ -156,14 +159,15 @@ object OEngineTouchControls {
     }
 }
 
-
 @androidx.compose.runtime.Composable
 fun OEngineTouchControlsOverlay(
     initialControls: List<OEngineTouchControl>,
     onKey: (Int, Boolean) -> Unit,
     onLayoutChanged: (List<OEngineTouchControl>) -> Unit
 ) {
-    val controls = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<OEngineTouchControl>().apply { addAll(initialControls) } }
+    val controls = androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateListOf<OEngineTouchControl>().apply { addAll(initialControls) }
+    }
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
@@ -172,80 +176,76 @@ fun OEngineTouchControlsOverlay(
         KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CONTROL_LEFT,
         KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_C,
         KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_3, KeyEvent.KEYCODE_4,
-        KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_7, KeyEvent.KEYCODE_8,
-        KeyEvent.KEYCODE_9
+        KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_7, KeyEvent.KEYCODE_8, KeyEvent.KEYCODE_9
     )
-    androidx.compose.foundation.layout.BoxWithConstraints(
-        androidx.compose.ui.Modifier.fillMaxSize()
-    ) {
-        androidx.compose.foundation.layout.Box(
-            androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopStart)
-                .padding(12.dp)
-        ) {
-            androidx.compose.material3.TextButton(
-                onClick = { editing = !editing },
-                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color.White)
-            ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
+    androidx.compose.foundation.layout.BoxWithConstraints(androidx.compose.ui.Modifier.fillMaxSize()) {
+        androidx.compose.material3.TextButton(
+            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(12.dp),
+            onClick = { editing = !editing },
+            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.ui.graphics.Color.White)
+        ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
+
+        if (!editing) {
+            OEngineTouchJoystick(
+                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+                    .padding(start = 24.dp, bottom = 28.dp),
+                onKey = onKey
+            )
         }
-        OEngineTouchJoystick(
-            modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
-                .padding(start = 24.dp, bottom = 28.dp),
-            onKey = onKey
-        )
+
         if (editing) {
             androidx.compose.foundation.layout.Row(
                 modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
-                    .fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xDD171717))
-                    .padding(8.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp),
+                    .fillMaxWidth().background(androidx.compose.ui.graphics.Color(0xDD171717)).padding(6.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(3.dp),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
             ) {
+                val selected = controls.firstOrNull { it.id == selectedId }
                 androidx.compose.material3.TextButton(onClick = {
-                    controls.clear(); controls.addAll(OEngineTouchControls.reset())
-                    selectedId = "jump"; onLayoutChanged(controls.toList())
+                    val reset = OEngineTouchControls.reset()
+                    controls.clear(); controls.addAll(reset); selectedId = "jump"; toggled.clear()
+                    onLayoutChanged(reset)
                 }) { androidx.compose.material3.Text("RESET") }
                 androidx.compose.material3.TextButton(onClick = {
-                    val added = OEngineTouchControls.add(controls.toList(), "DROP", KeyEvent.KEYCODE_Q)
-                    controls.clear(); controls.addAll(added); selectedId = added.last().id
-                    onLayoutChanged(added)
-                }, enabled = controls.size < 48) { androidx.compose.material3.Text("+ DROP") }
-                val selectedControl = controls.firstOrNull { it.id == selectedId }
+                    val updated = OEngineTouchControls.add(controls.toList(), "DROP", KeyEvent.KEYCODE_Q)
+                    controls.clear(); controls.addAll(updated); selectedId = updated.last().id; onLayoutChanged(updated)
+                }, enabled = controls.size < 48) { androidx.compose.material3.Text("+ ADD") }
                 androidx.compose.material3.TextButton(onClick = {
-                    if (selectedControl != null) {
-                        val index = keyChoices.indexOf(selectedControl.keyCode).let { if (it < 0) 0 else it }
-                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(index - 1 + keyChoices.size) % keyChoices.size])
+                    if (selected != null) {
+                        val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
+                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(i - 1 + keyChoices.size) % keyChoices.size])
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
                 }) { androidx.compose.material3.Text("KEY −") }
                 androidx.compose.material3.Text(
-                    selectedControl?.let { KeyEvent.keyCodeToString(it.keyCode).removePrefix("KEYCODE_") } ?: "KEY",
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontSize = 10.sp
+                    selected?.let { KeyEvent.keyCodeToString(it.keyCode).removePrefix("KEYCODE_") } ?: "KEY",
+                    color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp
                 )
                 androidx.compose.material3.TextButton(onClick = {
-                    if (selectedControl != null) {
-                        val index = keyChoices.indexOf(selectedControl.keyCode).let { if (it < 0) 0 else it }
-                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(index + 1) % keyChoices.size])
+                    if (selected != null) {
+                        val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
+                        val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(i + 1) % keyChoices.size])
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
                 }) { androidx.compose.material3.Text("KEY +") }
                 androidx.compose.material3.TextButton(onClick = {
-                    val resized = OEngineTouchControls.resize(controls.toList(), selectedId, 1.12f)
-                    controls.clear(); controls.addAll(resized); onLayoutChanged(resized)
+                    val updated = OEngineTouchControls.resize(controls.toList(), selectedId, 1.12f)
+                    controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                 }) { androidx.compose.material3.Text("SIZE +") }
                 androidx.compose.material3.TextButton(onClick = {
-                    val resized = OEngineTouchControls.resize(controls.toList(), selectedId, .89f)
-                    controls.clear(); controls.addAll(resized); onLayoutChanged(resized)
+                    val updated = OEngineTouchControls.resize(controls.toList(), selectedId, .89f)
+                    controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                 }) { androidx.compose.material3.Text("SIZE −") }
                 androidx.compose.material3.TextButton(onClick = {
                     if (controls.size > 1) {
-                        val remaining = OEngineTouchControls.remove(controls.toList(), selectedId)
-                        controls.clear(); controls.addAll(remaining); selectedId = remaining.first().id
-                        onLayoutChanged(remaining)
+                        val updated = OEngineTouchControls.remove(controls.toList(), selectedId)
+                        controls.clear(); controls.addAll(updated); selectedId = updated.first().id
+                        onLayoutChanged(updated)
                     }
                 }, enabled = controls.size > 1) { androidx.compose.material3.Text("DELETE") }
             }
         }
+
         controls.forEach { control ->
             androidx.compose.foundation.layout.Box(
                 modifier = androidx.compose.ui.Modifier
@@ -256,17 +256,52 @@ fun OEngineTouchControlsOverlay(
                         )
                     }
                     .size(maxWidth * control.width, maxHeight * control.height)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(if (editing) androidx.compose.ui.graphics.Color(0xAA8B6B35) else androidx.compose.ui.graphics.Color(0x66505050))
                     .border(
                         if (editing && selectedId == control.id) 2.dp else 1.dp,
-                        if (editing && selectedId == control.id) androidx.compose.ui.graphics.Color(0xFFFFFFFF)
+                        if (editing && selectedId == control.id) androidx.compose.ui.graphics.Color.White
                         else if (editing) androidx.compose.ui.graphics.Color(0xFFFFD27A) else androidx.compose.ui.graphics.Color(0x66FFFFFF),
-                        androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        RoundedCornerShape(12.dp)
                     )
                     .pointerInput(control.id, editing, control.toggle) {
                         if (editing) {
-                            androidx.compose.foundation.gestures.detectTapGestures(onTap = { selectedId = control.id })
+                            detectDragGestures { change, drag ->
+                                selectedId = control.id
+                                change.consume()
+                                val current = controls.first { it.id == control.id }
+                                val moved = OEngineTouchControls.move(
+                                    controls.toList(), control.id,
+                                    current.x + drag.x / constraints.maxWidth.toFloat().coerceAtLeast(1f),
+                                    current.y + drag.y / constraints.maxHeight.toFloat().coerceAtLeast(1f)
+                                )
+                                controls.clear(); controls.addAll(moved); onLayoutChanged(moved)
+                            }
+                        } else {
+                            awaitEachGesture {
+                                awaitFirstDown()
+                                if (control.toggle) {
+                                    val pressed = !(toggled[control.id] ?: false)
+                                    toggled[control.id] = pressed
+                                    onKey(control.keyCode, pressed)
+                                } else {
+                                    onKey(control.keyCode, true)
+                                    try { waitForUpOrCancellation() } finally { onKey(control.keyCode, false) }
+                                }
+                            }
+                        }
+                    },
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.Text(
+                    control.label, color = androidx.compose.ui.graphics.Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
 @androidx.compose.runtime.Composable
 private fun OEngineTouchJoystick(
     modifier: androidx.compose.ui.Modifier,
@@ -275,41 +310,37 @@ private fun OEngineTouchJoystick(
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var knobY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var activeKeys by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(setOf<Int>()) }
-    val radius = 62.dp
-    val keyMap = mapOf(
-        KeyEvent.KEYCODE_W to (0f to -1f),
-        KeyEvent.KEYCODE_S to (0f to 1f),
-        KeyEvent.KEYCODE_A to (-1f to 0f),
-        KeyEvent.KEYCODE_D to (1f to 0f)
-    )
-    fun updateKeys(x: Float, y: Float, width: Float, height: Float) {
+
+    fun updateKeys(x: Float, y: Float, threshold: Float) {
         val next = buildSet {
-            if (y < -height * .22f) add(KeyEvent.KEYCODE_W)
-            if (y > height * .22f) add(KeyEvent.KEYCODE_S)
-            if (x < -width * .22f) add(KeyEvent.KEYCODE_A)
-            if (x > width * .22f) add(KeyEvent.KEYCODE_D)
+            if (y < -threshold) add(KeyEvent.KEYCODE_W)
+            if (y > threshold) add(KeyEvent.KEYCODE_S)
+            if (x < -threshold) add(KeyEvent.KEYCODE_A)
+            if (x > threshold) add(KeyEvent.KEYCODE_D)
         }
         (activeKeys - next).forEach { onKey(it, false) }
         (next - activeKeys).forEach { onKey(it, true) }
         activeKeys = next
     }
+
     androidx.compose.foundation.layout.Box(
         modifier = modifier.size(150.dp)
-            .background(androidx.compose.ui.graphics.Color(0x55303030), androidx.compose.foundation.shape.CircleShape)
-            .border(2.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), androidx.compose.foundation.shape.CircleShape)
+            .background(androidx.compose.ui.graphics.Color(0x55303030), CircleShape)
+            .border(2.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), CircleShape)
             .pointerInput(Unit) {
                 val maxTravel = size.width * .32f
+                val threshold = maxTravel * .35f
                 detectDragGestures(
                     onDragStart = { point ->
                         knobX = (point.x - size.width / 2f).coerceIn(-maxTravel, maxTravel)
                         knobY = (point.y - size.height / 2f).coerceIn(-maxTravel, maxTravel)
-                        updateKeys(knobX, knobY, maxTravel, maxTravel)
+                        updateKeys(knobX, knobY, threshold)
                     },
                     onDrag = { change, amount ->
                         change.consume()
                         knobX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
                         knobY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
-                        updateKeys(knobX, knobY, maxTravel, maxTravel)
+                        updateKeys(knobX, knobY, threshold)
                     },
                     onDragEnd = {
                         activeKeys.forEach { onKey(it, false) }
@@ -324,12 +355,10 @@ private fun OEngineTouchJoystick(
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         androidx.compose.foundation.layout.Box(
-            modifier = androidx.compose.ui.Modifier.size(64.dp)
-                .offset {
-                    androidx.compose.ui.unit.IntOffset(knobX.toInt(), knobY.toInt())
-                }
-                .background(androidx.compose.ui.graphics.Color(0xCCB9A58B), androidx.compose.foundation.shape.CircleShape)
-                .border(2.dp, androidx.compose.ui.graphics.Color(0xCCFFFFFF), androidx.compose.foundation.shape.CircleShape)
+            modifier = androidx.compose.ui.Modifier.size(64.dp).offset {
+                androidx.compose.ui.unit.IntOffset(knobX.toInt(), knobY.toInt())
+            }.background(androidx.compose.ui.graphics.Color(0xCCB9A58B), CircleShape)
+                .border(2.dp, androidx.compose.ui.graphics.Color(0xCCFFFFFF), CircleShape)
         )
     }
 }
