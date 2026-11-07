@@ -319,7 +319,10 @@ fn wake_android_glfw_event_loop() {
             libc::RTLD_NOW | libc::RTLD_LOCAL,
         );
         if handle.is_null() { return; }
-        let symbol = libc::dlsym(handle, b"oengine_wake_input\0".as_ptr() as *const c_char);
+        // GLFW already exposes this stable API in its public function table.
+        // Prefer it over a private O Engine export: Android linkers may hide
+        // backend-local symbols even when the function is compiled successfully.
+        let symbol = libc::dlsym(handle, b"glfwPostEmptyEvent\0".as_ptr() as *const c_char);
         if !symbol.is_null() {
             let wake: unsafe extern "C" fn() = std::mem::transmute(symbol);
             wake();
