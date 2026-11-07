@@ -254,11 +254,33 @@ surface_destroy_replacement = '''Java_git_artdeell_dnbootstrap_glfw_GLFW_nativeS
     surfaceDestroyed = true;
     input_event_t wake = {0};
     wake.type = GLFW_ANDROID_EVENT_TYPE_EMPTY;
-    android_send_event(&wake);'''
+    android_send_event(&wake);
+    if (!ownedByVulkan) {
+        pthread_mutex_lock(&nw_egl_mutex);
+        /* Check the predicate while holding the same mutex used by the waiter.
+           A while-loop avoids a lost wake if GLFW switches to pbuffer just
+           before this thread enters pthread_cond_wait. */
+        while (surfaceInUse)
+            pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);
+        if (nativeWindow) {
+            ANativeWindow_release(nativeWindow);
+            nativeWindow = NULL;
+        }
+        pthread_mutex_unlock(&nw_egl_mutex);
+    } else {
+        if (nativeWindow) {
+            ANativeWindow_release(nativeWindow);
+            nativeWindow = NULL;
+        }
+    }
+}'''
 if "surfaceDestroyed = true;\n    input_event_t wake" not in text:
     if surface_destroy_anchor not in text:
         raise SystemExit("Pinned Mojo nativeSurfaceDestroyed wake anchor changed")
     text = text.replace(surface_destroy_anchor, surface_destroy_replacement, 1)
+
+if "while (surfaceInUse)" not in text or "pthread_cond_wait(&nw_egl_cond, &nw_egl_mutex);" not in text:
+    raise SystemExit("Android Surface destroy waiter must use a mutex-protected predicate loop")
 
 source.write_text(text, encoding="utf-8")
 print("Patched pinned Mojo Android GLFW poll/wait paths for O Engine keyboard, mouse and primary-touch input.")
