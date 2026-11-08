@@ -78,3 +78,10 @@ O Engine now pins the MojoLauncher LWJGL 2-on-GLFW fork separately from the LWJG
 The dependency installer now recognizes the legacy `org.lwjgl.lwjgl:lwjgl:*` coordinate and downloads the pinned Mojo Java archive into the corresponding `2.9.4-mojo` library path. Launch classpath construction resolves that same path, so the upstream desktop LWJGL 2 JAR is not accidentally added for Android. Modern `org.lwjgl:lwjgl:3.x` libraries are unaffected.
 
 This is only the Java-classpath half of the compatibility adapter. The ABI-specific native archive is not yet installed into the active game native directory, and the GL4ES plan remains blocked until the LWJGL 2 native loading and EGL/swap lifecycle are verified. Do not infer that a legacy game launches from the presence of the pinned Java JAR.
+
+
+## O Engine integration update: per-version LWJGL 2 native payload
+
+The dependency installer now also selects the exact Mojo native JAR for the device ABI, verifies the pinned archive size and SHA-256, extracts only the expected `liblwjgl.so` / `liblwjgl64.so` entry with a 32 MiB extraction cap, and checks the extracted ELF ABI before placing it in `versions/<version>/natives`. The per-version native directory is included in HotSpot's `java.library.path`, `org.lwjgl.librarypath`, and JNA search path alongside the shared Android GLFW directory.
+
+This does **not** remove the LWJGL 2 launch blocker in `OEngineLwjglNativeResolver`: the actual Android JNI load contract and GL4ES/OpenGL bridge still need to be validated and connected. The native artifact is staged groundwork, not proof of a working legacy renderer.
