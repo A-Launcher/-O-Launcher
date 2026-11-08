@@ -146,17 +146,6 @@ object OEngineMojoAwtInstallerHandoff {
         val legacyStore = File(paths.instanceRoot, "oengine/mojo/legacy-runtimes")
         val archiveStore = File(paths.instanceRoot, "oengine/runtime-archives")
 
-        runtimeRoot.listFiles().orEmpty()
-            .filter { it.name.endsWith(".installing") &&
-                System.currentTimeMillis() - it.lastModified() > 6L * 60L * 60L * 1000L }
-            .forEach { staging ->
-                require(!java.nio.file.Files.isSymbolicLink(staging.toPath())) {
-                    "Interrupted Java runtime staging path is unsafe."
-                }
-                val removed = if (staging.isDirectory) staging.deleteRecursively() else staging.delete()
-                require(removed) { "Could not remove an interrupted Java runtime staging folder." }
-            }
-
         fun movePreserving(source: File, destination: File) {
             require(!java.nio.file.Files.isSymbolicLink(source.toPath())) {
                 "Legacy runtime migration refuses symbolic links."
@@ -174,6 +163,17 @@ object OEngineMojoAwtInstallerHandoff {
             }
             java.nio.file.Files.move(source.toPath(), destination.toPath())
         }
+
+        // Legacy builds staged archives inside the scan root. The current installer
+        // stages under oengine/runtime-staging, so every remaining *.installing entry
+        // here is from the old layout and can be preserved outside MultiRTUtils' scan.
+        runtimeRoot.listFiles().orEmpty()
+            .filter { it.name.endsWith(".installing") }
+            .forEach { staging ->
+                val target = File(legacyStore, "staging/${staging.name}")
+                require(!target.exists()) { "Legacy runtime staging backup already exists." }
+                movePreserving(staging, target)
+            }
 
         val legacyInstalled = File(runtimeRoot, "installed")
         if (legacyInstalled.exists()) {
@@ -226,7 +226,7 @@ object OEngineMojoAwtInstallerHandoff {
         }
 
         // MultiRTUtils scans this directory immediately during preference loading.
-        // Reject symlinked direct children and release files before that scan occurs.
+        // Leave only fully valid JVM folders in that scan root.
         runtimeRoot.listFiles().orEmpty().forEach { runtime ->
             require(!java.nio.file.Files.isSymbolicLink(runtime.toPath())) {
                 "Java runtime root contains a symbolic link."
@@ -234,6 +234,15 @@ object OEngineMojoAwtInstallerHandoff {
             val release = File(runtime, "release")
             require(!java.nio.file.Files.isSymbolicLink(release.toPath())) {
                 "Java runtime release metadata must not be a symbolic link."
+            }
+            if (!runtime.isDirectory || runCatching {
+                OEngineMojoAwtRuntimeLayout.inspectRuntime(paths, runtime.name)
+            }.isFailure) {
+                val backupName = if (runtime.isDirectory) "invalid/${runtime.name}"
+                    else "invalid-files/${runtime.name}"
+                val backup = File(legacyStore, backupName)
+                require(!backup.exists()) { "Invalid runtime backup already exists." }
+                movePreserving(runtime, backup)
             }
         }
     }
