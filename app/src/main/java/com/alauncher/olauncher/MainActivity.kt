@@ -2692,6 +2692,13 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
             versionsLoading = false
         }
     }
+    LaunchedEffect(installedLoaderProfileId) {
+        // A Forge-family installer returns asynchronously through the activity callback.
+        // Rebuild the command/JVM plan so its immutable startup classpath includes the
+        // newly installed loader libraries before HotSpot is created.
+        preparedLaunchPlan = null
+        commandPreviewStatus = "Loader profile changed; rebuild the launch plan before creating the game JVM."
+    }
     LaunchedEffect(selectedLoader, selectedVersion) {
         val profileLoader = profilePreferences.getString("loader_profile_loader.$selectedProfile", null)
         val profileMinecraft = profilePreferences.getString("loader_profile_mc.$selectedProfile", null)
@@ -2963,11 +2970,29 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                         }
                                         downloadingDependencies = false
 
+                                        val launchProfileKey = selectedProfile
+                                        val launchLoader = selectedLoader
+                                        val launchLoaderProfileId = if (
+                                            launchLoader == "Vanilla" || installedLoaderProfileId == null
+                                        ) {
+                                            null
+                                        } else {
+                                            withContext(Dispatchers.IO) {
+                                                OEngineInstalledLoaderProfile.resolve(
+                                                    activeInstance.root,
+                                                    profilePreferences,
+                                                    launchProfileKey,
+                                                    launchLoader,
+                                                    release.id
+                                                )
+                                            }
+                                        }
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release,
                                             activeInstance.root,
+                                            loaderProfileId = launchLoaderProfileId,
                                             maxMemoryMb = profilePreferences.getInt(
-                                                "memory.$selectedProfile",
+                                                "memory.$launchProfileKey",
                                                 context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
                                                     .getInt("minecraft_memory_mb", 2048)
                                             ).coerceIn(512, 12288)
