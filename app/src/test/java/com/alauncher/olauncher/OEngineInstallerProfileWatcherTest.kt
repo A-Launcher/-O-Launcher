@@ -40,6 +40,20 @@ class OEngineInstallerProfileWatcherTest {
         }
     }
 
+    @Test fun resolvesClassifiedLoaderArtifact() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            profile(root, "forge-classified", "1.20.1", "net.minecraftforge:forge:1.20.1-47.3.0:client")
+            val result = OEngineInstallerProfileWatcher.resolve(
+                root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
+            )
+            assertEquals("forge-classified", result.versionId)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun rejectsWrongParentAndWrongLoader() {
         val root = createTempDir(prefix = "installer-profile-")
         try {
