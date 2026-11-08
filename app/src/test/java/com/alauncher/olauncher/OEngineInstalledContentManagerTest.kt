@@ -36,8 +36,8 @@ class OEngineInstalledContentManagerTest {
         val root = Files.createTempDirectory("oengine-world-packs").toFile()
         try {
             File(root, "datapacks/root-pack.zip").apply { parentFile.mkdirs(); writeText("wrong location") }
-            File(root, "saves/Survival/level.dat").writeText("world")
-            File(root, "saves/Creative/level.dat").writeText("world")
+            File(root, "saves/Survival/level.dat").apply { parentFile.mkdirs(); writeText("world") }
+            File(root, "saves/Creative/level.dat").apply { parentFile.mkdirs(); writeText("world") }
             File(root, "saves/Survival/datapacks/world-pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             File(root, "saves/Creative/datapacks/another-pack.zip").apply { parentFile.mkdirs(); writeText("pack2") }
             val entries = OEngineInstalledContentManager.list(root)
@@ -139,7 +139,7 @@ class OEngineInstalledContentManagerTest {
                 val failure = runCatching { OEngineInstalledContentManager.remove(root, entry) }.exceptionOrNull()
                 assertTrue(failure is IllegalArgumentException)
                 assertTrue(File(outside, "datapacks/pack.zip").exists())
-                assertFalse(pack.exists())
+                assertTrue(Files.isSymbolicLink(world.toPath()))
             } finally {
                 outside.deleteRecursively()
             }
