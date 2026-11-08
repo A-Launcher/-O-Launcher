@@ -4,15 +4,13 @@ project(oengine_mojo_awt C)
 if(NOT DEFINED MOJO_JNI_ROOT OR NOT IS_DIRECTORY "${MOJO_JNI_ROOT}")
     message(FATAL_ERROR "MOJO_JNI_ROOT must point at the pinned Mojo app_mojo/src/main/jni directory")
 endif()
-if(NOT DEFINED MOJOEXEC_LIBRARY OR NOT EXISTS "${MOJOEXEC_LIBRARY}")
-    message(FATAL_ERROR "MOJOEXEC_LIBRARY must point at the already-built libmojoexec.so")
-endif()
-if(NOT DEFINED MOJOEXEC_INCLUDE_DIR OR NOT IS_DIRECTORY "${MOJOEXEC_INCLUDE_DIR}")
-    message(FATAL_ERROR "MOJOEXEC_INCLUDE_DIR must point at the pinned MojoExec public headers")
+if(NOT DEFINED MOJOEXEC_ROOT OR NOT EXISTS "${MOJOEXEC_ROOT}/CMakeLists.txt")
+    message(FATAL_ERROR "MOJOEXEC_ROOT must point at the MojoExec submodule pinned by MojoLauncher")
 endif()
 
-add_library(mojoexec SHARED IMPORTED GLOBAL)
-set_target_properties(mojoexec PROPERTIES IMPORTED_LOCATION "${MOJOEXEC_LIBRARY}")
+# Build the exact MojoExec revision nested in the pinned MojoLauncher commit.
+# Do not link a potentially different MojoExec build from O Engine's GLFW tree.
+add_subdirectory("${MOJOEXEC_ROOT}" mojoexec)
 
 add_library(mojort SHARED
     "${MOJO_JNI_ROOT}/jvm_hooks/emui_iterator_fix_hook.c"
@@ -26,7 +24,7 @@ add_library(mojort SHARED
     "${MOJO_JNI_ROOT}/stdio_is.c"
     "${MOJO_JNI_ROOT}/minibridge.c"
 )
-target_include_directories(mojort PRIVATE "${MOJO_JNI_ROOT}" "${MOJOEXEC_INCLUDE_DIR}")
+target_include_directories(mojort PRIVATE "${MOJO_JNI_ROOT}")
 target_link_libraries(mojort PRIVATE log mojoexec)
 
 add_library(mojoawt SHARED
