@@ -889,6 +889,46 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var previewImageName by remember { mutableStateOf("") }
     var detailsFile by remember { mutableStateOf<File?>(null) }
+    var selectionMode by remember { mutableStateOf(false) }
+    val selectedFiles = remember(current) { mutableStateListOf<File>() }
+    var clipboardFiles by remember(root) { mutableStateOf<List<File>>(emptyList()) }
+    var clipboardIsMove by remember(root) { mutableStateOf(false) }
+
+    fun isInsideRoot(file: File): Boolean {
+        val rootPath = runCatching { root.canonicalPath }.getOrDefault(root.absolutePath)
+        val filePath = runCatching { file.canonicalPath }.getOrDefault(file.absolutePath)
+        return filePath == rootPath || filePath.startsWith(rootPath + File.separator)
+    }
+    fun uniqueDestination(parent: File, source: File): File {
+        var target = parent.resolve(source.name)
+        var suffix = 1
+        while (target.exists()) {
+            val name = if (source.extension.isBlank()) "${source.name} ($suffix)"
+                else "${source.nameWithoutExtension} ($suffix).${source.extension}"
+            target = parent.resolve(name)
+            suffix++
+        }
+        return target
+    }
+    fun copyEntry(source: File, destination: File): Boolean {
+        if (!isInsideRoot(source) || !isInsideRoot(destination)) return false
+        if (source.isDirectory && (destination.canonicalPath == source.canonicalPath ||
+            destination.canonicalPath.startsWith(source.canonicalPath + File.separator))) return false
+        return runCatching {
+            if (source.isDirectory) {
+                destination.mkdirs() && source.listFiles().orEmpty().all { child ->
+                    copyEntry(child, destination.resolve(child.name))
+                }
+            } else {
+                destination.parentFile?.mkdirs()
+                source.inputStream().use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
+                true
+            }
+        }.getOrDefault(false)
+    }
+    fun toggleSelected(file: File) {
+        if (selectedFiles.contains(file)) selectedFiles.remove(file) else selectedFiles.add(file)
+    }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -1015,6 +1055,52 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             }
                         }
                         TextButton(onClick = { importPicker.launch(arrayOf("*/*")) }) { Text("IMPORT", color = Ink, fontWeight = FontWeight.Bold) }
+                        TextButton(onClick = {
+                            selectionMode = !selectionMode
+                            selectedFiles.clear()
+                        }) { Text(if (selectionMode) "CANCEL SELECT" else "SELECT", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                        if (selectedFiles.isNotEmpty()) {
+                            TextButton(onClick = {
+                                clipboardFiles = selectedFiles.toList()
+                                clipboardIsMove = false
+                                message = "${clipboardFiles.size} item(s) copied. Navigate to a folder and tap PASTE."
+                                selectionMode = false
+                                selectedFiles.clear()
+                            }) { Text("COPY", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                            TextButton(onClick = {
+                                clipboardFiles = selectedFiles.toList()
+                                clipboardIsMove = true
+                                message = "${clipboardFiles.size} item(s) cut. Navigate to a folder and tap PASTE."
+                                selectionMode = false
+                                selectedFiles.clear()
+                            }) { Text("CUT", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                        }
+                        if (clipboardFiles.isNotEmpty()) {
+                            TextButton(onClick = {
+                                var completed = 0
+                                var failed = 0
+                                clipboardFiles.forEach { source ->
+                                    if (!isInsideRoot(source) || !source.exists()) {
+                                        failed++
+                                    } else if (source.canonicalFile == current.canonicalFile ||
+                                        (source.isDirectory && current.canonicalPath.startsWith(source.canonicalPath + File.separator))) {
+                                        failed++
+                                    } else {
+                                        val destination = uniqueDestination(current, source)
+                                        val ok = if (clipboardIsMove) {
+                                            destination.parentFile?.mkdirs()
+                                            source.renameTo(destination).let { moved ->
+                                                if (moved) true else if (copyEntry(source, destination)) source.deleteRecursively() else false
+                                            }
+                                        } else copyEntry(source, destination)
+                                        if (ok) completed++ else failed++
+                                    }
+                                }
+                                message = "Pasted: $completed; failed: $failed."
+                                if (clipboardIsMove && failed == 0) clipboardFiles = emptyList()
+                                refresh++
+                            }) { Text("PASTE", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                        }
                         TextButton(onClick = { sortMode = when (sortMode) { "Name" -> "Size"; "Size" -> "Modified"; else -> "Name" } }) {
                             Text("SORT: $sortMode", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                         }
@@ -1040,7 +1126,8 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                         group.forEach { file ->
                                             Surface(
                                                 modifier = Modifier.weight(1f).height(145.dp).combinedClickable(onClick = {
-                                                    if (file.isDirectory) navigateTo(file)
+                                                    if (selectionMode) toggleSelected(file)
+                                                    else if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                                         editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                                     } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
@@ -1049,11 +1136,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                             else message = "Could not preview ${file.name}."
                                         } else detailsFile = file
                                                 }, onLongClick = { renameName = file.name; pendingRename = file }),
-                                                color = Color(0xFFFFF2E2),
+                                                color = if (selectedFiles.contains(file)) Color(0xFFFFD98A) else Color(0xFFFFF2E2),
                                                 shape = RoundedCornerShape(18.dp),
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0DDC7))
                                             ) {
                                                 Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                                    if (selectionMode) Checkbox(checked = selectedFiles.contains(file), onCheckedChange = { toggleSelected(file) })
                                                     Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg")) "🖼️" else if (file.extension.lowercase() == "zip") "🧰" else if (file.extension.lowercase() in listOf("dat", "log")) "📃" else "📄", fontSize = 42.sp)
                                                     Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                     Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
@@ -1068,7 +1156,8 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                                 entries.forEach { file ->
                                     Row(Modifier.fillMaxWidth().combinedClickable(onClick = {
-                                        if (file.isDirectory) navigateTo(file)
+                                        if (selectionMode) toggleSelected(file)
+                                        else if (file.isDirectory) navigateTo(file)
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                             editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                         } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
@@ -1077,6 +1166,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                             else message = "Could not preview ${file.name}."
                                         } else detailsFile = file
                                     }, onLongClick = { renameName = file.name; pendingRename = file }).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        if (selectionMode) Checkbox(checked = selectedFiles.contains(file), onCheckedChange = { toggleSelected(file) })
                                         Text(if (file.isDirectory) "📁" else "📄", fontSize = 23.sp)
                                         Spacer(Modifier.width(12.dp))
                                         Column(Modifier.weight(1f)) {
