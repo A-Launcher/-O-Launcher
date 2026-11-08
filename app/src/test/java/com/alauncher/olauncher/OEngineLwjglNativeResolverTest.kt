@@ -112,8 +112,8 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
             assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
             assertTrue(result.blockers.any { it.contains("org.lwjgl.librarypath/System.loadLibrary") })
-            assertTrue(result.blockers.any { it.contains("matching JNI ABI") })
-            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL entry-point bridge") })
+            assertTrue(result.blockers.any { it.contains("matching liblwjgl JNI library loads") })
+            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
             assertFalse(result.blockers.any { it.contains("org.lwjgl.opengl.libname interception") })
         } finally { root.deleteRecursively() }
     }
