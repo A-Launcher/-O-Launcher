@@ -90,7 +90,7 @@ object OEngineLoaderInstaller {
             val library = libraryArray.optJSONObject(i) ?: continue
             if (MinecraftVersionInstaller.isAllowedForAndroid(library.optJSONArray("rules"))) entries += library
         }
-        val libraryRoot = File(gameDirectory, "libraries").canonicalFile
+        val libraryRoot = prepareLibraryRoot(gameDirectory)
         var bytes = 0L
         var installed = 0
         for ((index, library) in entries.withIndex()) {
@@ -118,6 +118,24 @@ object OEngineLoaderInstaller {
             onProgress(index + 1, entries.size, "Installed $name")
         }
         InstallResult(loader, game, selectedLoader, profileId, metadataFile, installed, bytes)
+    }
+
+    /** Ensures loader libraries are written to a real directory inside this instance. */
+    internal fun prepareLibraryRoot(gameDirectory: File): File {
+        val gameRoot = gameDirectory.canonicalFile
+        require(gameRoot.isDirectory) { "Minecraft instance directory is missing." }
+        val libraryPath = File(gameRoot, "libraries")
+        require(!java.nio.file.Files.isSymbolicLink(libraryPath.toPath())) {
+            "Minecraft libraries directory must not be a symbolic link."
+        }
+        if (!libraryPath.exists() && !libraryPath.mkdirs()) {
+            throw IllegalStateException("Could not create Minecraft libraries directory.")
+        }
+        val libraryRoot = libraryPath.canonicalFile
+        require(libraryRoot.isDirectory && libraryRoot.toPath().startsWith(gameRoot.toPath())) {
+            "Minecraft libraries directory is missing or escapes the selected instance."
+        }
+        return libraryRoot
     }
 
     /**
