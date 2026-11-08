@@ -88,10 +88,14 @@ object AndroidRuntimeInstaller {
                         ?.groupValues?.get(1)?.toIntOrNull() ?: continue
                     val expectedName = "jre" + major + "-android-" + architecture + ".tar.xz"
                     val assets = release.optJSONArray("assets") ?: continue
-                    val hasAsset = (0 until assets.length()).any { assetIndex ->
-                        assets.optJSONObject(assetIndex)?.optString("name") == expectedName
+                    val hasVerifiedAsset = (0 until assets.length()).any { assetIndex ->
+                        val asset = assets.optJSONObject(assetIndex) ?: return@any false
+                        if (asset.optString("name") != expectedName) return@any false
+                        val digest = asset.optString("digest").removePrefix("sha256:")
+                        digest.matches(Regex("[a-fA-F0-9]{64}")) ||
+                            expectedArchiveSha256(major, architecture) != null
                     }
-                    if (hasAsset) add(major)
+                    if (hasVerifiedAsset) add(major)
                 }
             }
         } finally {
@@ -104,6 +108,11 @@ object AndroidRuntimeInstaller {
     private fun resolveRuntimeAsset(javaMajor: Int, architecture: String): RuntimeAsset {
         val filename = "jre" + javaMajor + "-android-" + architecture + ".tar.xz"
         val pinned = expectedArchiveSha256(javaMajor, architecture)
+        if (pinned != null) {
+            val tag = "download_jre" + javaMajor
+            val url = "https://github.com/" + RUNTIME_REPOSITORY + "/releases/download/" + tag + "/" + filename
+            return RuntimeAsset(url, pinned)
+        }
         val endpoint = "https://api.github.com/repos/" + RUNTIME_REPOSITORY + "/releases/tags/download_jre" + javaMajor
         val connection = openHttpsDownload(endpoint)
         try {
