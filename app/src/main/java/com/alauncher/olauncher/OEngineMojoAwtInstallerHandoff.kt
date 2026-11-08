@@ -291,7 +291,6 @@ object OEngineMojoAwtInstallerHandoff {
             .setInt(null, architecture)
         launcherPreferences.getMethod("loadPreferences", Context::class.java)
             .invoke(null, instanceContext)
-            .invoke(null, instanceContext)
     }
 
     fun complete(request: Request, preferences: SharedPreferences): OEngineInstallerProfileWatcher.InstalledProfile =
