@@ -45,7 +45,6 @@ class OEngineMojoAwtInstallerHandoffTest {
             val interrupted = File(runtimeRoot, "Java-8-arm64.installing")
             assertEquals(true, interrupted.mkdirs())
             File(interrupted, "partial.bin").writeBytes(byteArrayOf(1))
-            interrupted.setLastModified(System.currentTimeMillis() - 7L * 60L * 60L * 1000L)
             val legacyJava17 = File(runtimeRoot, "installed/Java-17-arm64")
             assertEquals(true, legacyJava17.mkdirs())
             File(legacyJava17, "release").writeText("JAVA_VERSION=\"17\"\n")
@@ -64,7 +63,8 @@ class OEngineMojoAwtInstallerHandoffTest {
             )
 
             assertEquals(true, File(runtimeRoot, "Java-17-arm64/release").isFile)
-            assertEquals(false, interrupted.exists())
+            assertEquals(true, File(root, "oengine/mojo/legacy-runtimes/staging/Java-8-arm64.installing/partial.bin").isFile)
+            assertEquals(true, File(root, "oengine/mojo/legacy-runtimes/invalid/Java-8-arm64/release").isFile)
             assertEquals(true, File(root, "oengine/runtime-archives/jre17-android-arm64.tar.xz").isFile)
             assertEquals(
                 true,
