@@ -114,15 +114,18 @@ object OEngineInstallerProfileWatcher {
                 val groupPath = coordinate[0].replace('.', '/')
                 val artifact = coordinate[1]
                 val artifactVersion = coordinate[2]
+                val classifier = coordinate.getOrNull(3)
                 if (!artifact.matches(Regex("[A-Za-z0-9_.-]+")) ||
-                    !artifactVersion.matches(Regex("[A-Za-z0-9_.+-]+"))) return@mapNotNull null
+                    !artifactVersion.matches(Regex("[A-Za-z0-9_.+-]+")) ||
+                    (classifier != null && !classifier.matches(Regex("[A-Za-z0-9_.+-]+")))) return@mapNotNull null
                 val librariesRootPath = File(gameDirectory, "libraries")
                 if (java.nio.file.Files.isSymbolicLink(librariesRootPath.toPath())) return@mapNotNull null
                 val librariesRoot = runCatching { librariesRootPath.canonicalFile }.getOrNull()
                     ?: return@mapNotNull null
                 val artifactFile = File(
                     librariesRoot,
-                    "$groupPath/$artifact/$artifactVersion/$artifact-$artifactVersion.jar"
+                    "$groupPath/$artifact/$artifactVersion/$artifact-$artifactVersion" +
+                        (classifier?.let { "-$it" } ?: "") + ".jar"
                 )
                 if (java.nio.file.Files.isSymbolicLink(artifactFile.toPath()) ||
                     !artifactFile.isFile || artifactFile.length() <= 0L) return@mapNotNull null
