@@ -428,9 +428,9 @@ private fun OLauncherApp() {
                                     HeroBanner(images, Modifier.fillMaxWidth().height(heroHeight)) { showPlayInfo = true }
                                     FeaturedNews(images, Modifier.fillMaxWidth().height(newsHeight))
                                 }
-                                1 -> InstallationsDestination(images)
+                                1 -> InstallationsDestination(images, onBrowseModpacks = { tab = 3 })
                                 2 -> SkinDestination(images)
-                                3 -> MarketplaceDestination(images, dashboardHeight * 0.88f)
+                                3 -> MarketplaceDestination(images, dashboardHeight * 0.88f, initialCategory = "Modpacks")
                                 4 -> SettingsDestination(images)
                                 5 -> AboutDestination(images)
                                 6 -> LauncherFilesDestination(images)
@@ -1582,11 +1582,11 @@ private fun AccountDestination(images: LauncherImages) {
     }
 }
 @Composable
-private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
+private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, initialCategory: String = "All") {
     val context = LocalContext.current
     var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
     val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
-    var selectedCategory by remember { mutableStateOf("All") }
+    var selectedCategory by remember(initialCategory) { mutableStateOf(initialCategory) }
     var search by remember { mutableStateOf("") }
     val installedMinecraftVersions = remember(activeGameRoot) {
         File(activeGameRoot, "versions").listFiles().orEmpty()
@@ -2239,7 +2239,7 @@ private fun LoaderOptionCard(
     }
 }
 @Composable
-private fun InstallationsDestination(images: LauncherImages) {
+private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profilePreferences = remember(context) {
@@ -3643,8 +3643,7 @@ private fun InstallationsDestination(images: LauncherImages) {
             },
             onBrowseModpacks = {
                 showNewInstanceWizard = false
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://modrinth.com/modpacks"))) }
-                    .onFailure { launchPlanStatus = "Could not open Modrinth modpacks." }
+                onBrowseModpacks()
             }
         )
     }
