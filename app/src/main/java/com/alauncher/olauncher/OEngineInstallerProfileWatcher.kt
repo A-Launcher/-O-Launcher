@@ -28,9 +28,13 @@ object OEngineInstallerProfileWatcher {
     )
 
     fun snapshot(gameDirectory: File): Snapshot {
-        val versions = File(gameDirectory, "versions").canonicalFile
+        val versionsPath = File(gameDirectory, "versions")
+        require(!java.nio.file.Files.isSymbolicLink(versionsPath.toPath())) {
+            "Minecraft versions path must not be a symbolic link."
+        }
+        val versions = versionsPath.canonicalFile
         if (!versions.exists()) return Snapshot(emptyMap())
-        require(versions.isDirectory && !java.nio.file.Files.isSymbolicLink(versions.toPath())) {
+        require(versions.isDirectory) {
             "Minecraft versions path is not a safe directory."
         }
         val fingerprints = linkedMapOf<String, String>()
@@ -75,8 +79,12 @@ object OEngineInstallerProfileWatcher {
         require(minecraftVersion.matches(Regex("""\d+(?:\.\d+){1,2}(?:[-+][A-Za-z0-9._-]+)?"""))) {
             "Invalid Minecraft version."
         }
-        val root = File(gameDirectory, "versions").canonicalFile
-        require(root.isDirectory && !java.nio.file.Files.isSymbolicLink(root.toPath())) {
+        val rootPath = File(gameDirectory, "versions")
+        require(!java.nio.file.Files.isSymbolicLink(rootPath.toPath())) {
+            "Minecraft versions directory must not be a symbolic link."
+        }
+        val root = rootPath.canonicalFile
+        require(root.isDirectory) {
             "Minecraft versions directory is missing or unsafe."
         }
         val candidates = root.listFiles().orEmpty().asSequence()
