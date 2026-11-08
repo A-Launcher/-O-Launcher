@@ -2,6 +2,7 @@ package com.alauncher.olauncher
 
 import android.os.Bundle
 import android.widget.Toast
+import java.io.File
 import git.artdeell.mojo.ExitActivity
 import git.artdeell.mojo.awt.AWTActivity
 import git.artdeell.mojo.utils.lifecycle.ContextExecutor
@@ -42,6 +43,12 @@ class OEngineMojoAwtActivity : AWTActivity() {
             return
         }
         super.onCreate(savedInstanceState)
+    }
+
+    override fun getExternalFilesDir(type: String?): File? {
+        val selectedRoot = intent.getStringExtra("oengine.instanceRoot")
+        return if (selectedRoot.isNullOrBlank()) super.getExternalFilesDir(type)
+        else File(selectedRoot).canonicalFile
     }
 
     override fun onResume() {
