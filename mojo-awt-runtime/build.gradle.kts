@@ -37,6 +37,64 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
             "Mojo instance-scoped storage patch output is invalid."
         }
         toolsSource.writeText(patched)
+
+        // AGP library R.id values are not compile-time constants. Upstream uses
+        // switch/case on these IDs, which fails javac; preserve behavior with equality checks.
+        val awtActivity = mojoAwtJava.get()
+            .file("git/artdeell/mojo/awt/AWTActivity.java").asFile
+        val awtOriginal = awtActivity.readText()
+        val mouseButtonSwitch = """        switch (v.getId()) {
+            case R.id.installmod_mouse_pri:
+                Platform.sendMouseButtonEvent(MotionEvent.BUTTON_PRIMARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
+                break;
+
+            case R.id.installmod_mouse_sec:
+                Platform.sendMouseButtonEvent(MotionEvent.BUTTON_SECONDARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
+                break;
+        }"""
+        val mouseButtonIf = """        if (v.getId() == R.id.installmod_mouse_pri) {
+            Platform.sendMouseButtonEvent(MotionEvent.BUTTON_PRIMARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
+        } else if (v.getId() == R.id.installmod_mouse_sec) {
+            Platform.sendMouseButtonEvent(MotionEvent.BUTTON_SECONDARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
+        }"""
+        check(awtOriginal.contains(mouseButtonSwitch)) {
+            "Pinned Mojo AWT mouse-button switch changed; review the non-final resource ID patch."
+        }
+        var awtPatched = awtOriginal.replace(mouseButtonSwitch, mouseButtonIf)
+        val windowMoveSwitch = """        if(isDown) switch(v.getId()) {
+            case R.id.installmod_window_moveup:
+                AWTBridge.nativeMoveWindow(0, -10);
+                break;
+            case R.id.installmod_window_movedown:
+                AWTBridge.nativeMoveWindow(0, 10);
+                break;
+            case R.id.installmod_window_moveleft:
+                AWTBridge.nativeMoveWindow(-10, 0);
+                break;
+            case R.id.installmod_window_moveright:
+                AWTBridge.nativeMoveWindow(10, 0);
+                break;
+        }"""
+        val windowMoveIf = """        if (isDown) {
+            int viewId = v.getId();
+            if (viewId == R.id.installmod_window_moveup) {
+                AWTBridge.nativeMoveWindow(0, -10);
+            } else if (viewId == R.id.installmod_window_movedown) {
+                AWTBridge.nativeMoveWindow(0, 10);
+            } else if (viewId == R.id.installmod_window_moveleft) {
+                AWTBridge.nativeMoveWindow(-10, 0);
+            } else if (viewId == R.id.installmod_window_moveright) {
+                AWTBridge.nativeMoveWindow(10, 0);
+            }
+        }"""
+        check(awtPatched.contains(windowMoveSwitch)) {
+            "Pinned Mojo AWT window movement switch changed; review the non-final resource ID patch."
+        }
+        awtPatched = awtPatched.replace(windowMoveSwitch, windowMoveIf)
+        check(!awtPatched.contains("case R.id.installmod_")) {
+            "Mojo AWT resource ID switch patch was incomplete."
+        }
+        awtActivity.writeText(awtPatched)
     }
 }
 
