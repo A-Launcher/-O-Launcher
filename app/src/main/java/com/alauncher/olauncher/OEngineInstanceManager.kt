@@ -59,6 +59,7 @@ object OEngineInstanceManager {
         val id = instanceIdFor(clean)
         val parent = File(File(context.filesDir, "minecraft/instances"), id)
         require(!parent.exists()) { "An instance with this name already exists." }
+        if (!parent.mkdirs()) throw IllegalStateException("Could not create the instance directory.")
         val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
         if (!game.exists() && !game.mkdirs()) throw IllegalStateException("Could not create the instance game directory.")
         File(parent, "instance.properties").writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
