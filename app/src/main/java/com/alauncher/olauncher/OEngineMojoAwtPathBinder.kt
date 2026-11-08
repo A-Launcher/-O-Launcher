@@ -15,7 +15,7 @@ import java.lang.reflect.Modifier
 object OEngineMojoAwtPathBinder {
     private const val TOOLS_CLASS = "git.artdeell.mojo.Tools"
 
-    fun bind(instanceDirectory: File, classLoader: ClassLoader): OEngineMojoAwtRuntimeLayout.Paths {
+    fun bind(instanceDirectory: File, classLoader: ClassLoader, nativeLibraryDirectory: File): OEngineMojoAwtRuntimeLayout.Paths {
         val paths = OEngineMojoAwtRuntimeLayout.paths(instanceDirectory)
         listOf(
             paths.accountHome, paths.data, paths.cache, paths.runtimes,
@@ -34,14 +34,14 @@ object OEngineMojoAwtPathBinder {
         return paths
     }
 
-    internal fun bindToolsPaths(paths: OEngineMojoAwtRuntimeLayout.Paths, tools: Class<*>) {
+    internal fun bindToolsPaths(paths: OEngineMojoAwtRuntimeLayout.Paths, tools: Class<*>, nativeLibraryDirectory: File) {
         setString(tools, "DIR_GAME_HOME", paths.gameHome.absolutePath)
         setString(tools, "DIR_GAME_NEW", paths.gameNew.absolutePath)
         setString(tools, "DIR_ACCOUNT_NEW", paths.accountHome.absolutePath)
         setString(tools, "DIR_DATA", paths.data.absolutePath)
         setFile(tools, "DIR_CACHE", paths.cache)
         setString(tools, "MULTIRT_HOME", paths.runtimes.absolutePath)
-        setString(tools, "NATIVE_LIB_DIR", paths.nativeLibraries.absolutePath)
+        setString(tools, "NATIVE_LIB_DIR", nativeLibraryDirectory.absolutePath)
         setString(tools, "DIR_HOME_VERSION", File(paths.gameHome, "versions").absolutePath)
         setString(tools, "DIR_HOME_LIBRARY", File(paths.gameHome, "libraries").absolutePath)
         setString(tools, "DIR_HOME_CRASH", File(paths.gameHome, "crash-reports").absolutePath)
