@@ -1713,7 +1713,16 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
         scope.launch {
             try {
                 val nextOffset = if (reset) 0 else offset + 20
+                val page = OEngineModrinthCatalog.search(
+                    query = search,
+                    type = typeOverride,
+                    gameVersion = compatibleGameVersion.takeUnless { it == "All versions" },
+                    offset = nextOffset,
+                    limit = 20
+                )
                 offset = nextOffset
+                projects = if (reset) page.hits else projects + page.hits
+                totalHits = page.totalHits
             } catch (failure: Exception) {
                 error = failure.message ?: "Could not load community projects."
             } finally { loading = false }
