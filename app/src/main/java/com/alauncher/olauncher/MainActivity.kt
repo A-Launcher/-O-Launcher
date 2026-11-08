@@ -3689,16 +3689,17 @@ class MainActivity : ComponentActivity() {
             if (!exitMessage.isNullOrBlank()) {
                 Toast.makeText(this, exitMessage, Toast.LENGTH_LONG).show()
             } else {
-                require(!profileKey.isNullOrBlank()) { "Mojo returned without the pending profile key." }
+                val key = requireNotNull(profileKey) { "Mojo returned without the pending profile key." }
+                require(key.isNotBlank()) { "Mojo returned an empty profile key." }
                 if (exitCode == 0 && !isSignal) {
-                val preferences = getSharedPreferences("o_launcher_profiles", MODE_PRIVATE)
-                val request = OEngineMojoAwtInstallerHandoff.readPending(preferences, profileKey)
-                val installed = OEngineMojoAwtInstallerHandoff.complete(request, preferences)
-                Toast.makeText(
-                    this,
-                    "Installed ${installed.loader.name} profile ${installed.versionId}.",
-                    Toast.LENGTH_LONG
-                ).show()
+                    val preferences = getSharedPreferences("o_launcher_profiles", MODE_PRIVATE)
+                    val request = OEngineMojoAwtInstallerHandoff.readPending(preferences, key)
+                    val installed = OEngineMojoAwtInstallerHandoff.complete(request, preferences)
+                    Toast.makeText(
+                        this,
+                        "Installed ${installed.loader.name} profile ${installed.versionId}.",
+                        Toast.LENGTH_LONG
+                    ).show()
                 } else {
                     Toast.makeText(
                         this,
