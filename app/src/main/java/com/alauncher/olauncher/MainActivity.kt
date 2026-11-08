@@ -3684,9 +3684,13 @@ class MainActivity : ComponentActivity() {
         val profileKey = resultIntent.getStringExtra("oengine.mojo.profile_key")
         val exitCode = resultIntent.getIntExtra("oengine.mojo.exit_code", -1)
         val isSignal = resultIntent.getBooleanExtra("oengine.mojo.exit_signal", false)
+        val exitMessage = resultIntent.getStringExtra("oengine.mojo.exit_message")
         try {
-            require(!profileKey.isNullOrBlank()) { "Mojo returned without the pending profile key." }
-            if (exitCode == 0 && !isSignal) {
+            if (!exitMessage.isNullOrBlank()) {
+                Toast.makeText(this, exitMessage, Toast.LENGTH_LONG).show()
+            } else {
+                require(!profileKey.isNullOrBlank()) { "Mojo returned without the pending profile key." }
+                if (exitCode == 0 && !isSignal) {
                 val preferences = getSharedPreferences("o_launcher_profiles", MODE_PRIVATE)
                 val request = OEngineMojoAwtInstallerHandoff.readPending(preferences, profileKey)
                 val installed = OEngineMojoAwtInstallerHandoff.complete(request, preferences)
@@ -3695,12 +3699,13 @@ class MainActivity : ComponentActivity() {
                     "Installed ${installed.loader.name} profile ${installed.versionId}.",
                     Toast.LENGTH_LONG
                 ).show()
-            } else {
-                Toast.makeText(
-                    this,
-                    "The loader installer exited with code $exitCode${if (isSignal) " (signal)" else ""}. Check its log.",
-                    Toast.LENGTH_LONG
-                ).show()
+                } else {
+                    Toast.makeText(
+                        this,
+                        "The loader installer exited with code $exitCode${if (isSignal) " (signal)" else ""}. Check its log.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
         } catch (failure: Throwable) {
             Toast.makeText(
@@ -3712,6 +3717,7 @@ class MainActivity : ComponentActivity() {
             resultIntent.removeExtra("oengine.mojo.exit_code")
             resultIntent.removeExtra("oengine.mojo.exit_signal")
             resultIntent.removeExtra("oengine.mojo.profile_key")
+            resultIntent.removeExtra("oengine.mojo.exit_message")
         }
     }
 
