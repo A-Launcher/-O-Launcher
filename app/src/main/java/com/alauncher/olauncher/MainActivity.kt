@@ -3387,7 +3387,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 context.startActivity(
                                                     OEngineMojoAwtInstallerHandoff.createIntent(context, handoff)
                                                 )
-                                                loaderInstallStatus = "Launching the official $selectedLoader installer for Minecraft $release.id in the isolated Mojo AWT process…"
+                                                loaderInstallStatus = "Launching the official $selectedLoader installer for Minecraft ${release.id} in the isolated Mojo AWT process…"
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
