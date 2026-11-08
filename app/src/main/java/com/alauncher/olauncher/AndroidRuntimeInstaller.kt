@@ -54,7 +54,7 @@ object AndroidRuntimeInstaller {
         val tag = "download_jre$javaMajor"
         val filename = "jre$javaMajor-android-$architecture.tar.xz"
         val address = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/$tag/$filename"
-        val directory = File(gameDirectory, "runtimes/archives")
+        val directory = File(gameDirectory, "oengine/runtime-archives")
         if (!directory.exists() && !directory.mkdirs()) {
             throw IllegalStateException("Could not create the runtime archive directory.")
         }
