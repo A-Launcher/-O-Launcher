@@ -42,7 +42,14 @@ class OEngineMojoAwtActivity : AWTActivity() {
             }
             return
         }
-        super.onCreate(savedInstanceState)
+        try {
+            super.onCreate(savedInstanceState)
+        } catch (failure: Throwable) {
+            ExitActivity.setPendingFailureMessage(
+                failure.message ?: "Mojo AWT could not create the Forge/NeoForge installer window."
+            )
+            ExitActivity.showExitMessage(this, -1, false)
+        }
     }
 
     override fun getExternalFilesDir(type: String?): File? {
