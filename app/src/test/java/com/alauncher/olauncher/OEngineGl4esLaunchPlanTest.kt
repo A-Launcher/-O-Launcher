@@ -52,6 +52,39 @@ class OEngineGl4esLaunchPlanTest {
 
 
     @Test
+    fun selectsLegacyGl15ForMinecraftBeforeJune2011AndGl21ForNewerVersions() {
+        val old = OEngineLegacyOpenGlPolicy.resolve("2011-06-07T23:59:59Z")
+        assertEquals(1, old.exposedOpenGlMajor)
+        assertEquals("15", old.gl4esVersion)
+
+        val modern = OEngineLegacyOpenGlPolicy.resolve("2011-06-08T00:00:00Z")
+        assertEquals(2, modern.exposedOpenGlMajor)
+        assertEquals("21", modern.gl4esVersion)
+
+        val unknown = OEngineLegacyOpenGlPolicy.resolve(null)
+        assertEquals("21", unknown.gl4esVersion)
+    }
+
+    @Test
+    fun configuresGl4esGles2AndLegacyOpenGlEnvironment() {
+        val root = Files.createTempDirectory("oengine-gl4es-legacy-env").toFile()
+        try {
+            val plan = OEngineRendererLaunchPlanner.prepareGl4es(
+                createArtifact(root), root, "arm64-v8a",
+                OEngineGlesDriver(major = 2, minor = 0),
+                lwjgl2NativeLoaderVerified = true,
+                rendererEglLifecycleVerified = true,
+                minecraftReleaseTime = "2010-11-18T00:00:00Z"
+            )
+            assertEquals("2", plan.environment["LIBGL_ES"])
+            assertEquals("15", plan.environment["LIBGL_GL"])
+            assertTrue(plan.warnings.any { it.contains("legacy OpenGL 1.5") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun blocksBootstrapWhenLwjgl2AdapterExistsButEglLifecycleIsUnverified() {
         val root = Files.createTempDirectory("oengine-gl4es-egl-block").toFile()
         try {
