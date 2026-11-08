@@ -3376,6 +3376,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                     .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
                                                     .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation.javaArgs).toString())
                                                     .putString("pending_installer_jar.$selectedProfile", invocation.installerPath)
+                                                    .putString("pending_installer_instance.$selectedProfile", activeInstance.root.canonicalPath)
                                                     .putString("pending_installer_loader.$selectedProfile", selectedLoader)
                                                     .putString("pending_installer_version.$selectedProfile", version)
                                                     .putString("pending_installer_mc.$selectedProfile", release.id)
