@@ -16,12 +16,13 @@ into the installed application's `assets/licenses/LGPL-3.0-MojoLauncher.txt`
 by Android CI. When distributing O Launcher, retain the applicable license,
 notices, and source-availability information required by LGPL-3.0.
 
-O Launcher uses this pinned source as the reference implementation for the
-Minecraft version/instance installer, Fabric, Quilt, Forge, NeoForge, OptiFine,
-modpack installation, and custom-control editor. Reuse of any individual
-upstream component is subject to its own dependencies and third-party license;
-the MojoLauncher repository's top-level LGPL license does not replace those
-component licenses.
+O Launcher compiles the pinned Java sources as a library for the Mojo AWT
+installer runtime; it does not register or expose MojoLauncher's launcher UI.
+The optional upstream CurseForge API key resource is set to `DUMMY`, so the
+upstream CurseForge client is disabled and O Launcher does not expose CurseForge.
+Reuse of any individual upstream component is subject to its own dependencies
+and third-party license; the MojoLauncher repository's top-level LGPL license
+does not replace those component licenses.
 
 ## MojoLauncher Forge/OptiFine installer agent
 
