@@ -111,6 +111,9 @@ object OEngineMojoAwtInstallerHandoff {
         } else {
             nativeDirectory
         }
+        if (is32BitX86) {
+            context.applicationInfo.nativeLibraryDir = nativeLibraryDirectory.absolutePath
+        }
         OEngineMojoAwtPathBinder.bind(request.instanceRoot, context.classLoader, nativeLibraryDirectory)
         val validRuntimes = paths.runtimes.listFiles().orEmpty()
             .filter { it.isDirectory }
