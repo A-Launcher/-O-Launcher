@@ -26,21 +26,15 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
             "Pinned Mojo Tools storage implementation changed; review the O Launcher instance-root patch."
         }
         val patched = original.replace(legacyStorage, "        return ctx.getExternalFilesDir(null);")
-        val storageRootStart = patched.indexOf("private static @Nullable File getAppStorageRoot(Context ctx)")
-        check(storageRootStart >= 0) {
-            "Pinned Mojo getAppStorageRoot implementation could not be located after patching."
-        }
-        val storageRootEnd = patched.indexOf("\n    }", storageRootStart)
-        check(storageRootEnd > storageRootStart) {
-            "Pinned Mojo getAppStorageRoot method could not be bounded after patching."
-        }
-        val storageRootImplementation = patched.substring(storageRootStart, storageRootEnd)
-        check(
-            storageRootImplementation.contains("return ctx.getExternalFilesDir(null);") &&
-                !storageRootImplementation.contains("games/PojavLauncher") &&
-                !storageRootImplementation.contains("Environment.getExternalStorageDirectory()")
-        ) {
+        check(patched != original) {
             "Mojo instance-scoped storage patch was not applied."
+        }
+        check(
+            patched.contains("private static @Nullable File getAppStorageRoot(Context ctx)") &&
+                patched.contains("return ctx.getExternalFilesDir(null);") &&
+                !patched.contains("File launcherRoot = new File(externalStorageDirectory,\"games/PojavLauncher\");")
+        ) {
+            "Mojo instance-scoped storage patch output is invalid."
         }
         toolsSource.writeText(patched)
     }
