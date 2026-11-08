@@ -887,7 +887,19 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                     val column = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                     if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
                 } ?: "imported_file"
-                val destination = current.resolve(File(name).name)
+                val safeName = File(name).name
+                val original = File(safeName)
+                var destination = current.resolve(safeName)
+                var suffix = 1
+                while (destination.exists()) {
+                    val candidate = if (original.extension.isBlank()) {
+                        "${original.name} ($suffix)"
+                    } else {
+                        "${original.nameWithoutExtension} ($suffix).${original.extension}"
+                    }
+                    destination = current.resolve(candidate)
+                    suffix++
+                }
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     destination.outputStream().use { output -> input.copyTo(output) }
                 }
@@ -1026,7 +1038,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                                 entries.forEach { file ->
                                     Row(Modifier.fillMaxWidth().clickable {
-                                        if (file.isDirectory) current = file
+                                        if (file.isDirectory) navigateTo(file)
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                             editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                         } else message = "Stored file: ${file.name}"
