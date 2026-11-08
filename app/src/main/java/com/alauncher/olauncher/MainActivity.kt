@@ -3386,7 +3386,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 )
                                                 loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). " +
                                                     "The saved Mojo AWT handoff was validated for ${handoff.instanceRoot.name}; " +
-                                                    "the AWT runtime itself is not packaged yet, so installation has not started."
+                                                    "native AWT/Cacio packaging is configured, but the AWT Java activity is not linked into the APK yet; installation has not started."
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
