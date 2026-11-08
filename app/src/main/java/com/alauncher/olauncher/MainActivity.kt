@@ -3364,7 +3364,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                     } else "Downloading $selectedLoader installer: ${received / 1024} KB"
                                                 }
                                                 val agent = OEngineInstallerAgent.stage(context, activeInstance.root)
-                                                val invocation = OEngineInstallerAgent.buildLaunchArguments(agent, staged.file)
+                                                val invocation = OEngineInstallerAgent.buildAwtInvocation(agent, staged.file)
                                                 // Capture profile JSON state before the AWT installer runs. The completion
                                                 // handler can then distinguish newly-created and rewritten profile IDs.
                                                 val profileSnapshot = OEngineInstallerProfileWatcher.snapshot(activeInstance.root)
@@ -3374,12 +3374,13 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 profilePreferences.edit()
                                                     .putString("pending_installer_profile_snapshot.$selectedProfile", profileSnapshotJson.toString())
                                                     .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
-                                                    .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation).toString())
+                                                    .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation.javaArgs).toString())
+                                                    .putString("pending_installer_jar.$selectedProfile", invocation.installerPath)
                                                     .putString("pending_installer_loader.$selectedProfile", selectedLoader)
                                                     .putString("pending_installer_version.$selectedProfile", version)
                                                     .putString("pending_installer_mc.$selectedProfile", release.id)
                                                     .apply()
-                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). Mojo agent staged and Java invocation prepared. Android AWT runtime execution is still pending; loader is not installed yet."
+                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). Mojo AWT arguments and installer path are prepared; AWT runtime launch is still pending, so the loader is not installed yet."
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
