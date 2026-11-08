@@ -372,7 +372,7 @@ object MinecraftVersionInstaller {
             createVirtual = assetIndexMetadata.optBoolean("virtual", false),
             mapToResources = assetIndexMetadata.optBoolean("map_to_resources", false)
         )
-        DependencyInstallResult(libraryCount, assetCount, mappedAssets, nativeArchiveCount, nativeFiles, completedBytes)
+        DependencyInstallResult(libraryCount, assetCount, mappedAssets, nativeArchiveCount, nativeFiles + legacyNativeTasks.size, completedBytes)
     }
 
     private fun installLegacyLwjgl2NativeArchive(
