@@ -53,18 +53,25 @@ object OEngineMojoAwtInstallerHandoff {
         }
         val encodedArgs = required("pending_installer_args")
         require(encodedArgs.length <= 64 * 1024) { "Pending installer arguments are too large." }
-        val array = JSONArray(encodedArgs)
+        val args = parseJavaArgs(encodedArgs, agent.canonicalPath)
+        return Request(profileKey, instance, loader, minecraft, installer, agent, args)
+    }
+
+    internal fun parseJavaArgs(encoded: String, agentPath: String): List<String> {
+        require(encoded.length <= 64 * 1024) { "Pending installer arguments are too large." }
+        val array = JSONArray(encoded)
         require(array.length() in 1..MAX_ARGS) { "Pending installer argument count is invalid." }
         val args = (0 until array.length()).map { index ->
-            val value = array.optString(index)
+            require(!array.isNull(index)) { "Pending installer argument is invalid." }
+            val value = array.getString(index)
             require(value.isNotBlank() && value.length <= MAX_ARG_LENGTH &&
                 !value.contains('\u0000')) { "Pending installer argument is invalid." }
             value
         }
-        require(args.any { it.startsWith("-javaagent:") && it.contains(agent.canonicalPath) }) {
+        require(args.any { it.startsWith("-javaagent:") && it.substringAfter("-javaagent:").startsWith(agentPath) }) {
             "Pending installer arguments do not reference the staged Mojo agent."
         }
-        return Request(profileKey, instance, loader, minecraft, installer, agent, args)
+        return args
     }
 
     /** Creates exactly the extras consumed by the pinned Mojo AWTActivity. */
@@ -93,14 +100,20 @@ object OEngineMojoAwtInstallerHandoff {
         OEngineInstallerProfileWatcher.completePending(request.instanceRoot, preferences, request.profileKey)
 
     private fun containedFile(root: File, rawPath: String, relativeParent: String): File {
-        val candidate = File(rawPath).canonicalFile
+        val raw = File(rawPath).absoluteFile
         val allowed = File(root, relativeParent).canonicalFile
+        val candidate = raw.canonicalFile
         require(allowed.toPath().startsWith(root.toPath()) &&
             candidate.toPath().startsWith(allowed.toPath())) {
             "Pending installer file escapes its private staging directory."
         }
-        require(!java.nio.file.Files.isSymbolicLink(candidate.toPath())) {
-            "Pending installer file must not be a symbolic link."
+        var cursor = raw
+        while (cursor.toPath().startsWith(root.toPath())) {
+            require(!java.nio.file.Files.isSymbolicLink(cursor.toPath())) {
+                "Pending installer path contains a symbolic link."
+            }
+            if (cursor == root) break
+            cursor = cursor.parentFile ?: break
         }
         return candidate
     }
