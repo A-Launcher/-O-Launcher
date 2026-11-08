@@ -2,6 +2,7 @@ package com.alauncher.olauncher
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.SharedPreferences
 import org.json.JSONArray
@@ -90,6 +91,7 @@ object OEngineMojoAwtInstallerHandoff {
     /** Called by the AWT process bootstrap before it invokes AWTActivity.onCreate(). */
     fun bindRuntimePaths(request: Request, context: Context): OEngineMojoAwtRuntimeLayout.Paths {
         val paths = OEngineMojoAwtRuntimeLayout.paths(request.instanceRoot)
+        initializeMojoPreferences(context, paths)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 8)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 17)
         val nativeLibraryDirectory = File(context.applicationInfo.nativeLibraryDir)
@@ -98,6 +100,39 @@ object OEngineMojoAwtInstallerHandoff {
             "Mojo AWT runtime was bound to a different Minecraft instance."
         }
         return paths
+    }
+
+    /**
+     * Mojo's LauncherPreferences.loadPreferences() initializes MultiRTUtils as a side effect.
+     * Give it an instance-scoped Context first so its one-time static runtime-root snapshot
+     * points at O Engine's real runtimes directory, not Mojo's default app storage.
+     */
+    private fun initializeMojoPreferences(
+        context: Context,
+        paths: OEngineMojoAwtRuntimeLayout.Paths
+    ) {
+        val instanceContext = object : ContextWrapper(context) {
+            private val scopedFiles = File(paths.instanceRoot, "files").apply {
+                require(isDirectory || mkdirs()) { "Could not create Mojo instance files directory." }
+            }
+
+            override fun getFilesDir(): File = scopedFiles
+            override fun getCacheDir(): File = paths.cache.apply {
+                require(isDirectory || mkdirs()) { "Could not create Mojo instance cache directory." }
+            }
+            override fun getExternalFilesDir(type: String?): File = paths.instanceRoot
+        }
+        val loader = context.classLoader
+        val preferenceManager = Class.forName("androidx.preference.PreferenceManager", true, loader)
+        val sharedPreferences = preferenceManager
+            .getMethod("getDefaultSharedPreferences", Context::class.java)
+            .invoke(null, context) as SharedPreferences
+        val launcherPreferences = Class.forName(
+            "git.artdeell.mojo.prefs.LauncherPreferences", true, loader
+        )
+        launcherPreferences.getField("DEFAULT_PREF").set(null, sharedPreferences)
+        launcherPreferences.getMethod("loadPreferences", Context::class.java)
+            .invoke(null, instanceContext)
     }
 
     fun complete(request: Request, preferences: SharedPreferences): OEngineInstallerProfileWatcher.InstalledProfile =
