@@ -2632,6 +2632,48 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
     var activeInstance by remember { mutableStateOf(OEngineInstanceManager.active(context)) }
     var instances by remember { mutableStateOf(OEngineInstanceManager.list(context)) }
 
+    val optiFineInstallerPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { sourceUri ->
+        if (sourceUri != null) {
+            scope.launch {
+                installingLoader = true
+                try {
+                    val release = selectedRelease ?: error("Choose a Minecraft version before importing OptiFine.")
+                    check(selectedLoader == "OptiFine") { "Select OptiFine before importing its installer." }
+                    val stagedInstaller = withContext(Dispatchers.IO) {
+                        OEngineOptiFineInstaller.stage(context, sourceUri, activeInstance.root)
+                    }
+                    val agent = withContext(Dispatchers.IO) {
+                        OEngineInstallerAgent.stage(context, activeInstance.root)
+                    }
+                    val invocation = OEngineInstallerAgent.buildAwtInvocation(agent, stagedInstaller, optiFine = true)
+                    val profileSnapshot = OEngineInstallerProfileWatcher.snapshot(activeInstance.root)
+                    val profileSnapshotJson = org.json.JSONObject().apply {
+                        profileSnapshot.fingerprints.forEach { (id, fingerprint) -> put(id, fingerprint) }
+                    }
+                    check(profilePreferences.edit()
+                        .putString("pending_installer_profile_snapshot.$selectedProfile", profileSnapshotJson.toString())
+                        .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
+                        .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation.javaArgs).toString())
+                        .putString("pending_installer_jar.$selectedProfile", invocation.installerPath)
+                        .putString("pending_installer_instance.$selectedProfile", activeInstance.root.canonicalPath)
+                        .putString("pending_installer_loader.$selectedProfile", "OptiFine")
+                        .putString("pending_installer_version.$selectedProfile", "official")
+                        .putString("pending_installer_mc.$selectedProfile", release.id)
+                        .commit()) { "Could not save the pending OptiFine installer request." }
+                    val handoff = OEngineMojoAwtInstallerHandoff.readPending(profilePreferences, selectedProfile)
+                    context.startActivity(OEngineMojoAwtInstallerHandoff.createIntent(context, handoff))
+                    loaderInstallStatus = "Launching the imported official OptiFine installer for Minecraft ${release.id} in the isolated Mojo AWT process…"
+                } catch (error: Exception) {
+                    loaderInstallStatus = error.message ?: "Could not import the OptiFine installer."
+                } finally {
+                    installingLoader = false
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         try {
             val (loaded, latest) = MinecraftVersionInstaller.fetchReleases()
@@ -3726,12 +3768,24 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                         Text("Installed profile: $installedLoaderProfileId", color = Color(0xFF38764B), fontSize = 11.sp)
                     }
                     if (selectedLoader == "OptiFine") {
-                        Text("OptiFine must be downloaded from its official site and installed with the compatible Minecraft profile.", color = Muted, fontSize = 10.sp)
-                        OutlinedButton(onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
-                                OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE)
-                            )))
-                        }) { Text("OPEN OFFICIAL OPTIFINE DOWNLOADS") }
+                        Text("Download the installer from the official OptiFine site, then choose the JAR here. O Launcher will run it through Mojo's OptiFine-aware AWT installer agent.", color = Muted, fontSize = 10.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+                                        OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE)
+                                    )))
+                                },
+                                enabled = !installingLoader
+                            ) { Text("OFFICIAL DOWNLOADS") }
+                            Button(
+                                onClick = {
+                                    optiFineInstallerPicker.launch(arrayOf("application/java-archive", "application/x-java-archive", "application/octet-stream", "*/*"))
+                                },
+                                enabled = !installingLoader && selectedRelease != null,
+                                colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                            ) { Text(if (installingLoader) "IMPORTING…" else "SELECT INSTALLER JAR") }
+                        }
                     }
                 } else {
                     Text("Vanilla Minecraft profile selected.", color = Muted, fontSize = 11.sp)
