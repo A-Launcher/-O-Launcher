@@ -168,11 +168,10 @@ jobs:
         run: |
           set -euo pipefail
           mojo_jni="$GITHUB_WORKSPACE/third_party/MojoLauncher/app_mojo/src/main/jni"
-          mojoexec_include="$GITHUB_WORKSPACE/native/upstream/mojoexec/include"
+          mojoexec_root="$GITHUB_WORKSPACE/third_party/MojoLauncher/mojoexec"
+          test -f "$mojoexec_root/CMakeLists.txt"
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             destination="$GITHUB_WORKSPACE/app/src/main/jniLibs/$abi"
-            mojoexec="$destination/libmojoexec.so"
-            test -s "$mojoexec"
             build_dir="$RUNNER_TEMP/oengine-mojo-awt-$abi"
             cmake -S native/mojo-awt -B "$build_dir" \
               -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
@@ -181,7 +180,7 @@ jobs:
               -DMOJOEXEC_LIBRARY="$mojoexec" \
               -DMOJOEXEC_INCLUDE_DIR="$mojoexec_include"
             cmake --build "$build_dir" --parallel 2
-            for library in libmojort.so libmojoawt.so libawt_headless.so libawt_xawt.so; do
+            for library in libmojoexec.so libmojort.so libmojoawt.so libawt_headless.so libawt_xawt.so; do
               source="$(find "$build_dir" -type f -name "$library" -print -quit)"
               test -n "$source" && test -s "$source"
               cp "$source" "$destination/$library"
