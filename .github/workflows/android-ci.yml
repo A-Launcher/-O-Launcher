@@ -235,6 +235,15 @@ jobs:
             jar tf "$file" >/dev/null
             echo "Validated Mojo AWT runtime component: $file"
           done
+          mkdir -p app/src/main/assets/licenses
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            "https://raw.githubusercontent.com/MojoLauncher/caciocavallo/d0efb5aaba/LICENSE" \
+            -o app/src/main/assets/licenses/GPL-2.0-Caciocavallo.txt
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            "https://raw.githubusercontent.com/MojoLauncher/caciocavallo17/411454b006/LICENSE" \
+            -o app/src/main/assets/licenses/GPL-2.0-Caciocavallo17.txt
+          test -s app/src/main/assets/licenses/GPL-2.0-Caciocavallo.txt
+          test -s app/src/main/assets/licenses/GPL-2.0-Caciocavallo17.txt
 
       - name: Install MojoLauncher LGPL source license
         run: |
@@ -306,6 +315,8 @@ jobs:
           unzip -l "$apk" | grep -F "assets/components/caciocavallo/cacio-shared.jar" >/dev/null
           unzip -l "$apk" | grep -F "assets/components/caciocavallo/cacio-androidnw.jar" >/dev/null
           unzip -l "$apk" | grep -F "assets/components/caciocavallo17/cacio-tta.jar" >/dev/null
+          unzip -l "$apk" | grep -F "assets/licenses/GPL-2.0-Caciocavallo.txt" >/dev/null
+          unzip -l "$apk" | grep -F "assets/licenses/GPL-2.0-Caciocavallo17.txt" >/dev/null
           echo "APK contains the Mojo AWT Java entry points, native runtime libraries, and Caciocavallo assets."
 
       - name: Upload debug APK
