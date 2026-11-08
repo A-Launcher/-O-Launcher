@@ -25,7 +25,11 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
         check(original.contains(legacyStorage)) {
             "Pinned Mojo Tools storage implementation changed; review the O Launcher instance-root patch."
         }
-        toolsSource.writeText(original.replace(legacyStorage, "        return ctx.getExternalFilesDir(null);"))
+        val patched = original.replace(legacyStorage, "        return ctx.getExternalFilesDir(null);")
+        check(!patched.contains("games/PojavLauncher") && patched.contains("return ctx.getExternalFilesDir(null);")) {
+            "Mojo instance-scoped storage patch was not applied."
+        }
+        toolsSource.writeText(patched)
     }
 }
 
