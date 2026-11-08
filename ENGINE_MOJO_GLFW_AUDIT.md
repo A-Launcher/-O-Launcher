@@ -63,3 +63,18 @@ Use this pinned GLFW Android backend as the implementation reference because its
 The generated LWJGL 3.3.3 `org.lwjgl.glfw.GLFW` source was inspected at the `3.3.3` tag. Its static `Functions` table obtains C addresses with `apiGetFunctionAddress(GLFW, "glfw...")`; this is a C ABI/function-pointer contract, not a generated GLFW JNI-symbol contract. Accordingly, the pinned `lwjgl-3.3.3-required-symbols.txt` file is the relevant exported-symbol gate for this module. The ART-side Mojo JNI methods (Surface callbacks, input forwarding, cursor callbacks and clipboard) are a separate boundary.
 
 This clarification does not prove that a Minecraft window is created or rendered. The remaining runtime gates include loading the correct LWJGL core native libraries, retained renderer native-loader interception, creating a GLFW window against the LTW-owned context, applying live Surface transitions, polling input on the GLFW owner thread, and presenting a real frame on a device.
+
+
+## Legacy LWJGL 2 Java artifact selection
+
+O Engine now pins the MojoLauncher LWJGL 2-on-GLFW fork separately from the LWJGL 3 runtime:
+
+- Repository: `MojoLauncher/lwjgl2-glfw`
+- Commit: `bf01b1b05c417b55cffc04d85dbc3a9cfa3b93df`
+- Release: `vv8m`
+- Published Java artifact: `lwjgl.jar`, SHA-256 `8258d85e165e291aaea9c3888af9da516fa8c51135288d108b26503eab7b97b9`
+- Published Android native archives are pinned separately for arm64-v8a, armeabi-v7a, x86 and x86_64.
+
+The dependency installer now recognizes the legacy `org.lwjgl.lwjgl:lwjgl:*` coordinate and downloads the pinned Mojo Java archive into the corresponding `2.9.4-mojo` library path. Launch classpath construction resolves that same path, so the upstream desktop LWJGL 2 JAR is not accidentally added for Android. Modern `org.lwjgl:lwjgl:3.x` libraries are unaffected.
+
+This is only the Java-classpath half of the compatibility adapter. The ABI-specific native archive is not yet installed into the active game native directory, and the GL4ES plan remains blocked until the LWJGL 2 native loading and EGL/swap lifecycle are verified. Do not infer that a legacy game launches from the presence of the pinned Java JAR.
