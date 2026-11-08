@@ -89,8 +89,8 @@ class OEngineJvmBootstrapPlanTest {
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=" + glfw.canonicalPath))
-            assertTrue(plan.vmOptions.contains("-Djava.library.path=" + glfw.parentFile.canonicalPath))
-            assertTrue(plan.vmOptions.contains("-Djna.boot.library.path=" + glfw.parentFile.canonicalPath))
+            assertTrue(plan.vmOptions.contains("-Djava.library.path=" + nativeDir.canonicalPath))
+            assertTrue(plan.vmOptions.contains("-Djna.boot.library.path=" + nativeDir.canonicalPath))
             assertFalse(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=/wrong/path"))
         } finally { root.deleteRecursively() }
     }
