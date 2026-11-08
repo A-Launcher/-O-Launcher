@@ -778,8 +778,8 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         };
     }
 
-    if !matches!(java_major, 8 | 17 | 21) {
-        return response!("unsupported_java_major", &format!("Java {java_major} has no verified native-load hook profile"));
+    if java_major != 8 && java_major < 17 {
+        return response!("unsupported_java_major", &format!("Java {java_major} is below the supported Android HotSpot hook profiles (Java 8 or Java 17+)"));
     }
 
     let library_state = JVM_LIBRARY.get_or_init(|| Mutex::new(None));
@@ -1099,15 +1099,16 @@ unsafe extern "system" fn native_load_java21(
 }
 
 unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Result<(), String> {
-    if !matches!(java_major, 8 | 17 | 21) {
-        return Err(format!("Java {java_major} native-library hook is not verified"));
+    if java_major != 8 && java_major < 17 {
+        return Err(format!("Java {java_major} is below the supported Android HotSpot hook profiles (Java 8 or Java 17+)"));
     }
     let state = NATIVE_LOAD_HOOK.get_or_init(|| Mutex::new(None));
     if state.lock().map_err(|_| "Native-load hook state lock is poisoned")?.is_some() {
         return Err("A native-library hook is already installed in this process".to_owned());
     }
 
-    let symbol_name = if java_major == 8 {
+    let java8 = java_major == 8;
+    let symbol_name = if java8 {
         "Java_java_lang_ClassLoader_00024NativeLibrary_load"
     } else {
         "Java_jdk_internal_loader_NativeLibraries_load"
@@ -1125,49 +1126,63 @@ unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Resu
         return Err(format!("Cannot resolve original {symbol_name} in libjava.so"));
     }
 
-    let (class_name, descriptor, function): (&str, &str, *mut c_void) = match java_major {
-        8 => (
-            "java/lang/ClassLoader$NativeLibrary",
-            "(Ljava/lang/String;Z)V",
-            native_load_java8 as *mut c_void,
-        ),
-        17 => {
-            let class = env.find_class("jdk/internal/loader/NativeLibraries")
-                .map_err(|e| format!("Cannot find JDK 17 NativeLibraries class: {e}"))?;
-            let primary = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZZ)Z";
-            let fallback = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z";
-            let primary_found = env.get_static_method_id(&class, "load", primary).is_ok();
-            if !primary_found && env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
-            let selected = if primary_found { primary } else {
-                if env.get_static_method_id(&class, "load", fallback).is_err() {
-                    if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
-                    return Err("Neither verified Java 17 NativeLibraries.load signature exists".to_owned());
-                }
-                fallback
-            };
-            let hook = if selected == primary { native_load_java17 as *mut c_void } else { native_load_java21 as *mut c_void };
-            let method = [NativeMethod { name: "load".into(), sig: selected.into(), fn_ptr: hook }];
-            env.register_native_methods(&class, &method)
-                .map_err(|e| format!("Cannot register Java 17 native-load hook: {e}"))?;
-            *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
-                Some((if selected == primary { 17 } else { 171 }, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
-            return Ok(());
-        },
-        21 => (
-            "jdk/internal/loader/NativeLibraries",
-            "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z",
-            native_load_java21 as *mut c_void,
-        ),
-        _ => unreachable!(),
-    };
+    if java8 {
+        let class = match env.find_class("java/lang/ClassLoader$NativeLibrary") {
+            Ok(value) => value,
+            Err(error) => {
+                if !libjava.is_null() { libc::dlclose(libjava); }
+                return Err(format!("Cannot find Java 8 ClassLoader$NativeLibrary class: {error}"));
+            }
+        };
+        let methods = [NativeMethod {
+            name: "load".into(),
+            sig: "(Ljava/lang/String;Z)V".into(),
+            fn_ptr: native_load_java8 as *mut c_void,
+        }];
+        if let Err(error) = env.register_native_methods(&class, &methods) {
+            if !libjava.is_null() { libc::dlclose(libjava); }
+            return Err(format!("Cannot register Java 8 native-load hook: {error}"));
+        }
+        *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
+            Some((8, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+        return Ok(());
+    }
 
-    let class = env.find_class(class_name)
-        .map_err(|e| format!("Cannot find {class_name}: {e}"))?;
+    // MojoLauncher probes the actual HotSpot method signature instead of assuming
+    // every newer Java major uses the same native-library hook ABI. Java 17 uses
+    // the five-argument form; Java 21 and later currently use the four-argument form.
+    // Keep this runtime probe so future JDKs are accepted only when their ABI matches.
+    let class = match env.find_class("jdk/internal/loader/NativeLibraries") {
+        Ok(value) => value,
+        Err(error) => {
+            if !libjava.is_null() { libc::dlclose(libjava); }
+            return Err(format!("Cannot find JDK NativeLibraries class for Java {java_major}: {error}"));
+        }
+    };
+    let java17_signature = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZZ)Z";
+    let java21_signature = "(Ljdk/internal/loader/NativeLibraries$NativeLibraryImpl;Ljava/lang/String;ZZ)Z";
+    let selected = if env.get_static_method_id(&class, "load", java17_signature).is_ok() {
+        Some((java17_signature, native_load_java17 as *mut c_void, 17))
+    } else {
+        if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+        if env.get_static_method_id(&class, "load", java21_signature).is_ok() {
+            Some((java21_signature, native_load_java21 as *mut c_void, 21))
+        } else {
+            if env.exception_check().unwrap_or(false) { let _ = env.exception_clear(); }
+            None
+        }
+    };
+    let Some((descriptor, function, hook_profile)) = selected else {
+        if !libjava.is_null() { libc::dlclose(libjava); }
+        return Err(format!("Java {java_major} NativeLibraries.load has no recognized Java 17/21-compatible signature"));
+    };
     let methods = [NativeMethod { name: "load".into(), sig: descriptor.into(), fn_ptr: function }];
-    env.register_native_methods(&class, &methods)
-        .map_err(|e| format!("Cannot register Java {java_major} native-load hook: {e}"))?;
+    if let Err(error) = env.register_native_methods(&class, &methods) {
+        if !libjava.is_null() { libc::dlclose(libjava); }
+        return Err(format!("Cannot register Java {java_major} native-load hook: {error}"));
+    }
     *state.lock().map_err(|_| "Native-load hook state lock is poisoned")? =
-        Some((java_major, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
+        Some((hook_profile, original as usize, if libjava.is_null() { 0 } else { libjava as usize }));
     Ok(())
 }
 
