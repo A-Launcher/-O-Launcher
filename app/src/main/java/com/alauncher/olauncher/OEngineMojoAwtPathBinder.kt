@@ -30,6 +30,11 @@ object OEngineMojoAwtPathBinder {
         }
 
         val tools = Class.forName(TOOLS_CLASS, false, classLoader)
+        bindToolsPaths(paths, tools)
+        return paths
+    }
+
+    internal fun bindToolsPaths(paths: OEngineMojoAwtRuntimeLayout.Paths, tools: Class<*>) {
         setString(tools, "DIR_GAME_HOME", paths.gameHome.absolutePath)
         setString(tools, "DIR_GAME_NEW", paths.gameNew.absolutePath)
         setString(tools, "DIR_ACCOUNT_NEW", paths.accountHome.absolutePath)
@@ -44,7 +49,6 @@ object OEngineMojoAwtPathBinder {
         setString(tools, "OBSOLETE_RESOURCES_PATH", File(paths.gameHome, "resources").absolutePath)
         setString(tools, "CTRLMAP_PATH", File(paths.gameHome, "controlmap").absolutePath)
         setString(tools, "CTRLDEF_FILE", File(paths.gameHome, "controlmap/default.json").absolutePath)
-        return paths
     }
 
     private fun setString(owner: Class<*>, name: String, value: String) {
