@@ -1646,7 +1646,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                     modpackStatus = "Imported " + result.name + ": " + result.downloadedFiles + " verified downloads, " + result.copiedOverrideFiles + " override files. Minecraft " + result.minecraftVersion + "; loader: " + result.loaders.entries.joinToString { it.key + " " + it.value }.ifBlank { "Vanilla" } + ". Install the base game and loader from Installations next."
                     refreshInstalledContent()
                 } catch (failure: Exception) {
-                    created?.let { runCatching { it.root.parentFile?.deleteRecursively() } }
+                    created?.let { runCatching { it.root.deleteRecursively() } }
                     modpackStatus = failure.message ?: "Modpack import failed."
                 } finally { staged.delete(); importingModpack = false }
             }
