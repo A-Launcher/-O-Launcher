@@ -884,6 +884,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var sortMode by remember { mutableStateOf("Name") }
     var showHidden by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<File?>(null) }
+    var pendingBulkDelete by remember { mutableStateOf(false) }
     var pendingRename by remember { mutableStateOf<File?>(null) }
     var renameName by remember { mutableStateOf("") }
     var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -1059,6 +1060,17 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             selectionMode = !selectionMode
                             selectedFiles.clear()
                         }) { Text(if (selectionMode) "CANCEL SELECT" else "SELECT", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                        if (selectionMode) {
+                            TextButton(onClick = {
+                                if (selectedFiles.size == entries.size) selectedFiles.clear()
+                                else { selectedFiles.clear(); selectedFiles.addAll(entries) }
+                            }) { Text(if (entries.isNotEmpty() && selectedFiles.size == entries.size) "DESELECT ALL" else "SELECT ALL", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
+                        }
+                        if (selectedFiles.isNotEmpty()) {
+                            TextButton(onClick = { pendingBulkDelete = true }) {
+                                Text("DELETE ${selectedFiles.size}", color = Color(0xFFB34B3B), fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                            }
+                        }
                         if (selectedFiles.isNotEmpty()) {
                             TextButton(onClick = {
                                 clipboardFiles = selectedFiles.toList()
@@ -1254,6 +1266,27 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                 refresh++
             }) { Text("RENAME") } },
             dismissButton = { TextButton(onClick = { pendingRename = null }) { Text("CANCEL") } }
+        )
+    }
+    if (pendingBulkDelete) {
+        AlertDialog(
+            onDismissRequest = { pendingBulkDelete = false },
+            title = { Text("Delete ${selectedFiles.size} items?") },
+            text = { Text("This permanently removes the selected files and folders from the active instance.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val failures = selectedFiles.count { file ->
+                        if (!isInsideRoot(file) || file == root) true
+                        else runCatching { if (file.isDirectory) !file.deleteRecursively() else !file.delete() }.getOrDefault(true)
+                    }
+                    message = if (failures == 0) "Selected items deleted." else "Some items could not be deleted ($failures)."
+                    selectedFiles.clear()
+                    selectionMode = false
+                    pendingBulkDelete = false
+                    refresh++
+                }) { Text("DELETE") }
+            },
+            dismissButton = { TextButton(onClick = { pendingBulkDelete = false }) { Text("CANCEL") } }
         )
     }
     pendingDelete?.let { file ->
