@@ -213,6 +213,18 @@ object OEngineMojoAwtInstallerHandoff {
                 require(legacyArchives.delete()) { "Could not finish legacy runtime archive migration." }
             }
         }
+
+        // MultiRTUtils scans this directory immediately during preference loading.
+        // Reject symlinked direct children and release files before that scan occurs.
+        runtimeRoot.listFiles().orEmpty().forEach { runtime ->
+            require(!java.nio.file.Files.isSymbolicLink(runtime.toPath())) {
+                "Java runtime root contains a symbolic link."
+            }
+            val release = File(runtime, "release")
+            require(!java.nio.file.Files.isSymbolicLink(release.toPath())) {
+                "Java runtime release metadata must not be a symbolic link."
+            }
+        }
     }
 
     /**
