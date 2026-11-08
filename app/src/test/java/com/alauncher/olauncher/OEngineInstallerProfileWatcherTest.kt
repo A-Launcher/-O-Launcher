@@ -117,4 +117,27 @@ class OEngineInstallerProfileWatcherTest {
         }
     }
 
+    @Test fun rejectsSymlinkedVersionsDirectory() {
+        val root = createTempDir(prefix = "installer-profile-")
+        val outside = createTempDir(prefix = "installer-profile-outside-")
+        try {
+            val versionsLink = File(root, "versions")
+            java.nio.file.Files.createSymbolicLink(versionsLink.toPath(), outside.toPath())
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineInstallerProfileWatcher.snapshot(root)
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineInstallerProfileWatcher.resolve(
+                    root,
+                    OEngineInstallerProfileWatcher.Snapshot(emptyMap()),
+                    "1.20.1",
+                    OEngineInstallerProfileWatcher.Loader.FORGE
+                )
+            }
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
 }
