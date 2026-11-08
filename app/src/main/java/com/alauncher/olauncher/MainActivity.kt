@@ -3685,7 +3685,7 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
             onCreate = {
                 try {
                     val instanceName = newInstanceName.trim().ifBlank { "New Instance" }
-                    val created = OEngineInstanceManager.create(context, instanceName)
+                    val created = OEngineInstanceManager.create(context, instanceName, sharedGameFolder)
                     activeInstance = OEngineInstanceManager.select(context, created.id)
                     instances = OEngineInstanceManager.list(context)
                     selectedProfile = instanceName
