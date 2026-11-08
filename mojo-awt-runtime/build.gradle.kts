@@ -142,7 +142,8 @@ dependencies {
 
     api("javax.annotation:javax.annotation-api:1.3.2")
     api("commons-codec:commons-codec:1.19.0")
-    api("commons-io:commons-io:2.19.0")
+    // ExagearApacheCommons.jar from the pinned Mojo bundle already contains Commons IO.
+    // Do not add commons-io separately: Android D8 rejects the duplicate classes.
     api("androidx.recyclerview:recyclerview:1.4.0")
     api("org.tukaani:xz:1.10")
     api("net.sourceforge.htmlcleaner:htmlcleaner:2.29")
