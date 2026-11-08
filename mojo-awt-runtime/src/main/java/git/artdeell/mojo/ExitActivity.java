@@ -12,12 +12,19 @@ public final class ExitActivity {
     private static final String TAG = "OEngineMojoExit";
     private static volatile String pendingProfileKey;
     private static volatile String pendingFailureMessage;
+    private static volatile boolean exitCallbackSent;
 
     private ExitActivity() {}
 
     @Keep
     public static void setPendingProfileKey(String profileKey) {
         pendingProfileKey = profileKey;
+        exitCallbackSent = false;
+    }
+
+    @Keep
+    public static boolean hasExitCallback() {
+        return exitCallbackSent;
     }
 
     @Keep
@@ -27,6 +34,7 @@ public final class ExitActivity {
 
     @Keep
     public static void showExitMessage(Context context, int code, boolean isSignal) {
+        exitCallbackSent = true;
         try {
             if (context != null) {
                 Intent result = new Intent();
