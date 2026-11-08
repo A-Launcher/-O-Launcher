@@ -2348,7 +2348,11 @@ private fun InstallationsDestination(images: LauncherImages) {
         if (installedLoaderProfileId != null &&
             (profileLoader != selectedLoader || profileMinecraft != selectedVersion)) {
             installedLoaderProfileId = null
-            profilePreferences.edit().remove("loader_profile.$selectedProfile").apply()
+            profilePreferences.edit()
+                .remove("loader_profile.$selectedProfile")
+                .remove("loader_profile_loader.$selectedProfile")
+                .remove("loader_profile_mc.$selectedProfile")
+                .commit()
         }
         val loader = when (selectedLoader) {
             "Fabric" -> OEngineModLoader.FABRIC
