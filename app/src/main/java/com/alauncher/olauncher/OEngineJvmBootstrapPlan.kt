@@ -100,7 +100,7 @@ object OEngineJvmBootstrapPlanner {
 
         val nativeDir = nativeLibraryDirectory.canonicalFile
         if (!nativeDir.isDirectory) blockers += "Android native-library directory is missing."
-        val nativeSearchDirectories = (listOf(nativeDir) + additionalNativeLibraryDirectories)
+        val nativeSearchDirectories = (listOfNotNull(nativeDir, androidGlfwLibrary?.canonicalFile?.parentFile) + additionalNativeLibraryDirectories)
             .map { it.canonicalFile }.distinct()
         if (nativeSearchDirectories.any { !it.isDirectory }) {
             blockers += "One or more additional Android native-library directories are missing."
