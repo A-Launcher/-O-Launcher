@@ -34,8 +34,12 @@ object OEngineMojoAwtInstallerHandoff {
             preferences.getString("$key.$profileKey", null)?.takeIf { it.isNotBlank() }
                 ?: error("Pending Mojo installer request is missing $key.")
 
-        val instance = File(required("pending_installer_instance")).canonicalFile
-        require(instance.isDirectory && !java.nio.file.Files.isSymbolicLink(instance.toPath())) {
+        val rawInstance = File(required("pending_installer_instance")).absoluteFile
+        require(!java.nio.file.Files.isSymbolicLink(rawInstance.toPath())) {
+            "Selected Minecraft instance must not be a symbolic link."
+        }
+        val instance = rawInstance.canonicalFile
+        require(instance.isDirectory) {
             "Selected Minecraft instance is missing or unsafe."
         }
         val installer = containedFile(instance, required("pending_installer_jar"), "oengine/installers")
@@ -69,7 +73,10 @@ object OEngineMojoAwtInstallerHandoff {
                 !value.contains('\u0000')) { "Pending installer argument is invalid." }
             value
         }
-        require(args.any { it.startsWith("-javaagent:") && it.substringAfter("-javaagent:").startsWith(agentPath) }) {
+        require(args.any {
+            val target = it.takeIf { value -> value.startsWith("-javaagent:") }?.substringAfter("-javaagent:")
+            target == agentPath || target?.startsWith("$agentPath=") == true
+        }) {
             "Pending installer arguments do not reference the staged Mojo agent."
         }
         return args
