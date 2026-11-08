@@ -47,4 +47,17 @@ class OEngineJavaCompatibilityTest {
         assertEquals(22, result.targetJavaMajor)
         assertEquals(22, result.runtimeJavaMajor)
     }
+
+    @Test fun blocksJavaTwentyFiveBeforeRuntimeDownloadUntilNativeHookIsSupported() {
+        val result = OEngineJavaCompatibility.resolve("26.1")
+        assertEquals(25, result.runtimeJavaMajor)
+        assertTrue(result.nativeLaunchBlocker()?.contains("supports Java 8, 17, and 21 only") == true)
+    }
+
+    @Test fun permitsAllCurrentlyImplementedNativeHookJavaMajors() {
+        listOf(8, 17, 21).forEach { major ->
+            val result = OEngineJavaCompatibility.resolve("1.20.1", metadataMajor = major)
+            assertEquals(null, result.nativeLaunchBlocker())
+        }
+    }
 }
