@@ -214,8 +214,9 @@ object MinecraftVersionInstaller {
             val name = iterator.next()
             val item = totalObjects.getJSONObject(name)
             val hash = item.getString("hash").lowercase()
-            if (hash.length != 40) continue
-            val target = File(objectBase, hash.substring(0, 2) + "/" + hash)
+            val target = OEngineAssetObjectPath.resolve(objectBase, hash)
+            val assetSize = item.optLong("size", -1L)
+            require(assetSize >= 0L) { "Asset index contains an invalid size for $name." }
             tasks.add(Task(
                 "https://resources.download.minecraft.net/" + hash.substring(0, 2) + "/" + hash,
                 target, hash, item.optLong("size", -1L), "Asset: " + name
@@ -291,17 +292,17 @@ object MinecraftVersionInstaller {
             val assetName = iterator.next()
             val item = objects.getJSONObject(assetName)
             val hash = item.optString("hash").lowercase()
-            if (hash.length != 40 || !hash.all { it in "0123456789abcdef" }) continue
-            val source = File(objectBase, hash.substring(0, 2) + "/" + hash).canonicalFile
-            if (!source.isFile || (item.optLong("size", -1L) > 0L && source.length() != item.optLong("size"))) {
+            val source = OEngineAssetObjectPath.resolve(objectBase, hash)
+            val mappedSize = item.optLong("size", -1L)
+            require(mappedSize >= 0L) { "Asset index contains an invalid size for $assetName." }
+            if (!source.isFile || source.length() != mappedSize) {
                 throw IllegalStateException("Required asset object is missing or has an invalid size: $assetName")
             }
             if (!sha1(source).equals(hash, ignoreCase = true)) {
                 throw IllegalStateException("Required asset object failed SHA-1 verification: $assetName")
             }
             for (destinationRoot in destinations) {
-                val target = File(destinationRoot, assetName).canonicalFile
-                if (!target.toPath().startsWith(destinationRoot.toPath())) continue
+                val target = OEngineAssetObjectPath.resolveMapped(destinationRoot, assetName)
                 if (target.isFile && target.length() == source.length() &&
                     sha1(target).equals(hash, ignoreCase = true)
                 ) continue
