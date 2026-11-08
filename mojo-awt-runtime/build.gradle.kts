@@ -128,6 +128,12 @@ android {
 
 tasks.named("preBuild").configure { dependsOn(prepareMojoAwtJava) }
 
+// Mojo bundles Commons IO classes inside ExagearApacheCommons.jar. Exclude the
+// standalone transitive artifact so D8 does not see duplicate org.apache.commons.io classes.
+configurations.configureEach {
+    exclude(group = "commons-io", module = "commons-io")
+}
+
 dependencies {
     api("androidx.annotation:annotation:1.10.0")
     api("androidx.appcompat:appcompat:1.7.1")
