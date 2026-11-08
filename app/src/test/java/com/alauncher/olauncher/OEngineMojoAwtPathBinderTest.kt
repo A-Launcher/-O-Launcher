@@ -25,26 +25,22 @@ class OEngineMojoAwtPathBinderTest {
         }
     }
 
-    @Test fun bindsEveryMojoPathToTheSelectedInstance() {
+    @Test fun bindsAllPinnedMojoToolsPathFields() {
         val root = Files.createTempDirectory("oengine-mojo-binding").toFile()
         try {
             val paths = OEngineMojoAwtRuntimeLayout.paths(root)
-            // Exercise the same reflective field contract without loading Mojo classes into
-            // the unit-test JVM. Production passes the pinned Mojo Tools class loader.
-            val tools = FakeTools::class.java
-            fun string(name: String, value: String) {
-                tools.getField(name).set(null, value)
-            }
-            string("DIR_GAME_HOME", paths.gameHome.absolutePath)
-            string("DIR_GAME_NEW", paths.gameNew.absolutePath)
-            string("DIR_ACCOUNT_NEW", paths.accountHome.absolutePath)
-            string("DIR_DATA", paths.data.absolutePath)
-            string("MULTIRT_HOME", paths.runtimes.absolutePath)
-            string("NATIVE_LIB_DIR", paths.nativeLibraries.absolutePath)
+            OEngineMojoAwtPathBinder.bindToolsPaths(paths, FakeTools::class.java)
             assertEquals(root.canonicalPath, FakeTools.DIR_GAME_HOME)
             assertEquals(root.canonicalPath, FakeTools.DIR_GAME_NEW)
+            assertEquals(paths.accountHome.absolutePath, FakeTools.DIR_ACCOUNT_NEW)
+            assertEquals(paths.data.absolutePath, FakeTools.DIR_DATA)
+            assertEquals(paths.cache, FakeTools.DIR_CACHE)
             assertEquals(paths.runtimes.absolutePath, FakeTools.MULTIRT_HOME)
             assertEquals(paths.nativeLibraries.absolutePath, FakeTools.NATIVE_LIB_DIR)
+            assertEquals(File(root, "versions").absolutePath, FakeTools.DIR_HOME_VERSION)
+            assertEquals(File(root, "libraries").absolutePath, FakeTools.DIR_HOME_LIBRARY)
+            assertEquals(File(root, "assets").absolutePath, FakeTools.ASSETS_PATH)
+            assertEquals(File(root, "controlmap/default.json").absolutePath, FakeTools.CTRLDEF_FILE)
         } finally {
             root.deleteRecursively()
         }
