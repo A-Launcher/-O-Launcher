@@ -11,6 +11,7 @@ import java.io.FileOutputStream
 import java.io.BufferedInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 data class RuntimeArchiveResult(
     val javaMajor: Int,
@@ -28,6 +29,27 @@ object AndroidRuntimeInstaller {
     private const val MAX_EXTRACTED_BYTES = 4L * 1024L * 1024L * 1024L
     private const val MAX_ARCHIVE_ENTRIES = 200_000
     private val supportedJava = setOf(8, 17, 21, 25)
+    // SHA-256 values published by the GitHub Releases API for the pinned runtime assets.
+    private val runtimeSha256 = mapOf(
+        (8 to "arm") to "9dbee3b09af5f170e2ed9dd596bc81d0e573c88f8bf760c59c8fadbb9073d1e7",
+        (8 to "arm64") to "9a59124d9791957d55c68be664ab76831f336cf2e1e1cd4414220c6fdbf0e06d",
+        (8 to "x86") to "b96ce49fab52b28688dccc1a7d85dfc6d0f4048636aac826e1967524b28f75af",
+        (8 to "x86_64") to "b1fbcef4965c17925894febe8216d089c6dd47b37950b5f945a89616443c1d0e",
+        (17 to "arm") to "4a9134f1ebf6340dd855805d351712462cddab6f3c2684da7e7da10ccf06648d",
+        (17 to "arm64") to "e162c860fe05ee4a4e4af7606437419879f6c748386a7b09fa77d10db6a64091",
+        (17 to "x86") to "223a2d54606a9eb853c8451cf1d6bda1a8f09cb357f40b790140e57d45731ed7",
+        (17 to "x86_64") to "893e27d2aed8b40407f29fe939e2a0f193e5d55f72892a303db634b0808a2b61",
+        (21 to "arm") to "96c297487def64666e379a9a363d9955c05b1a0b091b0cf24af88359a66f394a",
+        (21 to "arm64") to "8d41ec401ee59f7722df60ed991f81ad146e130452804bfdd8a05d3436f7bbfe",
+        (21 to "x86") to "9b8c7d10c5f751acb3b33506593da44ece52a0fd03e0b3c283ba08a7f285a40f",
+        (21 to "x86_64") to "cb88723961f5f9ad63afa1f212eb199816c27cabfd7dc66567bde1d8fb69713b",
+        (25 to "arm") to "9ae13aee9cba7b2d2d8f40965061667e876d7380d866f37a992db3eff296ffb5",
+        (25 to "arm64") to "d3eb7afe2240c26728a1bb440502c5f18ac3883e932d202dd7f0c9bcbbce4c37",
+        (25 to "x86_64") to "7fca862ee1b2d5fe23cd9c9c3d9b7ad3c241947ad1a6cc9464ef2e674867105d"
+    )
+    internal fun expectedArchiveSha256(javaMajor: Int, architecture: String): String? =
+        runtimeSha256[javaMajor to architecture]
+
     private val xzMagic = byteArrayOf(0xFD.toByte(), 0x37, 0x7A, 0x58, 0x5A, 0x00)
 
     fun deviceArchitecture(): String {
@@ -53,6 +75,8 @@ object AndroidRuntimeInstaller {
         }
         val tag = "download_jre$javaMajor"
         val filename = "jre$javaMajor-android-$architecture.tar.xz"
+        val expectedSha256 = expectedArchiveSha256(javaMajor, architecture)
+            ?: throw IllegalStateException("No pinned SHA-256 is available for Java $javaMajor on $architecture.")
         val address = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/$tag/$filename"
         val directory = File(gameDirectory, "oengine/runtime-archives")
         if (!directory.exists() && !directory.mkdirs()) {
@@ -90,6 +114,10 @@ object AndroidRuntimeInstaller {
             if (received < 10_000_000L) {
                 throw IllegalStateException("Downloaded runtime archive is unexpectedly small.")
             }
+            val actualSha256 = sha256(temporary)
+            require(actualSha256.equals(expectedSha256, ignoreCase = true)) {
+                "Downloaded Java $javaMajor runtime failed SHA-256 verification."
+            }
             val header = ByteArray(xzMagic.size)
             temporary.inputStream().use { input ->
                 if (input.read(header) != header.size || !header.contentEquals(xzMagic)) {
@@ -110,6 +138,19 @@ object AndroidRuntimeInstaller {
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun openHttpsDownload(address: String): HttpURLConnection {
