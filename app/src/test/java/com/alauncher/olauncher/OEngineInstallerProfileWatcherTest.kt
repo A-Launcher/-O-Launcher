@@ -12,6 +12,16 @@ class OEngineInstallerProfileWatcherTest {
         File(directory, "$id.json").writeText(
             """{"id":"$id","inheritsFrom":"$parent","libraries":[{"name":"$library"}]}"""
         )
+        val coordinate = library.split(':')
+        require(coordinate.size >= 3)
+        val artifact = coordinate[1]
+        val version = coordinate[2]
+        val artifactFile = File(
+            root,
+            "libraries/${coordinate[0].replace('.', '/')}/$artifact/$version/$artifact-$version.jar"
+        )
+        artifactFile.parentFile?.mkdirs()
+        artifactFile.writeBytes(byteArrayOf(0x50, 0x4b, 0x03, 0x04))
     }
 
     @Test fun resolvesOnlyNewMatchingForgeProfile() {
