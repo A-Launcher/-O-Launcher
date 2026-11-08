@@ -3752,7 +3752,7 @@ private fun NewInstanceWizard(
     var versionMenu by remember { mutableStateOf(false) }
     var loaderMenu by remember { mutableStateOf(false) }
     var nameDialog by remember { mutableStateOf(false) }
-    var compatibleLoaderVersions by remember(loader, selectedVersion) { mutableStateOf(loaderVersions) }
+    var compatibleLoaderVersions by remember(loader, selectedVersion) { mutableStateOf<List<OEngineLoaderVersionCatalog.LoaderVersion>>(emptyList()) }
     var loadingCompatibleVersions by remember { mutableStateOf(false) }
     LaunchedEffect(loader, selectedVersion) {
         val engineLoader = when (loader) {
