@@ -921,7 +921,9 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         runCatching { android.os.StatFs(root.absolutePath) }.getOrNull()
     }
     val storageTotal = storageStats?.totalBytes?.takeIf { it > 0L } ?: 1L
-    val storageUsed = storageStats?.let { (it.totalBytes - it.availableBytes).coerceAtLeast(0L) } ?: 0L
+    val storageUsed = remember(root, refresh) {
+        runCatching { root.walkTopDown().filter { it.isFile }.sumOf { it.length() } }.getOrDefault(0L)
+    }
     val storageProgress = (storageUsed.toFloat() / storageTotal.toFloat()).coerceIn(0f, 1f)
     val shortcuts = listOf(
         Triple("Home", "⬢", root),
@@ -1016,23 +1018,17 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         group.forEach { file ->
                                             Surface(
-                                                onClick = {
+                                                modifier = Modifier.weight(1f).height(145.dp).combinedClickable(onClick = {
                                                     if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                                         editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                                     } else message = "Stored file: ${file.name}"
-                                                },
-                                                modifier = Modifier.weight(1f).height(145.dp),
+                                                }, onLongClick = { renameName = file.name; pendingRename = file }),
                                                 color = Color(0xFFFFF2E2),
                                                 shape = RoundedCornerShape(18.dp),
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0DDC7))
                                             ) {
-                                                Column(Modifier.fillMaxSize().combinedClickable(onClick = {
-                                                    if (file.isDirectory) navigateTo(file)
-                                                    else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
-                                                        editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                                    } else message = "Stored file: ${file.name}"
-                                                }, onLongClick = { renameName = file.name; pendingRename = file }).padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                                Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                                     Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg")) "🖼️" else if (file.extension.lowercase() == "zip") "🧰" else if (file.extension.lowercase() in listOf("dat", "log")) "📃" else "📄", fontSize = 42.sp)
                                                     Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                     Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
@@ -1046,12 +1042,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                         } else {
                             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                                 entries.forEach { file ->
-                                    Row(Modifier.fillMaxWidth().clickable {
-                                        if (file.isDirectory) navigateTo(file)
-                                        else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
-                                            editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                        } else message = "Stored file: ${file.name}"
-                                    }.combinedClickable(onClick = {
+                                    Row(Modifier.fillMaxWidth().combinedClickable(onClick = {
                                         if (file.isDirectory) navigateTo(file)
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                             editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
