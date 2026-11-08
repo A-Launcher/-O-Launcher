@@ -11,8 +11,9 @@ import git.artdeell.mojo.awt.AWTActivity
  */
 class OEngineMojoAwtActivity : AWTActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        var profileKey: String? = null
         try {
-            val profileKey = intent.getStringExtra("oengine.profileKey")
+            profileKey = intent.getStringExtra("oengine.profileKey")
                 ?: error("Installer request is missing its profile key.")
             val preferences = getSharedPreferences("o_launcher_profiles", MODE_PRIVATE)
             val request = OEngineMojoAwtInstallerHandoff.readPending(preferences, profileKey)
@@ -24,14 +25,18 @@ class OEngineMojoAwtActivity : AWTActivity() {
                 "Installer request metadata does not match the saved request."
             }
             ExitActivity.setPendingProfileKey(profileKey)
+            ExitActivity.setPendingFailureMessage(null)
             OEngineMojoAwtInstallerHandoff.bindRuntimePaths(request, this)
         } catch (failure: Throwable) {
-            Toast.makeText(
-                this,
-                failure.message ?: "Could not initialize the Forge/NeoForge installer runtime.",
-                Toast.LENGTH_LONG
-            ).show()
-            finish()
+            val message = failure.message ?: "Could not initialize the Forge/NeoForge installer runtime."
+            if (profileKey != null) {
+                ExitActivity.setPendingProfileKey(profileKey)
+                ExitActivity.setPendingFailureMessage(message)
+                ExitActivity.showExitMessage(this, -1, false)
+            } else {
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                finish()
+            }
             return
         }
         super.onCreate(savedInstanceState)
