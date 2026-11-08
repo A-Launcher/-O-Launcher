@@ -3371,7 +3371,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 val profileSnapshotJson = org.json.JSONObject().apply {
                                                     profileSnapshot.fingerprints.forEach { (id, fingerprint) -> put(id, fingerprint) }
                                                 }
-                                                profilePreferences.edit()
+                                                check(profilePreferences.edit()
                                                     .putString("pending_installer_profile_snapshot.$selectedProfile", profileSnapshotJson.toString())
                                                     .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
                                                     .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation.javaArgs).toString())
@@ -3379,7 +3379,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                     .putString("pending_installer_loader.$selectedProfile", selectedLoader)
                                                     .putString("pending_installer_version.$selectedProfile", version)
                                                     .putString("pending_installer_mc.$selectedProfile", release.id)
-                                                    .apply()
+                                                    .commit()) { "Could not save the pending Mojo AWT installer request." }
                                                 loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). Mojo AWT arguments and installer path are prepared; AWT runtime launch is still pending, so the loader is not installed yet."
                                             }
                                         } catch (error: Exception) {
