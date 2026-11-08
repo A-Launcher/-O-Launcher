@@ -60,4 +60,14 @@ class OEngineMojoAwtActivity : AWTActivity() {
         ContextExecutor.clearActivity()
         super.onPause()
     }
+
+    override fun onDestroy() {
+        if (isFinishing && !ExitActivity.hasExitCallback()) {
+            ExitActivity.setPendingFailureMessage(
+                "The Forge/NeoForge installer window closed before reporting a result."
+            )
+            ExitActivity.showExitMessage(this, -2, false)
+        }
+        super.onDestroy()
+    }
 }
