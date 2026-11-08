@@ -3381,7 +3381,12 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                     .putString("pending_installer_version.$selectedProfile", version)
                                                     .putString("pending_installer_mc.$selectedProfile", release.id)
                                                     .commit()) { "Could not save the pending Mojo AWT installer request." }
-                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). Mojo AWT arguments and installer path are prepared; AWT runtime launch is still pending, so the loader is not installed yet."
+                                                val handoff = OEngineMojoAwtInstallerHandoff.readPending(
+                                                    profilePreferences, selectedProfile
+                                                )
+                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). " +
+                                                    "The saved Mojo AWT handoff was validated for ${handoff.instanceRoot.name}; " +
+                                                    "the AWT runtime itself is not packaged yet, so installation has not started."
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
