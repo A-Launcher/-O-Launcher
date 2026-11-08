@@ -74,15 +74,6 @@ object OEngineLoaderInstaller {
         require(profile.optString("mainClass").isNotBlank()) { "The loader profile has no main class." }
 
         val (metadataFile, temporaryMetadata) = prepareProfileMetadataPaths(gameDirectory, profileId)
-        temporaryMetadata.writeText(profileText)
-        if (metadataFile.exists() && !metadataFile.delete()) {
-            temporaryMetadata.delete()
-            throw IllegalStateException("Could not replace previous loader profile.")
-        }
-        if (!temporaryMetadata.renameTo(metadataFile)) {
-            temporaryMetadata.copyTo(metadataFile, overwrite = true)
-            temporaryMetadata.delete()
-        }
 
         val entries = mutableListOf<JSONObject>()
         val libraryArray = profile.optJSONArray("libraries")
@@ -117,7 +108,43 @@ object OEngineLoaderInstaller {
             installed++
             onProgress(index + 1, entries.size, "Installed $name")
         }
+        // Publish the profile only after every required library has been verified or
+        // downloaded. A failed install must not leave selectable, half-installed metadata.
+        commitProfileMetadata(metadataFile, temporaryMetadata, profileText)
         InstallResult(loader, game, selectedLoader, profileId, metadataFile, installed, bytes)
+    }
+
+    internal fun commitProfileMetadata(metadataFile: File, temporaryMetadata: File, profileText: String) {
+        val parent = metadataFile.parentFile?.canonicalFile
+            ?: error("Loader profile metadata has no parent directory.")
+        require(temporaryMetadata.parentFile?.canonicalFile == parent &&
+            metadataFile.canonicalFile.parentFile == parent &&
+            temporaryMetadata.canonicalFile.parentFile == parent) {
+            "Loader profile metadata paths must share one contained directory."
+        }
+        require(!java.nio.file.Files.isSymbolicLink(metadataFile.toPath()) &&
+            !java.nio.file.Files.isSymbolicLink(temporaryMetadata.toPath())) {
+            "Loader profile metadata path must not be a symbolic link."
+        }
+        temporaryMetadata.writeText(profileText)
+        try {
+            try {
+                java.nio.file.Files.move(
+                    temporaryMetadata.toPath(),
+                    metadataFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE
+                )
+            } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+                java.nio.file.Files.move(
+                    temporaryMetadata.toPath(),
+                    metadataFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+        } finally {
+            if (temporaryMetadata.exists()) temporaryMetadata.delete()
+        }
     }
 
     /** Ensures loader libraries are written to a real directory inside this instance. */
