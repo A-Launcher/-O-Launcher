@@ -6,9 +6,9 @@ import java.nio.file.Files
 /**
  * Defines the per-instance filesystem contract required by the pinned Mojo AWT installer.
  *
- * Mojo's JavaRunner and MultiRTUtils use global Tools paths. The eventual AWT process
- * adapter must point those globals at this layout before AWTActivity is created; keeping
- * this mapping in one place prevents accidentally installing into Mojo's default folder.
+ * Mojo's JavaRunner and MultiRTUtils use global Tools paths. OEngineMojoAwtActivity
+ * binds those globals to this layout before AWTActivity.onCreate() and before the first
+ * MultiRTUtils lookup; keeping this mapping centralized prevents default-folder installs.
  */
 object OEngineMojoAwtRuntimeLayout {
     data class Paths(
