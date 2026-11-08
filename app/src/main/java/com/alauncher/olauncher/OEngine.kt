@@ -57,9 +57,13 @@ object OLauncherEngine {
     fun paths(gameRoot: File): OEnginePaths = OEnginePaths(gameRoot.canonicalFile)
 
     fun findRuntime(gameRoot: File, javaMajor: Int): OEngineRuntime? {
+        val root = gameRoot.canonicalFile
+        require(root.isDirectory || root.mkdirs()) { "O Engine could not create the game directory." }
+        val runtimeLayout = OEngineMojoAwtRuntimeLayout.paths(root)
+        OEngineMojoAwtInstallerHandoff.migrateLegacyRuntimeLayout(runtimeLayout)
         val architecture = AndroidRuntimeInstaller.deviceArchitecture()
         val name = "Java-" + javaMajor + "-" + architecture
-        val home = File(paths(gameRoot).runtimes, name)
+        val home = File(runtimeLayout.runtimes, name)
         val executable = File(home, "bin/java")
         val release = File(home, "release")
         if (!executable.isFile || !release.isFile) return null
