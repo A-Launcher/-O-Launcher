@@ -31,7 +31,7 @@ class OEngineMojoAwtActivity : AWTActivity() {
             OEngineMojoAwtInstallerHandoff.bindRuntimePaths(request, this)
             ContextExecutor.setActivity(this)
         } catch (failure: Throwable) {
-            val message = failure.message ?: "Could not initialize the Forge/NeoForge installer runtime."
+            val message = failure.message ?: "Could not initialize the Forge/NeoForge/OptiFine installer runtime."
             if (profileKey != null) {
                 ExitActivity.setPendingProfileKey(profileKey)
                 ExitActivity.setPendingFailureMessage(message)
@@ -46,7 +46,7 @@ class OEngineMojoAwtActivity : AWTActivity() {
             super.onCreate(savedInstanceState)
         } catch (failure: Throwable) {
             ExitActivity.setPendingFailureMessage(
-                failure.message ?: "Mojo AWT could not create the Forge/NeoForge installer window."
+                failure.message ?: "Mojo AWT could not create the Forge/NeoForge/OptiFine installer window."
             )
             ExitActivity.showExitMessage(this, -1, false)
         }
@@ -71,7 +71,7 @@ class OEngineMojoAwtActivity : AWTActivity() {
     override fun onDestroy() {
         if (isFinishing && !ExitActivity.hasExitCallback()) {
             ExitActivity.setPendingFailureMessage(
-                "The Forge/NeoForge installer window closed before reporting a result."
+                "The Forge/NeoForge/OptiFine installer window closed before reporting a result."
             )
             ExitActivity.showExitMessage(this, -2, false)
         }
