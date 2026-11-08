@@ -3384,9 +3384,10 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 val handoff = OEngineMojoAwtInstallerHandoff.readPending(
                                                     profilePreferences, selectedProfile
                                                 )
-                                                loaderInstallStatus = "$selectedLoader installer SHA-1 verified (${staged.bytes / 1024} KB). " +
-                                                    "The saved Mojo AWT handoff was validated for ${handoff.instanceRoot.name}; " +
-                                                    "native AWT/Cacio packaging is configured, but the AWT Java activity is not linked into the APK yet; installation has not started."
+                                                context.startActivity(
+                                                    OEngineMojoAwtInstallerHandoff.createIntent(context, handoff)
+                                                )
+                                                loaderInstallStatus = "Launching the official $selectedLoader installer for Minecraft $release.id in the isolated Mojo AWT process…"
                                             }
                                         } catch (error: Exception) {
                                             loaderInstallStatus = error.message ?: "Could not install $selectedLoader."
@@ -3664,10 +3665,53 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleMojoInstallerExit(intent)
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         enterImmersiveLandscape()
         setContent {
             OLauncherApp()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleMojoInstallerExit(intent)
+    }
+
+    private fun handleMojoInstallerExit(resultIntent: Intent?) {
+        if (resultIntent == null || !resultIntent.hasExtra("oengine.mojo.exit_code")) return
+        val profileKey = resultIntent.getStringExtra("oengine.mojo.profile_key")
+        val exitCode = resultIntent.getIntExtra("oengine.mojo.exit_code", -1)
+        val isSignal = resultIntent.getBooleanExtra("oengine.mojo.exit_signal", false)
+        try {
+            require(!profileKey.isNullOrBlank()) { "Mojo returned without the pending profile key." }
+            if (exitCode == 0 && !isSignal) {
+                val preferences = getSharedPreferences("o_launcher_profiles", MODE_PRIVATE)
+                val request = OEngineMojoAwtInstallerHandoff.readPending(preferences, profileKey)
+                val installed = OEngineMojoAwtInstallerHandoff.complete(request, preferences)
+                Toast.makeText(
+                    this,
+                    "Installed ${installed.loader.name} profile ${installed.versionId}.",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "The loader installer exited with code $exitCode${if (isSignal) " (signal)" else ""}. Check its log.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (failure: Throwable) {
+            Toast.makeText(
+                this,
+                failure.message ?: "Could not verify the installed loader profile.",
+                Toast.LENGTH_LONG
+            ).show()
+        } finally {
+            resultIntent.removeExtra("oengine.mojo.exit_code")
+            resultIntent.removeExtra("oengine.mojo.exit_signal")
+            resultIntent.removeExtra("oengine.mojo.profile_key")
         }
     }
 
