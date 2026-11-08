@@ -93,6 +93,7 @@ class OEngineJvmBootstrapPlanTest {
             val expectedNativePath = listOf(glfw.parentFile!!.canonicalPath, nativeDir.canonicalPath)
                 .joinToString(File.pathSeparator)
             assertTrue(plan.vmOptions.contains("-Djava.library.path=" + expectedNativePath))
+            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.librarypath=" + expectedNativePath))
             assertTrue(plan.vmOptions.contains("-Djna.boot.library.path=" + expectedNativePath))
             assertFalse(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=/wrong/path"))
         } finally { root.deleteRecursively() }
