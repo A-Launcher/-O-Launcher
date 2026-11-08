@@ -8,7 +8,7 @@ import java.io.File
 class OEngineInstallerProfileWatcherTest {
     private fun profile(root: File, id: String, parent: String, library: String) {
         val directory = File(root, "versions/$id")
-        assert(directory.mkdirs())
+        if (!directory.exists()) assert(directory.mkdirs())
         File(directory, "$id.json").writeText(
             """{"id":"$id","inheritsFrom":"$parent","libraries":[{"name":"$library"}]}"""
         )
