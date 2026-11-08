@@ -19,6 +19,7 @@ public final class ExitActivity {
     @Keep
     public static void setPendingProfileKey(String profileKey) {
         pendingProfileKey = profileKey;
+        pendingFailureMessage = null;
         exitCallbackSent = false;
     }
 
@@ -34,7 +35,6 @@ public final class ExitActivity {
 
     @Keep
     public static void showExitMessage(Context context, int code, boolean isSignal) {
-        exitCallbackSent = true;
         try {
             if (context != null) {
                 Intent result = new Intent();
@@ -47,6 +47,7 @@ public final class ExitActivity {
                     | Intent.FLAG_ACTIVITY_CLEAR_TOP
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 context.startActivity(result);
+                exitCallbackSent = true;
             }
         } catch (Throwable failure) {
             Log.e(TAG, "Could not return installer result to O Launcher", failure);
