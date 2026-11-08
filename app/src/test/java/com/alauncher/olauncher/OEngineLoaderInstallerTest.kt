@@ -130,4 +130,30 @@ class OEngineLoaderInstallerTest {
             externalVersions.deleteRecursively()
         }
     }
+
+    @Test fun libraryRootIsCreatedInsideInstanceAndRejectsSymlinks() {
+        val root = createTempDir(prefix = "loader-library-")
+        val outside = createTempDir(prefix = "loader-library-outside-")
+        try {
+            val libraryRoot = OEngineLoaderInstaller.prepareLibraryRoot(root)
+            assertEquals(java.io.File(root, "libraries").canonicalFile, libraryRoot)
+            assertTrue(libraryRoot.isDirectory)
+        } finally {
+            root.deleteRecursively()
+        }
+
+        val linkedRoot = createTempDir(prefix = "loader-library-")
+        try {
+            java.nio.file.Files.createSymbolicLink(
+                java.io.File(linkedRoot, "libraries").toPath(),
+                outside.toPath()
+            )
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                OEngineLoaderInstaller.prepareLibraryRoot(linkedRoot)
+            }
+        } finally {
+            linkedRoot.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
 }
