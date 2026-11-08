@@ -160,6 +160,7 @@ class OEngineLoaderInstallerTest {
     @Test fun profileMetadataIsPublishedByReplacingTheStagedFile() {
         val root = createTempDir(prefix = "loader-profile-commit-")
         try {
+            assertTrue(java.io.File(root, "versions").mkdirs())
             val (metadata, temporary) =
                 OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
             metadata.writeText("previous profile")
@@ -175,6 +176,7 @@ class OEngineLoaderInstallerTest {
         val root = createTempDir(prefix = "loader-profile-commit-")
         val outside = createTempDir(prefix = "loader-profile-commit-outside-")
         try {
+            assertTrue(java.io.File(root, "versions").mkdirs())
             val (metadata, temporary) =
                 OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
             val external = java.io.File(outside, "external.txt")

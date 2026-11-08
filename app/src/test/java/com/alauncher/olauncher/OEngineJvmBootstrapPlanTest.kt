@@ -68,7 +68,7 @@ class OEngineJvmBootstrapPlanTest {
         val root = Files.createTempDirectory("oengine-jvm-glfw-plan").toFile()
         try {
             val runtimeHome = File(root, "runtime").apply { mkdirs() }
-            File(runtimeHome, "release").writeText("JAVA_VERSION=\"17\"\\n")
+            File(runtimeHome, "release").writeText("JAVA_VERSION=\"17\"\n")
             val java = File(runtimeHome, "bin/java").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
             File(runtimeHome, "lib/server/libjvm.so").apply { parentFile?.mkdirs(); writeBytes(byteArrayOf(1)) }
             val game = File(root, "game").apply { mkdirs() }

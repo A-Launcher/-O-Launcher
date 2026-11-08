@@ -111,11 +111,25 @@ class OEngineLwjglNativeResolverTest {
             val result = OEngineLwjglNativeResolver.resolve(listOf(core))
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
             assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
-            assertTrue(result.blockers.any { it.contains("org.lwjgl.opengl.libname") })
-            assertTrue(result.blockers.any { it.contains("GL4ES") })
+            assertTrue(result.blockers.any { it.contains("org.lwjgl.librarypath/System.loadLibrary") })
+            assertTrue(result.blockers.any { it.contains("matching JNI ABI") })
+            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL entry-point bridge") })
+            assertFalse(result.blockers.any { it.contains("org.lwjgl.opengl.libname interception") })
         } finally { root.deleteRecursively() }
     }
 
+
+    @Test
+    fun blocksLwjgl2WhenSysNativeLoadContractCannotBeVerified() {
+        val root = Files.createTempDirectory("oengine-lwjgl2-no-sys-contract").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4/lwjgl-2.9.4.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath but no native loading method".toByteArray())
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core))
+            assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
+            assertTrue(result.blockers.any { it.contains("expected org.lwjgl.Sys native-load contract") })
+        } finally { root.deleteRecursively() }
+    }
 
     @Test
     fun rejectsNdlopenConstantPoolStringsWithoutNativeStaticMethod() {

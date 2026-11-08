@@ -230,6 +230,14 @@ object OEngineLwjglNativeResolver {
             blockers += "LWJGL 3 core JAR is missing or ambiguous."
         }
 
+        if (generation == OEngineLwjglGeneration.LWJGL2) {
+            if (coreJar == null) {
+                blockers += "LWJGL 2 core JAR is missing or ambiguous."
+            } else if (!lwjgl2SysClassPresent || !lwjgl2SystemLoadMarkerPresent) {
+                blockers += "LWJGL 2 core JAR does not expose the expected org.lwjgl.Sys native-load contract."
+            }
+        }
+
         val surface = when {
             generation == OEngineLwjglGeneration.LWJGL2 -> OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD
             generation == OEngineLwjglGeneration.LWJGL3 && dynamicLoaderPresent ->
@@ -243,7 +251,7 @@ object OEngineLwjglNativeResolver {
 
         when (surface) {
             OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
-                blockers += "LWJGL 2 uses System.loadLibrary and the org.lwjgl.librarypath route; O Engine has no verified org.lwjgl.opengl.libname interception adapter for GL4ES yet."
+                blockers += "LWJGL 2 loads its single core JNI library through org.lwjgl.librarypath/System.loadLibrary; O Engine still needs an Android LWJGL 2 native build with the matching JNI ABI and a verified GL4ES/OpenGL entry-point bridge. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace it."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
