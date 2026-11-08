@@ -182,7 +182,9 @@ object OEngineJvmNativeBridge {
     }
 
     internal fun createJvm(vmOptions: List<String>, javaMajor: Int): OEngineJvmLibraryProbe {
-        require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
+        require(OEngineJavaCompatibility.supportsNativeHookMajor(javaMajor)) {
+            "Java $javaMajor is below the supported Java 8 or runtime-probed Java 17+ native-library hook profiles."
+        }
         require(vmOptions.isNotEmpty()) { "The JVM bootstrap option list is empty." }
         require(vmOptions.size <= 512 && vmOptions.all { it.isNotBlank() && it.length <= 16_384 }) {
             "The JVM bootstrap options exceed the native safety limits."
