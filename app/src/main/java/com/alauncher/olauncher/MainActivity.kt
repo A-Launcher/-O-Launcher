@@ -3365,7 +3365,14 @@ private fun InstallationsDestination(images: LauncherImages) {
                                                 }
                                                 val agent = OEngineInstallerAgent.stage(context, activeInstance.root)
                                                 val invocation = OEngineInstallerAgent.buildLaunchArguments(agent, staged.file)
+                                                // Capture profile JSON state before the AWT installer runs. The completion
+                                                // handler can then distinguish newly-created and rewritten profile IDs.
+                                                val profileSnapshot = OEngineInstallerProfileWatcher.snapshot(activeInstance.root)
+                                                val profileSnapshotJson = org.json.JSONObject().apply {
+                                                    profileSnapshot.fingerprints.forEach { (id, fingerprint) -> put(id, fingerprint) }
+                                                }
                                                 profilePreferences.edit()
+                                                    .putString("pending_installer_profile_snapshot.$selectedProfile", profileSnapshotJson.toString())
                                                     .putString("pending_installer_agent.$selectedProfile", agent.absolutePath)
                                                     .putString("pending_installer_args.$selectedProfile", org.json.JSONArray(invocation).toString())
                                                     .putString("pending_installer_loader.$selectedProfile", selectedLoader)
