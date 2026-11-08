@@ -110,7 +110,10 @@ object OLauncherEngine {
                 timezoneId = java.util.TimeZone.getDefault().id,
                 availableProcessors = Runtime.getRuntime().availableProcessors(),
                 rendererLibraryAlias = rendererLibraryAlias,
-                androidGlfwLibrary = androidGlfwLibrary
+                androidGlfwLibrary = androidGlfwLibrary,
+                additionalNativeLibraryDirectories = listOfNotNull(
+                    nativeDirectory.takeIf { androidGlfwLibrary != null }
+                )
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
