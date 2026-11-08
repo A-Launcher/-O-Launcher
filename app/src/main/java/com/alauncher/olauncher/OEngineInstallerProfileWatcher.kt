@@ -119,7 +119,7 @@ object OEngineInstallerProfileWatcher {
         preferences: SharedPreferences,
         profileKey: String
     ): InstalledProfile {
-        require(profileKey.isNotBlank() && !profileKey.contains('/') && !profileKey.contains('\\\\')) {
+        require(profileKey.isNotBlank() && !profileKey.contains('/') && !profileKey.contains('\\')) {
             "Invalid launcher profile key."
         }
         val snapshotKey = "pending_installer_profile_snapshot.$profileKey"
