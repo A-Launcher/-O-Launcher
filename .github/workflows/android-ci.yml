@@ -28,6 +28,27 @@ jobs:
           ref: 3f1f4df6c80c925ea34067b1d943a84acce0184d
           path: .third_party/LTW
 
+      - name: Align pinned Mojo subproject Android plugin requests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path("third_party/MojoLauncher/glfw/jni_bindings/build.gradle"),
+              Path("third_party/MojoLauncher/mojoexec/jni_bindings/build.gradle"),
+              Path("third_party/MojoLauncher/sdl/jni_bindings/build.gradle"),
+          ]
+          old = "id 'com.android.library' version '8.11.1'"
+          new = "id 'com.android.library'"
+          for path in targets:
+              source = path.read_text()
+              if source.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one pinned Android plugin request in {path}")
+              path.write_text(source.replace(old, new))
+              print(f"Aligned {path} with the root Android Gradle Plugin classpath")
+          PY
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
