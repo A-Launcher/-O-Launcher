@@ -248,10 +248,11 @@ object OEngineMojoAwtInstallerHandoff {
             override fun getExternalFilesDir(type: String?): File = paths.instanceRoot
         }
         val loader = context.classLoader
-        val preferenceManager = Class.forName("androidx.preference.PreferenceManager", true, loader)
-        val sharedPreferences = preferenceManager
-            .getMethod("getDefaultSharedPreferences", Context::class.java)
-            .invoke(null, context) as SharedPreferences
+        // Keep Mojo's legacy preference keys out of O Launcher's own default preferences.
+        val sharedPreferences = context.getSharedPreferences(
+            "oengine_mojo_awt_preferences",
+            Context.MODE_PRIVATE
+        )
         val launcherPreferences = Class.forName(
             "git.artdeell.mojo.prefs.LauncherPreferences", true, loader
         )
