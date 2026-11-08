@@ -98,7 +98,10 @@ object OLauncherEngine {
             OEngineJvmBootstrapPlanner.prepare(
                 runtime = selectedRuntime,
                 classpath = plan.classpath.map(::File),
-                nativeLibraryDirectory = nativeDirectory,
+                // Java's System.loadLibrary searches java.library.path, not merely
+                // LD_LIBRARY_PATH. Point it at the private ABI-matched Android native
+                // set staged alongside libglfw.so (LWJGL core/OpenGL/OpenAL included).
+                nativeLibraryDirectory = androidGlfwLibrary?.canonicalFile?.parentFile ?: nativeDirectory,
                 workingDirectory = enginePaths.root,
                 mainClass = plan.mainClass,
                 requestedVmOptions = plan.jvmArguments,
