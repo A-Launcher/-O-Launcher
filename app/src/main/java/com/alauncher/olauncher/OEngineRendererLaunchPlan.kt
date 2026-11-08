@@ -104,7 +104,8 @@ object OEngineRendererLaunchPlanner {
         glesDriver: OEngineGlesDriver,
         lwjgl2NativeLoaderVerified: Boolean,
         rendererEglLifecycleVerified: Boolean = false,
-        namespaceBypassVerified: Boolean = false
+        namespaceBypassVerified: Boolean = false,
+        minecraftReleaseTime: String? = null
     ): OEngineRendererLaunchPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -141,6 +142,9 @@ object OEngineRendererLaunchPlanner {
         val environment = linkedMapOf<String, String>()
         glesDriver.eglLibraryPath?.let { environment["LIBGL_EGL"] = it }
         glesDriver.glesLibraryPath?.let { environment["LIBGL_GLES"] = it }
+        val legacyOpenGl = OEngineLegacyOpenGlPolicy.resolve(minecraftReleaseTime)
+        environment["LIBGL_ES"] = "2"
+        environment["LIBGL_GL"] = legacyOpenGl.gl4esVersion
         environment["force_glsl_extensions_warn"] = "true"
         environment["allow_higher_compat_version"] = "true"
         environment["allow_glsl_extension_directive_midshader"] = "true"
@@ -155,7 +159,7 @@ object OEngineRendererLaunchPlanner {
             preloadBeforeJvm = true,
             requiresLwjglNativeLoadInterception = true,
             blockers = blockers.distinct(),
-            warnings = warnings.distinct()
+            warnings = (warnings + legacyOpenGl.reason).distinct()
         )
     }
 
