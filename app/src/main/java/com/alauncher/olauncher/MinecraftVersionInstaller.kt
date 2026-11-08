@@ -381,6 +381,7 @@ object MinecraftVersionInstaller {
         val javaMajorVersion: Int,
         val targetJavaMajor: Int = javaMajorVersion,
         val javaCompatibilityNote: String = "Java $javaMajorVersion runtime selected.",
+        val releaseTime: String? = null,
         val classpath: List<String>,
         val gameArguments: List<String>,
         val jvmArguments: List<String>
@@ -506,6 +507,7 @@ object MinecraftVersionInstaller {
             javaMajorVersion = javaMajorVersion,
             targetJavaMajor = javaCompatibility.targetJavaMajor,
             javaCompatibilityNote = javaCompatibility.explanation,
+            releaseTime = metadata.optString("releaseTime").takeIf { it.isNotBlank() },
             classpath = classpath.distinct(),
             gameArguments = gameArguments,
             jvmArguments = jvmArguments
