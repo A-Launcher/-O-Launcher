@@ -48,16 +48,23 @@ class OEngineJavaCompatibilityTest {
         assertEquals(22, result.runtimeJavaMajor)
     }
 
-    @Test fun blocksJavaTwentyFiveBeforeRuntimeDownloadUntilNativeHookIsSupported() {
-        val result = OEngineJavaCompatibility.resolve("26.1")
-        assertEquals(25, result.runtimeJavaMajor)
-        assertTrue(result.nativeLaunchBlocker()?.contains("supports Java 8, 17, and 21 only") == true)
+    @Test fun permitsJavaTwentyFiveAndFutureMajorsThroughRuntimeAbiProbe() {
+        listOf(25, 26, 27, 30).forEach { major ->
+            val result = OEngineJavaCompatibility.resolve("future-snapshot", metadataMajor = major)
+            assertEquals(major, result.runtimeJavaMajor)
+            assertEquals(null, result.nativeLaunchBlocker())
+        }
     }
 
-    @Test fun permitsAllCurrentlyImplementedNativeHookJavaMajors() {
-        listOf(8, 17, 21).forEach { major ->
-            val result = OEngineJavaCompatibility.resolve("1.20.1", metadataMajor = major)
-            assertEquals(null, result.nativeLaunchBlocker())
+    @Test fun blocksUnmappedIntermediateJavaMajorsBelowSeventeen() {
+        val result = OEngineJavaCompatibility.resolve("legacy", metadataMajor = 15)
+        assertEquals(15, result.runtimeJavaMajor)
+        assertTrue(result.nativeLaunchBlocker()?.contains("Java 8 hook or probed Java 17+") == true)
+    }
+
+    @Test fun permitsJavaEightAndAllJavaSeventeenOrNewer() {
+        listOf(8, 17, 21, 25, 26, 27).forEach { major ->
+            assertTrue(OEngineJavaCompatibility.supportsNativeHookMajor(major))
         }
     }
 }
