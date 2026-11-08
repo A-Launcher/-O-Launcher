@@ -18,12 +18,15 @@ object MinecraftVersionInstaller {
     private const val READ_TIMEOUT = 30000
 
     suspend fun fetchReleases(): Pair<List<MinecraftRelease>, String> = withContext(Dispatchers.IO) {
-        val manifest = JSONObject(requestText(MANIFEST_URL))
+        parseVersionManifest(JSONObject(requestText(MANIFEST_URL)))
+    }
+
+    internal fun parseVersionManifest(manifest: JSONObject): Pair<List<MinecraftRelease>, String> {
         val latest = manifest.getJSONObject("latest").optString("release")
         val entries = manifest.getJSONArray("versions")
         val releases = buildList {
             for (index in 0 until entries.length()) {
-                val item = entries.getJSONObject(index)
+                val item = entries.optJSONObject(index) ?: continue
                 val id = item.optString("id")
                 val type = item.optString("type")
                 val url = item.optString("url")
@@ -35,7 +38,7 @@ object MinecraftVersionInstaller {
                 }
             }
         }
-        releases to latest
+        return releases to latest
     }
 
     suspend fun downloadClient(
