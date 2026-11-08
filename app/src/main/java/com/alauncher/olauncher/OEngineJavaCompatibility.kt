@@ -24,7 +24,7 @@ data class OEngineJavaCompatibility(
      * used by MojoLauncher, and avoids hardcoding a maximum Java major.
      */
     fun nativeLaunchBlocker(): String? =
-        if (runtimeJavaMajor == 8 || runtimeJavaMajor >= 17) null
+        if (supportsNativeHookMajor(runtimeJavaMajor)) null
         else "Minecraft requires Java $runtimeJavaMajor, but O Engine currently supports the Java 8 hook or probed Java 17+ HotSpot hook ABI."
 
     companion object {
