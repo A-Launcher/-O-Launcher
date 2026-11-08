@@ -40,6 +40,26 @@ class OEngineInstallerProfileWatcherTest {
         }
     }
 
+    @Test fun resolvesNewOptiFineProfileAndItsLibrary() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            profile(
+                root,
+                "1.20.1-OptiFine_HD_U_I6",
+                "1.20.1",
+                "optifine:OptiFine:1.20.1_HD_U_I6"
+            )
+            val result = OEngineInstallerProfileWatcher.resolve(
+                root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.OPTIFINE
+            )
+            assertEquals("1.20.1-OptiFine_HD_U_I6", result.versionId)
+            assertEquals(OEngineInstallerProfileWatcher.Loader.OPTIFINE, result.loader)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun resolvesClassifiedLoaderArtifact() {
         val root = createTempDir(prefix = "installer-profile-")
         try {
