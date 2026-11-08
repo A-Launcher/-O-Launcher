@@ -29,8 +29,10 @@ object OEngineMojoAwtPathBinder {
             }
         }
 
+        val nativeRoot = nativeLibraryDirectory.canonicalFile
+        require(nativeRoot.isDirectory) { "Android native library directory is unavailable." }
         val tools = Class.forName(TOOLS_CLASS, false, classLoader)
-        bindToolsPaths(paths, tools)
+        bindToolsPaths(paths, tools, nativeRoot)
         return paths
     }
 
