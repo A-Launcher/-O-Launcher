@@ -62,6 +62,7 @@ dependencies {
     api("com.google.code.gson:gson:2.13.1")
     api("org.tukaani:xz:1.10")
     api("net.sourceforge.htmlcleaner:htmlcleaner:2.29")
+    api("net.objecthunter:exp4j:0.4.8")
 
     api("com.github.duanhong169:checkerboarddrawable:1.0.2")
     api("com.github.PojavLauncherTeam:portrait-sdp:ed33e89cbc")
