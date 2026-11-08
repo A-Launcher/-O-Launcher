@@ -239,8 +239,13 @@ object AndroidRuntimeInstaller {
         require(javaMajor in supportedJava) {
             "Java $javaMajor has no supported Android runtime package in the configured source."
         }
+        val root = gameDirectory.canonicalFile
+        require(root.isDirectory || root.mkdirs()) { "Could not create the Minecraft game directory." }
+        OEngineMojoAwtInstallerHandoff.migrateLegacyRuntimeLayout(
+            OEngineMojoAwtRuntimeLayout.paths(root)
+        )
         val architecture = deviceArchitecture()
-        val runtimeHome = File(File(gameDirectory, "runtimes"), "Java-$javaMajor-$architecture")
+        val runtimeHome = File(File(root, "runtimes"), "Java-$javaMajor-$architecture")
         val release = File(runtimeHome, "release")
         val java = File(runtimeHome, "bin/java")
         if (java.isFile && release.isFile) {
