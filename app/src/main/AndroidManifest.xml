@@ -2,10 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application
+        android:name=".OLauncherApplication"
         android:allowBackup="true"
         android:label="O Launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name=".OEngineMojoAwtActivity"
+            android:process=":gui_installer"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+            android:theme="@style/MojoLauncher.AppTheme" />
         <service
             android:name=".OEngineGameProcessService"
             android:exported="false"
