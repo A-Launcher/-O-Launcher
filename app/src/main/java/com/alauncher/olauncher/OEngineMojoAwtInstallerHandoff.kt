@@ -102,7 +102,15 @@ object OEngineMojoAwtInstallerHandoff {
         initializeMojoPreferences(context, paths)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 8)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 17)
-        val nativeLibraryDirectory = File(context.applicationInfo.nativeLibraryDir)
+        val nativeDirectory = File(context.applicationInfo.nativeLibraryDir).canonicalFile
+        val architecture = Class.forName("git.artdeell.mojo.Architecture", true, context.classLoader)
+        val is32BitX86 = architecture.getMethod("isx86Device").invoke(null) as Boolean &&
+            architecture.getMethod("is32BitsDevice").invoke(null) as Boolean
+        val nativeLibraryDirectory = if (is32BitX86) {
+            File(nativeDirectory.parentFile, "x86").canonicalFile
+        } else {
+            nativeDirectory
+        }
         OEngineMojoAwtPathBinder.bind(request.instanceRoot, context.classLoader, nativeLibraryDirectory)
         val validRuntimes = paths.runtimes.listFiles().orEmpty()
             .filter { it.isDirectory }
