@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import git.artdeell.mojo.ExitActivity
 import git.artdeell.mojo.awt.AWTActivity
+import git.artdeell.mojo.utils.lifecycle.ContextExecutor
 
 /**
  * Process boundary adapter: bind the selected instance before Mojo's AWT activity
@@ -40,5 +41,15 @@ class OEngineMojoAwtActivity : AWTActivity() {
             return
         }
         super.onCreate(savedInstanceState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ContextExecutor.setActivity(this)
+    }
+
+    override fun onPause() {
+        ContextExecutor.clearActivity()
+        super.onPause()
     }
 }
