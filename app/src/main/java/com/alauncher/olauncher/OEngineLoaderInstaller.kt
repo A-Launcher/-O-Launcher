@@ -178,34 +178,28 @@ object OEngineLoaderInstaller {
         }
         val versionsRoot = versionsPath.canonicalFile
         require(versionsRoot.isDirectory) { "Minecraft versions directory is missing." }
-        val profilePath = File(versionsRoot, profileId)
-        require(!java.nio.file.Files.isSymbolicLink(profilePath.toPath())) {
+        val profilePath = versionsRoot.toPath().resolve(profileId).normalize()
+        require(profilePath.startsWith(versionsRoot.toPath())) { "Unsafe loader profile path." }
+        require(!java.nio.file.Files.isSymbolicLink(profilePath)) {
             "Loader profile directory must not be a symbolic link."
         }
-        if (!profilePath.exists() && !profilePath.mkdirs()) {
-            throw IllegalStateException("Could not create loader profile directory.")
+        if (!java.nio.file.Files.exists(profilePath)) {
+            java.nio.file.Files.createDirectory(profilePath)
         }
-        // Resolve after creation so canonical-path checks use the filesystem's
-        // final directory entry rather than a pre-creation path guess.
-        require(!java.nio.file.Files.isSymbolicLink(profilePath.toPath())) {
-            "Loader profile directory must not be a symbolic link."
+        require(java.nio.file.Files.isDirectory(profilePath) &&
+            !java.nio.file.Files.isSymbolicLink(profilePath)) {
+            "Loader profile directory is missing or unsafe."
         }
-        val profileDirectory = profilePath.canonicalFile
-        require(profileDirectory.toPath().startsWith(versionsRoot.toPath()) &&
-            profileDirectory.isDirectory) {
-            "Loader profile directory is missing or escapes the versions directory."
-        }
-        val metadataFile = File(profileDirectory, "$profileId.json")
-        val temporaryMetadata = File(profileDirectory, "$profileId.json.part")
-        require(!java.nio.file.Files.isSymbolicLink(metadataFile.toPath()) &&
-            !java.nio.file.Files.isSymbolicLink(temporaryMetadata.toPath())) {
-            "Loader profile metadata path must not be a symbolic link."
-        }
-        require(metadataFile.canonicalFile.parentFile == profileDirectory &&
-            temporaryMetadata.canonicalFile.parentFile == profileDirectory) {
+        val metadataPath = profilePath.resolve("$profileId.json").normalize()
+        val temporaryPath = profilePath.resolve("$profileId.json.part").normalize()
+        require(metadataPath.parent == profilePath && temporaryPath.parent == profilePath) {
             "Loader profile metadata path escapes its profile directory."
         }
-        return metadataFile to temporaryMetadata
+        require(!java.nio.file.Files.isSymbolicLink(metadataPath) &&
+            !java.nio.file.Files.isSymbolicLink(temporaryPath)) {
+            "Loader profile metadata path must not be a symbolic link."
+        }
+        return metadataPath.toFile() to temporaryPath.toFile()
     }
 
     private const val MAX_PROFILE_BYTES = 8L * 1024L * 1024L
