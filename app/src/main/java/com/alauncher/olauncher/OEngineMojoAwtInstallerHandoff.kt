@@ -136,7 +136,7 @@ object OEngineMojoAwtInstallerHandoff {
         val archiveStore = File(paths.instanceRoot, "oengine/runtime-archives")
 
         runtimeRoot.listFiles().orEmpty()
-            .filter { it.name.endsWith(".installing") }
+            .filter { it.name.endsWith(".installing") &&\n                System.currentTimeMillis() - it.lastModified() > 6L * 60L * 60L * 1000L }
             .forEach { staging ->
                 require(!java.nio.file.Files.isSymbolicLink(staging.toPath())) {
                     "Interrupted Java runtime staging path is unsafe."
