@@ -778,7 +778,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
         };
     }
 
-    if java_major != 8 && java_major < 17 {
+    if !supports_native_hook_java_major(java_major) {
         return response!("unsupported_java_major", &format!("Java {java_major} is below the supported Android HotSpot hook profiles (Java 8 or Java 17+)"));
     }
 
@@ -1055,6 +1055,10 @@ fn preload_for_native_load(raw_env: *mut RawJNIEnv, name: jstring) -> Option<elf
     let name: String = env.get_string(&java_name).ok()?.into();
     if name.is_empty() || name.len() > 4096 { return None; }
     elf_hinter::preload_named_library(&name).ok()
+}
+
+fn supports_native_hook_java_major(java_major: i32) -> bool {
+    java_major == 8 || java_major >= 17
 }
 
 unsafe extern "system" fn native_load_java8(
@@ -1861,6 +1865,16 @@ mod tests {
     fn empty_names_are_never_redirected() {
         assert!(!is_redirect_candidate(b"", b"libGLMojo.so"));
         assert!(!is_redirect_candidate(b"libGLMojo.so", b""));
+    }
+
+    #[test]
+    fn native_hook_major_gate_accepts_java_eight_and_runtime_probed_newer_jdks() {
+        for major in [8, 17, 21, 25, 26, 27, 30] {
+            assert!(supports_native_hook_java_major(major), "Java {major} should be ABI-probed");
+        }
+        for major in [0, 6, 7, 9, 11, 16] {
+            assert!(!supports_native_hook_java_major(major), "Java {major} has no supported hook profile");
+        }
     }
 
     #[test]
