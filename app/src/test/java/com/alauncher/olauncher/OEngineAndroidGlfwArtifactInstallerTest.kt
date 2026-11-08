@@ -16,19 +16,23 @@ class OEngineAndroidGlfwArtifactInstallerTest {
         try {
             val source = File(root, "apk-libs").apply { mkdirs() }
             val destination = File(root, "private/oengine/android-glfw")
-            listOf("libglfw.so", "libmojoexec.so", "liblinkerhook.so", "libfopenhook.so").forEachIndexed { index, name ->
+            listOf(
+                "libglfw.so", "libmojoexec.so", "liblinkerhook.so", "liblwjgl.so",
+                "liblwjgl_opengl.so", "liblwjgl_nanovg.so", "liblwjgl_stb.so",
+                "liblwjgl_tinyfd.so", "libopenal.so", "libfopenhook.so"
+            ).forEachIndexed { index, name ->
                 File(source, name).writeBytes(fakeElf(183, 64, index.toByte()))
             }
 
             val result = OEngineAndroidGlfwArtifactInstaller.install(source, destination, "arm64-v8a")
 
-            assertEquals(4, result.libraries.size)
+            assertEquals(10, result.libraries.size)
             assertTrue(result.libraries.all { it.isFile && it.length() > 0L })
             assertEquals(64, result.sha256ByLibrary.values.first().length)
             val manifest = result.manifest.readText()
             assertTrue(manifest.contains("\"abi\":\"arm64-v8a\""))
             assertEquals(4, Regex("\"name\"").findAll(manifest).count())
-            assertTrue(manifest.contains("LWJGL org.lwjgl.glfw JNI/runtime adapter is not yet connected"))
+            assertTrue(manifest.contains("HotSpot native search-path activation"))
         } finally {
             root.deleteRecursively()
         }
