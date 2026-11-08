@@ -12,6 +12,8 @@ android {
         resValue("string", "application_package", "com.alauncher.olauncher")
         resValue("string", "storageProviderAuthorities", "com.alauncher.olauncher.scoped.gamefolder")
         resValue("string", "group_id", "com.alauncher")
+        // Keep the upstream optional CurseForge client disabled; O Launcher does not expose it.
+        resValue("string", "curseforge_api_key", "DUMMY")
     }
 
     buildFeatures {
