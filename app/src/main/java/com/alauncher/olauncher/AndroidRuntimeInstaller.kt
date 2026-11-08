@@ -140,8 +140,13 @@ object AndroidRuntimeInstaller {
     suspend fun installRuntime(archive: File, javaMajor: Int, gameDirectory: File, onProgress: (String) -> Unit): RuntimeInstallResult = withContext(Dispatchers.IO) {
         require(archive.isFile && archive.length() > 0L) { "Download the Java runtime archive first." }
         require(javaMajor in supportedJava) { "Unsupported Java runtime version: " + javaMajor }
+        val gameRoot = gameDirectory.canonicalFile
+        require(gameRoot.isDirectory || gameRoot.mkdirs()) { "Could not create the Minecraft game directory." }
+        OEngineMojoAwtInstallerHandoff.migrateLegacyRuntimeLayout(
+            OEngineMojoAwtRuntimeLayout.paths(gameRoot)
+        )
         val architecture = deviceArchitecture()
-        val root = File(gameDirectory, "runtimes").canonicalFile
+        val root = File(gameRoot, "runtimes").canonicalFile
         if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create the installed runtimes directory.")
         val runtimeName = "Java-" + javaMajor + "-" + architecture
         val destination = File(root, runtimeName)
