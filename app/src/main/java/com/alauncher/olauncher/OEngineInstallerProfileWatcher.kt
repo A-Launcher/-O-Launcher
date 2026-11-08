@@ -38,14 +38,23 @@ object OEngineInstallerProfileWatcher {
             "Minecraft versions path is not a safe directory."
         }
         val fingerprints = linkedMapOf<String, String>()
-        versions.listFiles().orEmpty().forEach { directory ->
+        val entries = versions.listFiles()
+            ?: error("Could not inspect existing Minecraft version profiles.")
+        entries.forEach { directory ->
             if (!directory.isDirectory || java.nio.file.Files.isSymbolicLink(directory.toPath())) return@forEach
             val canonical = runCatching { directory.canonicalFile }.getOrNull() ?: return@forEach
             if (!canonical.toPath().startsWith(versions.toPath())) return@forEach
             val json = File(canonical, "${directory.name}.json")
             if (!json.isFile || java.nio.file.Files.isSymbolicLink(json.toPath()) ||
                 json.length() !in 1..MAX_PROFILE_JSON_BYTES.toLong()) return@forEach
-            val bytes = runCatching { json.readBytes() }.getOrNull() ?: return@forEach
+            val bytes = try {
+                json.readBytes()
+            } catch (failure: Exception) {
+                throw IllegalStateException(
+                    "Could not fingerprint existing Minecraft profile " + directory.name + ".",
+                    failure
+                )
+            }
             fingerprints[directory.name] = sha256(bytes)
         }
         return Snapshot(fingerprints)
@@ -87,7 +96,9 @@ object OEngineInstallerProfileWatcher {
         require(root.isDirectory) {
             "Minecraft versions directory is missing or unsafe."
         }
-        val candidates = root.listFiles().orEmpty().asSequence()
+        val versionEntries = root.listFiles()
+            ?: error("Could not inspect installed Minecraft version profiles.")
+        val candidates = versionEntries.asSequence()
             .filter { it.isDirectory && !java.nio.file.Files.isSymbolicLink(it.toPath()) }
             .mapNotNull { directory ->
                 val canonical = runCatching { directory.canonicalFile }.getOrNull() ?: return@mapNotNull null
