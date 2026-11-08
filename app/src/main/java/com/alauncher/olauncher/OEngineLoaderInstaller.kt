@@ -73,14 +73,7 @@ object OEngineLoaderInstaller {
         }
         require(profile.optString("mainClass").isNotBlank()) { "The loader profile has no main class." }
 
-        val versionsRoot = File(gameDirectory, "versions").canonicalFile
-        val profileDirectory = File(versionsRoot, profileId).canonicalFile
-        require(profileDirectory.toPath().startsWith(versionsRoot.toPath())) { "Unsafe loader profile path." }
-        if (!profileDirectory.exists() && !profileDirectory.mkdirs()) {
-            throw IllegalStateException("Could not create loader profile directory.")
-        }
-        val metadataFile = File(profileDirectory, "$profileId.json")
-        val temporaryMetadata = File(profileDirectory, "$profileId.json.part")
+        val (metadataFile, temporaryMetadata) = prepareProfileMetadataPaths(gameDirectory, profileId)
         temporaryMetadata.writeText(profileText)
         if (metadataFile.exists() && !metadataFile.delete()) {
             temporaryMetadata.delete()
@@ -125,6 +118,44 @@ object OEngineLoaderInstaller {
             onProgress(index + 1, entries.size, "Installed $name")
         }
         InstallResult(loader, game, selectedLoader, profileId, metadataFile, installed, bytes)
+    }
+
+    /**
+     * Creates a contained profile directory and rejects symlinks at every metadata
+     * write boundary. In particular, an existing profile JSON symlink must never be
+     * followed by writeText(), even when its parent directory is inside versions/.
+     */
+    internal fun prepareProfileMetadataPaths(gameDirectory: File, profileId: String): Pair<File, File> {
+        require(profileId.matches(Regex("[A-Za-z0-9._-]{1,128}"))) { "Invalid loader profile ID." }
+        val versionsPath = File(gameDirectory, "versions")
+        require(!java.nio.file.Files.isSymbolicLink(versionsPath.toPath())) {
+            "Minecraft versions directory must not be a symbolic link."
+        }
+        val versionsRoot = versionsPath.canonicalFile
+        require(versionsRoot.isDirectory) { "Minecraft versions directory is missing." }
+        val profilePath = File(versionsRoot, profileId)
+        require(!java.nio.file.Files.isSymbolicLink(profilePath.toPath())) {
+            "Loader profile directory must not be a symbolic link."
+        }
+        val profileDirectory = profilePath.canonicalFile
+        require(profileDirectory.toPath().startsWith(versionsRoot.toPath())) { "Unsafe loader profile path." }
+        if (!profileDirectory.exists() && !profileDirectory.mkdirs()) {
+            throw IllegalStateException("Could not create loader profile directory.")
+        }
+        require(profileDirectory.isDirectory && !java.nio.file.Files.isSymbolicLink(profileDirectory.toPath())) {
+            "Loader profile directory is missing or unsafe."
+        }
+        val metadataFile = File(profileDirectory, "$profileId.json")
+        val temporaryMetadata = File(profileDirectory, "$profileId.json.part")
+        require(!java.nio.file.Files.isSymbolicLink(metadataFile.toPath()) &&
+            !java.nio.file.Files.isSymbolicLink(temporaryMetadata.toPath())) {
+            "Loader profile metadata path must not be a symbolic link."
+        }
+        require(metadataFile.canonicalFile.parentFile == profileDirectory &&
+            temporaryMetadata.canonicalFile.parentFile == profileDirectory) {
+            "Loader profile metadata path escapes its profile directory."
+        }
+        return metadataFile to temporaryMetadata
     }
 
     private const val MAX_PROFILE_BYTES = 8L * 1024L * 1024L
