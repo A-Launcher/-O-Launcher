@@ -21,6 +21,9 @@ object MinecraftVersionInstaller {
         parseVersionManifest(JSONObject(requestText(MANIFEST_URL)))
     }
 
+    internal fun isSafeVersionId(versionId: String): Boolean =
+        versionId.matches(Regex("[A-Za-z0-9._-]{1,128}"))
+
     internal fun resolveJavaCompatibility(
         versionId: String,
         baseMetadata: JSONObject,
@@ -45,7 +48,7 @@ object MinecraftVersionInstaller {
                 // Mojang's manifest is the source of truth. Do not whitelist known
                 // release categories: future snapshots, experiments, and new version
                 // channels should appear without requiring a launcher update.
-                if (id.isNotBlank() && type.isNotBlank() && url.startsWith("https://")) {
+                if (isSafeVersionId(id) && type.isNotBlank() && url.startsWith("https://")) {
                     add(MinecraftRelease(id, type, url))
                 }
             }
@@ -58,6 +61,7 @@ object MinecraftVersionInstaller {
         gameDirectory: File,
         onProgress: (Long, Long) -> Unit
     ): ClientDownloadResult = withContext(Dispatchers.IO) {
+        require(isSafeVersionId(version.id)) { "Minecraft version ID is invalid." }
         val metadataText = requestText(version.url)
         val metadata = JSONObject(metadataText)
         val downloads = metadata.getJSONObject("downloads")
@@ -144,6 +148,7 @@ object MinecraftVersionInstaller {
         gameDirectory: File,
         onProgress: (Long, Long, String) -> Unit
     ): DependencyInstallResult = withContext(Dispatchers.IO) {
+        require(isSafeVersionId(version.id)) { "Minecraft version ID is invalid." }
         val metadata = JSONObject(requestText(version.url))
         val libraries = metadata.optJSONArray("libraries")
         val assetIndex = metadata.optJSONObject("assetIndex")
@@ -390,6 +395,7 @@ object MinecraftVersionInstaller {
         loaderProfileId: String? = null,
         maxMemoryMb: Int = 2048
     ): LaunchPlan = withContext(Dispatchers.IO) {
+        require(isSafeVersionId(version.id)) { "Minecraft version ID is invalid." }
         val versionDirectory = File(File(gameDirectory, "versions"), version.id)
         val metadataFile = File(versionDirectory, "${version.id}.json")
         val clientJar = File(versionDirectory, "${version.id}.jar")
