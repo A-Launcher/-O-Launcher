@@ -14,7 +14,7 @@ class OEngineMojoAwtRuntimeLayoutTest {
             val paths = OEngineMojoAwtRuntimeLayout.paths(root)
             assertEquals(root.canonicalFile, paths.gameHome)
             assertEquals(root.canonicalFile, paths.gameNew)
-            assertEquals(File(root, "runtimes").canonicalFile, paths.runtimes)
+            assertEquals(File(root, "runtimes/installed").canonicalFile, paths.runtimes)
             listOf(paths.accountHome, paths.data, paths.cache, paths.runtimes, paths.nativeLibraries,
                 paths.cacioJava8, paths.cacioJava17).forEach {
                 assertTrue(it.toPath().startsWith(root.canonicalFile.toPath()))
