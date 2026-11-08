@@ -896,143 +896,171 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     val storageBytes = remember(root, refresh) {
         runCatching { root.walkTopDown().filter { it.isFile }.sumOf { it.length() } }.getOrDefault(0L)
     }
+    val storageLimit = 12L * 1024L * 1024L * 1024L
+    val storageProgress = (storageBytes.toFloat() / storageLimit).coerceIn(0f, 1f)
     val shortcuts = listOf(
-        "Home" to root,
-        "Internal Storage" to root,
-        "Downloads" to File(root, "downloads").apply { mkdirs() },
-        "Minecraft" to root,
-        "Screenshots" to File(root, "screenshots"),
-        "Backups" to File(root, "backups"),
-        "Mods" to File(root, "mods")
+        Triple("Home", "⬢", root),
+        Triple("Internal Storage", "💽", root),
+        Triple("Downloads", "⬇", File(root, "downloads")),
+        Triple("Minecraft", "🟩", root),
+        Triple("Screenshots", "▧", File(root, "screenshots")),
+        Triple("Backups", "◴", File(root, "backups")),
+        Triple("Mods", "✿", File(root, "mods"))
     )
 
-    Column(Modifier.fillMaxWidth().fillMaxHeight().padding(bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-        DestinationHero(images, "File Manager", "Browse, manage and organize your Minecraft files.", "INSTANCE STORAGE")
+    Column(Modifier.fillMaxWidth().fillMaxHeight().padding(bottom = 5.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(25.dp))) {
+            Image(images.hero, "Nether-themed File Manager banner", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xC91B0808), Color(0x6B300B13), Color.Transparent))))
+            Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                Text("📁", fontSize = 62.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("File Manager", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black)
+                    Text("Browse, manage and organize your files.", color = Color.White, fontSize = 14.sp)
+                }
+            }
+        }
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.width(205.dp).fillMaxHeight(), color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+            Surface(Modifier.width(220.dp).fillMaxHeight(), color = Panel, shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
                 Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     shortcuts.forEachIndexed { index, item ->
-                        val exists = item.second.exists()
+                        val selected = if (index <= 3) current == root else current == item.third
                         Surface(
                             onClick = {
-                                if (exists && item.second.isDirectory) current = item.second
+                                if (item.third.exists() && item.third.isDirectory) current = item.third
                                 else message = "${item.first} folder is not available in this instance yet."
                             },
-                            color = if (current == item.second) Gold else Color.Transparent,
-                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) Gold else Color.Transparent,
+                            shape = RoundedCornerShape(13.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(Modifier.padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(listOf("⬡", "💽", "⬇", "🟩", "🖼", "🕘", "🧩")[index], fontSize = 17.sp)
-                                Spacer(Modifier.width(8.dp))
-                                Text(item.first, color = Ink, fontSize = 11.sp, fontWeight = if (current == item.second) FontWeight.Black else FontWeight.Medium, maxLines = 1)
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(item.second, fontSize = 20.sp)
+                                Spacer(Modifier.width(10.dp))
+                                Text(item.first, color = Ink, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, maxLines = 1)
+                                if (selected) { Spacer(Modifier.weight(1f)); Text("›", color = Ink, fontSize = 22.sp) }
                             }
                         }
                     }
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Surface(color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-                    Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null) {
-                                Icon(Icons.Filled.ArrowBack, contentDescription = null); Text("BACK")
-                            }
-                            OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null) {
-                                Text("↑", fontSize = 18.sp, fontWeight = FontWeight.Bold); Text("UP")
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Button(onClick = { newName = ""; showCreate = true }, colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
-                                Icon(Icons.Filled.CreateNewFolder, contentDescription = null); Text("NEW FOLDER", fontSize = 10.sp)
-                            }
-                            Button(onClick = { newName = ""; showNewFile = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE8C8), contentColor = Ink)) {
-                                Icon(Icons.Filled.Description, contentDescription = null); Text("NEW FILE", fontSize = 10.sp)
+                Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Filled.ArrowBack, null); Spacer(Modifier.width(6.dp)); Text("Back")
+                        }
+                        OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
+                            Text("↑", fontSize = 19.sp); Spacer(Modifier.width(6.dp)); Text("Up")
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Button(onClick = { newName = ""; showCreate = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE8C8), contentColor = Ink), shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Filled.CreateNewFolder, null); Spacer(Modifier.width(6.dp)); Text("New Folder")
+                        }
+                        Button(onClick = { newName = ""; showNewFile = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE8C8), contentColor = Ink), shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Filled.Description, null); Spacer(Modifier.width(6.dp)); Text("New File")
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Surface(color = Color(0xFFFFF3E5), shape = RoundedCornerShape(13.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Search, null, tint = Ink)
+                                Spacer(Modifier.width(5.dp))
+                                BasicTextField(value = search, onValueChange = { search = it }, singleLine = true, modifier = Modifier.width(130.dp), decorationBox = { inner -> if (search.isEmpty()) Text("Search files...", color = Muted, fontSize = 12.sp); inner() })
                             }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedTextField(value = search, onValueChange = { search = it }, modifier = Modifier.weight(1f).height(52.dp), singleLine = true, placeholder = { Text("Search files…", fontSize = 11.sp) })
-                            Spacer(Modifier.width(8.dp))
-                            TextButton(onClick = { importPicker.launch(arrayOf("*/*")) }) { Text("IMPORT") }
-                            TextButton(onClick = { gridMode = true }) { Text("▦") }
-                            TextButton(onClick = { gridMode = false }) { Text("☷") }
-                        }
-                        Text(current.relativeTo(root).path.let { if (it == ".") "Home /" else "Home / $it" }, color = Muted, fontSize = 10.sp, maxLines = 1)
+                        TextButton(onClick = { importPicker.launch(arrayOf("*/*")) }) { Text("IMPORT", color = Ink, fontWeight = FontWeight.Bold) }
+                        Surface(onClick = { gridMode = true }, color = if (gridMode) Gold else Color.Transparent, shape = RoundedCornerShape(12.dp)) { Text("▦", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Ink, fontSize = 20.sp) }
+                        Surface(onClick = { gridMode = false }, color = if (!gridMode) Gold else Color.Transparent, shape = RoundedCornerShape(12.dp)) { Text("☷", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Ink, fontSize = 20.sp) }
                     }
                 }
-                Surface(Modifier.weight(1f).fillMaxWidth(), color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-                    Column(Modifier.fillMaxSize().padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                Surface(Modifier.weight(1f).fillMaxWidth(), color = Color(0xFFFFF9F0), shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Column(Modifier.fillMaxSize().padding(9.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text(if (current == root) "HOME" else "HOME  /  ${current.relativeTo(root).path}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 7.dp))
                         if (entries.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(if (search.isBlank()) "This folder is empty." else "No files match your search.", color = Muted, fontSize = 12.sp)
+                                Text(if (search.isBlank()) "This folder is empty." else "No files match your search.", color = Muted, fontSize = 13.sp)
                             }
                         } else if (gridMode) {
-                            entries.chunked(4).forEach { group ->
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    group.forEach { file ->
-                                        Surface(
-                                            onClick = {
-                                                if (file.isDirectory) current = file
-                                                else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
-                                                    editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                                } else message = "Stored file: ${file.name}"
-                                            },
-                                            modifier = Modifier.weight(1f).height(112.dp),
-                                            color = Color(0xFFFFF3E2),
-                                            shape = RoundedCornerShape(15.dp),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE2C0))
-                                        ) {
-                                            Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                                Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png","jpg","jpeg")) "🖼️" else "📄", fontSize = 31.sp)
-                                                Text(file.name, color = Ink, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 9.sp)
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                entries.chunked(5).forEach { group ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        group.forEach { file ->
+                                            Surface(
+                                                onClick = {
+                                                    if (file.isDirectory) current = file
+                                                    else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
+                                                        editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                                    } else message = "Stored file: ${file.name}"
+                                                },
+                                                modifier = Modifier.weight(1f).height(145.dp),
+                                                color = Color(0xFFFFF2E2),
+                                                shape = RoundedCornerShape(18.dp),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0DDC7))
+                                            ) {
+                                                Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                                    Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg")) "🖼️" else if (file.extension.lowercase() == "zip") "🧰" else if (file.extension.lowercase() in listOf("dat", "log")) "📃" else "📄", fontSize = 42.sp)
+                                                    Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
+                                                }
                                             }
                                         }
+                                        repeat(5 - group.size) { Spacer(Modifier.weight(1f)) }
                                     }
-                                    repeat(4 - group.size) { Spacer(Modifier.weight(1f)) }
                                 }
                             }
                         } else {
-                            entries.forEach { file ->
-                                Row(Modifier.fillMaxWidth().clickable {
-                                    if (file.isDirectory) current = file
-                                    else if (file.extension.lowercase() in listOf("txt","json","properties","cfg","log","yml","yaml","dat")) {
-                                        editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                    } else message = "Stored file: ${file.name}"
-                                }.padding(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(if (file.isDirectory) "📁" else "📄", fontSize = 19.sp)
-                                    Spacer(Modifier.width(10.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(file.name, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 9.sp)
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                                entries.forEach { file ->
+                                    Row(Modifier.fillMaxWidth().clickable {
+                                        if (file.isDirectory) current = file
+                                        else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
+                                            editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                        } else message = "Stored file: ${file.name}"
+                                    }.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(if (file.isDirectory) "📁" else "📄", fontSize = 23.sp)
+                                        Spacer(Modifier.width(12.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
+                                        }
+                                        TextButton(onClick = { pendingDelete = file }) { Text("DELETE", color = Color(0xFFB34B3B), fontSize = 9.sp) }
                                     }
-                                    TextButton(onClick = { pendingDelete = file }) { Text("DELETE", color = Color(0xFFB34B3B), fontSize = 9.sp) }
                                 }
                             }
                         }
                         if (message.isNotBlank()) Text(message, color = Muted, fontSize = 10.sp)
                     }
                 }
-                Surface(color = Panel, shape = RoundedCornerShape(16.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-                    Row(Modifier.fillMaxWidth().padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("💽", fontSize = 22.sp)
-                        Spacer(Modifier.width(9.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Storage Usage", color = Muted, fontSize = 10.sp)
-                            Text(OEngineInstalledContentManager.formatSize(storageBytes) + " used in active instance", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("💽", fontSize = 27.sp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Storage Usage:", color = Muted, fontSize = 11.sp)
+                                Spacer(Modifier.weight(1f))
+                                Text("${OEngineInstalledContentManager.formatSize(storageBytes)} / 12 GB", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                            }
+                            Box(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape).background(Color(0xFFF1DCC1))) {
+                                Box(Modifier.fillMaxWidth(storageProgress).fillMaxHeight().clip(CircleShape).background(Brush.horizontalGradient(listOf(Color(0xFFFFC52F), Color(0xFFEAA019)))))
+                            }
                         }
-                        TextButton(onClick = { context.cacheDir.listFiles()?.forEach { it.deleteRecursively() }; message = "Temporary cache cleared." }) {
-                            Icon(Icons.Filled.Delete, contentDescription = null); Text("CLEAR CACHE", fontSize = 9.sp)
+                        Button(onClick = { context.cacheDir.listFiles()?.forEach { it.deleteRecursively() }; message = "Temporary cache cleared."; refresh++ }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFE8D0), contentColor = Ink), shape = RoundedCornerShape(18.dp)) {
+                            Icon(Icons.Filled.Delete, null); Spacer(Modifier.width(6.dp)); Text("Clear Cache")
                         }
                     }
                 }
             }
         }
     }
+
     if (showCreate || showNewFile) AlertDialog(
         onDismissRequest = { showCreate = false; showNewFile = false },
         title = { Text(if (showCreate) "NEW FOLDER" else "NEW FILE") },
         text = { OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, label = { Text("Name") }) },
-        confirmButton = { TextButton(enabled = newName.isNotBlank() && !newName.contains("/") && !newName.contains("\\"), onClick = {
+        confirmButton = { TextButton(enabled = newName.isNotBlank() && !newName.contains("/") && !newName.contains("\\\\"), onClick = {
             val target = current.resolve(newName.trim())
             val created = if (showCreate) target.mkdirs() else runCatching { target.createNewFile() }.getOrDefault(false)
             if (created) refresh++ else message = "Could not create that item."
