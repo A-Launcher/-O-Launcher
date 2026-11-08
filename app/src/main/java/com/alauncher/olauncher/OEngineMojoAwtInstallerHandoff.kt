@@ -140,6 +140,18 @@ object OEngineMojoAwtInstallerHandoff {
         launcherPreferences.getField("DEFAULT_PREF").set(null, sharedPreferences)
         launcherPreferences.getMethod("loadPreferences", Context::class.java)
             .invoke(null, instanceContext)
+
+        val application = context.applicationContext as? android.app.Application
+            ?: error("Mojo AWT bootstrap requires an Android Application context.")
+        Class.forName("git.artdeell.mojo.utils.lifecycle.ContextExecutor", true, loader)
+            .getMethod("setApplication", android.app.Application::class.java)
+            .invoke(null, application)
+        val architecture = Class.forName("git.artdeell.mojo.Architecture", true, loader)
+            .getMethod("getDeviceArchitecture")
+            .invoke(null) as Int
+        Class.forName("git.artdeell.mojo.Tools", true, loader)
+            .getField("DEVICE_ARCHITECTURE")
+            .setInt(null, architecture)
     }
 
     fun complete(request: Request, preferences: SharedPreferences): OEngineInstallerProfileWatcher.InstalledProfile =
