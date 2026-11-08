@@ -156,4 +156,38 @@ class OEngineLoaderInstallerTest {
             outside.deleteRecursively()
         }
     }
+
+    @Test fun profileMetadataIsPublishedByReplacingTheStagedFile() {
+        val root = createTempDir(prefix = "loader-profile-commit-")
+        try {
+            val (metadata, temporary) =
+                OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
+            metadata.writeText("previous profile")
+            OEngineLoaderInstaller.commitProfileMetadata(metadata, temporary, "complete profile")
+            assertEquals("complete profile", metadata.readText())
+            assertFalse(temporary.exists())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun profileMetadataCommitRejectsTemporarySymlink() {
+        val root = createTempDir(prefix = "loader-profile-commit-")
+        val outside = createTempDir(prefix = "loader-profile-commit-outside-")
+        try {
+            val (metadata, temporary) =
+                OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
+            val external = java.io.File(outside, "external.txt")
+            external.writeText("keep me")
+            java.nio.file.Files.createSymbolicLink(temporary.toPath(), external.toPath())
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                OEngineLoaderInstaller.commitProfileMetadata(metadata, temporary, "overwrite attempt")
+            }
+            assertEquals("keep me", external.readText())
+            assertFalse(metadata.exists())
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
 }
