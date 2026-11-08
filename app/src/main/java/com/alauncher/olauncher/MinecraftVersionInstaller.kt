@@ -24,8 +24,14 @@ object MinecraftVersionInstaller {
         val releases = buildList {
             for (index in 0 until entries.length()) {
                 val item = entries.getJSONObject(index)
-                if (item.optString("type") in setOf("release", "snapshot", "old_beta", "old_alpha")) {
-                    add(MinecraftRelease(item.getString("id"), item.optString("type"), item.getString("url")))
+                val id = item.optString("id")
+                val type = item.optString("type")
+                val url = item.optString("url")
+                // Mojang's manifest is the source of truth. Do not whitelist known
+                // release categories: future snapshots, experiments, and new version
+                // channels should appear without requiring a launcher update.
+                if (id.isNotBlank() && type.isNotBlank() && url.startsWith("https://")) {
+                    add(MinecraftRelease(id, type, url))
                 }
             }
         }
