@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.json.JSONArray
+import java.io.File
+import java.nio.file.Files
 
 class OEngineMojoAwtInstallerHandoffTest {
     @Test fun acceptsMojoAgentJvmArgument() {
@@ -36,4 +38,39 @@ class OEngineMojoAwtInstallerHandoffTest {
             )
         }
     }
+    @Test fun migratesLegacyRuntimeFoldersAndArchivesBeforeDiscovery() {
+        val root = Files.createTempDirectory("oengine-mojo-runtime-migration").toFile()
+        try {
+            val runtimeRoot = File(root, "runtimes")
+            val legacyJava17 = File(runtimeRoot, "installed/Java-17-arm64")
+            assertEquals(true, legacyJava17.mkdirs())
+            File(legacyJava17, "release").writeText("JAVA_VERSION=\"17\"\\n")
+            val legacyJava21 = File(runtimeRoot, "installed/Java-21-arm64")
+            assertEquals(true, legacyJava21.mkdirs())
+            File(legacyJava21, "release").writeText("JAVA_VERSION=\"21\"\\n")
+            val existingJava21 = File(runtimeRoot, "Java-21-arm64")
+            assertEquals(true, existingJava21.mkdirs())
+            File(existingJava21, "release").writeText("JAVA_VERSION=\"21-existing\"\\n")
+            val oldArchive = File(runtimeRoot, "archives/jre17-android-arm64.tar.xz")
+            assertEquals(true, oldArchive.parentFile.mkdirs())
+            oldArchive.writeBytes(byteArrayOf(1, 2, 3))
+
+            OEngineMojoAwtInstallerHandoff.migrateLegacyRuntimeLayout(
+                OEngineMojoAwtRuntimeLayout.paths(root)
+            )
+
+            assertEquals(true, File(runtimeRoot, "Java-17-arm64/release").isFile)
+            assertEquals(true, File(root, "oengine/runtime-archives/jre17-android-arm64.tar.xz").isFile)
+            assertEquals(
+                true,
+                File(root, "oengine/mojo/legacy-runtimes/installed/Java-21-arm64/release").isFile
+            )
+            assertEquals(false, File(runtimeRoot, "installed").exists())
+            assertEquals(false, File(runtimeRoot, "archives").exists())
+            assertEquals("JAVA_VERSION=\"21-existing\"\\n", File(existingJava21, "release").readText())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
