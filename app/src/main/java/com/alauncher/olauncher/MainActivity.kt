@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -864,7 +865,9 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var current by remember(root) { mutableStateOf(root) }
     val navigationHistory = remember(root) { mutableStateListOf<File>() }
     val navigateTo: (File) -> Unit = { destination ->
-        if (destination != current && destination.canonicalPath.startsWith(root.canonicalPath)) {
+        val rootPath = runCatching { root.canonicalFile.path }.getOrDefault(root.absolutePath)
+        val destinationPath = runCatching { destination.canonicalFile.path }.getOrDefault(destination.absolutePath)
+        if (destination != current && (destinationPath == rootPath || destinationPath.startsWith(rootPath + File.separator))) {
             navigationHistory.add(current)
             current = destination
         }
@@ -879,6 +882,8 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var search by remember { mutableStateOf("") }
     var gridMode by remember { mutableStateOf(true) }
     var pendingDelete by remember { mutableStateOf<File?>(null) }
+    var pendingRename by remember { mutableStateOf<File?>(null) }
+    var renameName by remember { mutableStateOf("") }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -948,10 +953,9 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                         val selected = if (index <= 3) current == root else current == item.third
                         Surface(
                             onClick = {
-                                if (item.third == root || item.third.exists() && item.third.isDirectory) {
-                                    item.third.mkdirs()
+                                if (item.third == root || item.third.exists() && item.third.isDirectory || item.third.mkdirs()) {
                                     navigateTo(item.third)
-                                } else message = "${item.first} folder is not available in this instance yet."
+                                } else message = "Could not open ${item.first}."
                             },
                             color = if (selected) Gold else Color.Transparent,
                             shape = RoundedCornerShape(13.dp),
@@ -975,7 +979,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                         }, enabled = navigationHistory.isNotEmpty(), shape = RoundedCornerShape(18.dp)) {
                             Icon(Icons.Filled.ArrowBack, null); Spacer(Modifier.width(6.dp)); Text("Back")
                         }
-                        OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
+                        OutlinedButton(onClick = { parent?.let { navigateTo(it) } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
                             Text("↑", fontSize = 19.sp); Spacer(Modifier.width(6.dp)); Text("Up")
                         }
                         Spacer(Modifier.width(6.dp))
@@ -1023,7 +1027,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                                 shape = RoundedCornerShape(18.dp),
                                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0DDC7))
                                             ) {
-                                                Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                                Column(Modifier.fillMaxSize().combinedClickable(onClick = {
+                                                    if (file.isDirectory) navigateTo(file)
+                                                    else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
+                                                        editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                                    } else message = "Stored file: ${file.name}"
+                                                }, onLongClick = { renameName = file.name; pendingRename = file }).padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                                     Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg")) "🖼️" else if (file.extension.lowercase() == "zip") "🧰" else if (file.extension.lowercase() in listOf("dat", "log")) "📃" else "📄", fontSize = 42.sp)
                                                     Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                     Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
@@ -1042,7 +1051,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                             editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                         } else message = "Stored file: ${file.name}"
-                                    }.padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    }.combinedClickable(onClick = {
+                                        if (file.isDirectory) navigateTo(file)
+                                        else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
+                                            editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                        } else message = "Stored file: ${file.name}"
+                                    }, onLongClick = { renameName = file.name; pendingRename = file }).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (file.isDirectory) "📁" else "📄", fontSize = 23.sp)
                                         Spacer(Modifier.width(12.dp))
                                         Column(Modifier.weight(1f)) {
@@ -1092,6 +1106,20 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         }) { Text("CREATE") } },
         dismissButton = { TextButton(onClick = { showCreate = false; showNewFile = false }) { Text("CANCEL") } }
     )
+    pendingRename?.let { file ->
+        AlertDialog(
+            onDismissRequest = { pendingRename = null },
+            title = { Text("Rename item") },
+            text = { OutlinedTextField(value = renameName, onValueChange = { renameName = it }, singleLine = true, label = { Text("New name") }) },
+            confirmButton = { TextButton(enabled = renameName.isNotBlank() && !renameName.contains("/") && !renameName.contains("\\\\") && renameName.trim() != file.name && !current.resolve(renameName.trim()).exists(), onClick = {
+                val renamed = runCatching { file.renameTo(current.resolve(renameName.trim())) }.getOrDefault(false)
+                message = if (renamed) "Renamed successfully." else "Could not rename this item."
+                pendingRename = null
+                refresh++
+            }) { Text("RENAME") } },
+            dismissButton = { TextButton(onClick = { pendingRename = null }) { Text("CANCEL") } }
+        )
+    }
     pendingDelete?.let { file ->
         AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Delete ${file.name}?") }, text = { Text("This removes the selected item from the active instance.") },
             confirmButton = { TextButton(onClick = { runCatching { if (file.isDirectory) file.deleteRecursively() else file.delete() }; pendingDelete = null; refresh++ }) { Text("DELETE") } },
