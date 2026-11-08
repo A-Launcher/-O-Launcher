@@ -80,7 +80,12 @@ object OEngineMojoAwtRuntimeLayout {
             else -> listOf("lib/server/libjvm.so", "lib/client/libjvm.so")
         }
         val vm = candidates.asSequence().map { File(home, it) }
-            .firstOrNull { it.isFile && !Files.isSymbolicLink(it.toPath()) }
+            .mapNotNull { candidate ->
+                if (!candidate.isFile || Files.isSymbolicLink(candidate.toPath())) return@mapNotNull null
+                val canonical = candidate.canonicalFile
+                canonical.takeIf { it.toPath().startsWith(home.toPath()) }
+            }
+            .firstOrNull()
             ?: error("Java $version runtime does not contain a supported libjvm.so.")
         return RuntimeInfo(runtimeName, version, home, vm)
     }
