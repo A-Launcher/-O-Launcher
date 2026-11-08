@@ -1,5 +1,6 @@
 package com.alauncher.olauncher
 
+import android.content.SharedPreferences
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -107,6 +108,46 @@ object OEngineInstallerProfileWatcher {
             }
         }
         return candidates.single()
+    }
+
+    /**
+     * Finalizes a persisted installer attempt after the Mojo AWT activity returns.
+     * Pending state is retained on every validation failure so a later recovery can retry.
+     */
+    fun completePending(
+        gameDirectory: File,
+        preferences: SharedPreferences,
+        profileKey: String
+    ): InstalledProfile {
+        require(profileKey.isNotBlank() && !profileKey.contains('/') && !profileKey.contains('\\\\')) {
+            "Invalid launcher profile key."
+        }
+        val snapshotKey = "pending_installer_profile_snapshot.$profileKey"
+        val loaderKey = "pending_installer_loader.$profileKey"
+        val versionKey = "pending_installer_mc.$profileKey"
+        val encodedSnapshot = preferences.getString(snapshotKey, null)
+            ?: error("No pending installer profile snapshot was found.")
+        val loaderName = preferences.getString(loaderKey, null)
+            ?: error("Pending installer loader is missing.")
+        val minecraftVersion = preferences.getString(versionKey, null)
+            ?: error("Pending Minecraft version is missing.")
+        val loader = when (loaderName) {
+            "Forge" -> Loader.FORGE
+            "NeoForge" -> Loader.NEOFORGE
+            else -> error("Unsupported pending installer loader.")
+        }
+        val before = restoreSnapshot(encodedSnapshot)
+        val installed = resolve(gameDirectory, before, minecraftVersion, loader)
+        val saved = preferences.edit()
+            .putString("loader_profile.$profileKey", installed.versionId)
+            .remove(snapshotKey)
+            .remove(loaderKey)
+            .remove(versionKey)
+            .remove("pending_installer_agent.$profileKey")
+            .remove("pending_installer_args.$profileKey")
+            .commit()
+        check(saved) { "Could not save the installed loader profile." }
+        return installed
     }
 
     private fun sha256(bytes: ByteArray): String =
