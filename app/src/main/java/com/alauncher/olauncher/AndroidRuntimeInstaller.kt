@@ -240,7 +240,7 @@ object AndroidRuntimeInstaller {
             "Java $javaMajor has no supported Android runtime package in the configured source."
         }
         val architecture = deviceArchitecture()
-        val runtimeHome = File(File(gameDirectory, "runtimes/installed"), "Java-$javaMajor-$architecture")
+        val runtimeHome = File(File(gameDirectory, "runtimes"), "Java-$javaMajor-$architecture")
         val release = File(runtimeHome, "release")
         val java = File(runtimeHome, "bin/java")
         if (java.isFile && release.isFile) {
