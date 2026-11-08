@@ -18,14 +18,16 @@ set(GLFW_BUILD_WIN32 OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_COCOA OFF CACHE BOOL "" FORCE)
 
 set(OENGINE_UPSTREAM_DIR "${CMAKE_CURRENT_LIST_DIR}/../upstream")
+set(MOJOEXEC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../third_party/MojoLauncher/mojoexec")
 if(NOT EXISTS "${OENGINE_UPSTREAM_DIR}/mojo-glfw/src/android_window.c")
     message(FATAL_ERROR "Pinned Mojo Android GLFW submodule is missing.")
 endif()
-if(NOT EXISTS "${OENGINE_UPSTREAM_DIR}/mojoexec/CMakeLists.txt")
-    message(FATAL_ERROR "Pinned MojoExec submodule is missing.")
+if(NOT EXISTS "${MOJOEXEC_ROOT}/CMakeLists.txt")
+    message(FATAL_ERROR "MojoExec submodule nested in the pinned MojoLauncher source is missing.")
 endif()
 
-add_subdirectory("${OENGINE_UPSTREAM_DIR}/mojoexec" mojoexec)
+# GLFW, the AWT runtime, and the JVM hooks must use one ABI-compatible MojoExec revision.
+add_subdirectory("${MOJOEXEC_ROOT}" mojoexec)
 add_subdirectory("${OENGINE_UPSTREAM_DIR}/mojo-glfw" glfw)
 
 # The Android GLFW poll adapter consumes O Engine's stable public C event ABI.
