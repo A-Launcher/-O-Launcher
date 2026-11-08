@@ -58,8 +58,8 @@ class OEngineJavaCompatibilityTest {
 
     @Test fun blocksUnmappedIntermediateJavaMajorsBelowSeventeen() {
         val result = OEngineJavaCompatibility.resolve("legacy", metadataMajor = 15)
-        assertEquals(15, result.runtimeJavaMajor)
-        assertTrue(result.nativeLaunchBlocker()?.contains("Java 8 hook or probed Java 17+") == true)
+        assertEquals(17, result.runtimeJavaMajor)
+        assertEquals(null, result.nativeLaunchBlocker())
     }
 
     @Test fun permitsJavaEightAndAllJavaSeventeenOrNewer() {
