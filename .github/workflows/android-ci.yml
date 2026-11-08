@@ -288,6 +288,80 @@ jobs:
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libglfw.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libltw.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojort.so"
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            for library in libmojoexec.so libmojort.so libmojoawt.so libawt_headless.so libawt_xawt.so; do
+              unzip -l "$apk" | grep -q "lib/$abi/$library" || {
+                echo "Missing $abi/$library from APK"
+                exit 1
+              }
+            done
+          done
+          for dex in $(unzip -Z1 "$apk" | grep -E '^classes([0-9]+)?\.dex          unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojoawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_headless.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_xawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
+          unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
+          unzip -l "$apk" | grep -q "assets/forge_installer.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-shared.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-androidnw.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo17/cacio-tta.jar"
+          echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: o-launcher-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+); do
+            unzip -p "$apk" "$dex" | strings
+          done | grep -q 'Lcom/alauncher/olauncher/OEngineMojoAwtActivity;'
+          for dex in $(unzip -Z1 "$apk" | grep -E '^classes([0-9]+)?\.dex          unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojoawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_headless.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_xawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
+          unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
+          unzip -l "$apk" | grep -q "assets/forge_installer.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-shared.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-androidnw.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo17/cacio-tta.jar"
+          echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: o-launcher-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+); do
+            unzip -p "$apk" "$dex" | strings
+          done | grep -q 'Lgit/artdeell/mojo/awt/AWTActivity;'
+          for dex in $(unzip -Z1 "$apk" | grep -E '^classes([0-9]+)?\.dex          unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojoawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_headless.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_xawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
+          unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
+          unzip -l "$apk" | grep -q "assets/forge_installer.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-shared.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-androidnw.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo17/cacio-tta.jar"
+          echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: o-launcher-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+); do
+            unzip -p "$apk" "$dex" | strings
+          done | grep -q 'Lgit/artdeell/mojo/ExitActivity;'
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojoawt.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_headless.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_xawt.so"
