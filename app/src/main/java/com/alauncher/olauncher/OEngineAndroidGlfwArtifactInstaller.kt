@@ -82,7 +82,7 @@ object OEngineAndroidGlfwArtifactInstaller {
         val manifestLibraries = installed.joinToString(",") { file ->
             """{"name":"${jsonEscape(file.name)}","size":${file.length()},"sha256":"${hashes.getValue(file.name)}","elfCompatibility":"ANDROID_COMPATIBILITY_UNVERIFIED"}"""
         }
-        val manifestContent = """{"schemaVersion":1,"abi":"${jsonEscape(abi)}","backend":"MojoLauncher Android GLFW platform port","notice":"Android GLFW platform and Android LWJGL/OpenAL native modules staged; HotSpot native search-path activation and runtime ABI compatibility still require validation.","libraries":[${manifestLibraries}]}"""
+        val manifestContent = """{"schemaVersion":1,"abi":"${jsonEscape(abi)}","backend":"MojoLauncher Android GLFW platform port","notice":"Android GLFW platform plus Android LWJGL/OpenAL modules staged; HotSpot java.library.path and LD_LIBRARY_PATH are configured before VM creation; runtime ABI compatibility remains device-unverified.","libraries":[${manifestLibraries}]}"""
         val temporaryManifest = File(destination, manifest.name + ".part")
         temporaryManifest.writeText(manifestContent)
         if (manifest.exists() && !manifest.delete()) {
