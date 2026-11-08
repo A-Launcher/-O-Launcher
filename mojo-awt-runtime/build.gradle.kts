@@ -15,6 +15,8 @@ android {
 
     defaultConfig {
         minSdk = 26
+        versionCode = 1
+        versionName = "oengine-mojo-awt"
         consumerProguardFiles("consumer-rules.pro")
         resValue("string", "application_package", "com.alauncher.olauncher")
         resValue("string", "storageProviderAuthorities", "com.alauncher.olauncher.scoped.gamefolder")
