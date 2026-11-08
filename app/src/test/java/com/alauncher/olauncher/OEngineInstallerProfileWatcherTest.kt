@@ -6,11 +6,11 @@ import org.junit.Test
 import java.io.File
 
 class OEngineInstallerProfileWatcherTest {
-    private fun profile(root: File, id: String, parent: String, library: String) {
+    private fun profile(root: File, id: String, parent: String, library: String, mainClass: String = "net.minecraft.client.main.Main") {
         val directory = File(root, "versions/$id")
         if (!directory.exists()) assert(directory.mkdirs())
         File(directory, "$id.json").writeText(
-            """{"id":"$id","inheritsFrom":"$parent","libraries":[{"name":"$library"}]}"""
+            """{"id":"$id","inheritsFrom":"$parent","mainClass":"$mainClass","libraries":[{"name":"$library"}]}"""
         )
         val coordinate = library.split(':')
         require(coordinate.size >= 3)
@@ -80,6 +80,21 @@ class OEngineInstallerProfileWatcherTest {
             val before = OEngineInstallerProfileWatcher.snapshot(root)
             profile(root, "wrong-parent", "1.19.4", "net.minecraftforge:forge:1.20.1-47.3.0")
             profile(root, "wrong-loader", "1.20.1", "net.neoforged:neoforge:21.0.0")
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineInstallerProfileWatcher.resolve(
+                    root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
+                )
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsNewLoaderProfileWithoutMainClass() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            profile(root, "forge-no-main", "1.20.1", "net.minecraftforge:forge:1.20.1-47.3.0", "")
             assertThrows(IllegalArgumentException::class.java) {
                 OEngineInstallerProfileWatcher.resolve(
                     root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
