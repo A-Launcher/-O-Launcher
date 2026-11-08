@@ -3,6 +3,8 @@ package com.alauncher.olauncher
 import android.os.Build
 import android.system.Os
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.json.JSONArray
+import org.json.JSONObject
 import org.tukaani.xz.XZInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,7 +30,7 @@ object AndroidRuntimeInstaller {
     private const val MAX_ARCHIVE_BYTES = 1024L * 1024L * 1024L
     private const val MAX_EXTRACTED_BYTES = 4L * 1024L * 1024L * 1024L
     private const val MAX_ARCHIVE_ENTRIES = 200_000
-    private val supportedJava = setOf(8, 17, 21, 25)
+    private const val RUNTIME_REPOSITORY = "AngelAuraMC/angelauramc-openjdk-build"
     // SHA-256 values published by the GitHub Releases API for the pinned runtime assets.
     private val runtimeSha256 = mapOf(
         (8 to "arm") to "9dbee3b09af5f170e2ed9dd596bc81d0e573c88f8bf760c59c8fadbb9073d1e7",
@@ -50,6 +52,85 @@ object AndroidRuntimeInstaller {
     internal fun expectedArchiveSha256(javaMajor: Int, architecture: String): String? =
         runtimeSha256[javaMajor to architecture]
 
+    internal fun selectCompatibleRuntimeMajor(requiredMajor: Int, availableMajors: Collection<Int>): Int? {
+        require(requiredMajor >= 8) { "A Java runtime target must be Java 8 or newer after legacy mapping." }
+        return availableMajors.filter { it >= requiredMajor }.minOrNull()
+    }
+
+    private fun installedRuntimeMajors(gameDirectory: File, architecture: String): Set<Int> {
+        val runtimes = File(gameDirectory, "runtimes")
+        return runtimes.listFiles().orEmpty().mapNotNull { directory ->
+            val match = Regex("^Java-(\\d+)-" + Regex.escape(architecture) + "$").matchEntire(directory.name)
+                ?: return@mapNotNull null
+            val major = match.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+            val release = File(directory, "release")
+            val java = File(directory, "bin/java")
+            val actual = if (release.isFile) Regex("""JAVA_VERSION="(?:1\.)?(\d+)""")
+                .find(release.readText())?.groupValues?.get(1)?.toIntOrNull() else null
+            major.takeIf { it >= 8 && it == actual && java.isFile }
+        }.toSet()
+    }
+
+    private fun discoverPublishedRuntimeMajors(architecture: String): Set<Int> {
+        val endpoint = "https://api.github.com/repos/" + RUNTIME_REPOSITORY + "/releases?per_page=100"
+        val connection = openHttpsDownload(endpoint)
+        try {
+            connection.connect()
+            if (connection.responseCode !in 200..299) {
+                throw IllegalStateException("Could not query the Android Java runtime catalog (HTTP " + connection.responseCode + ").")
+            }
+            val releases = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+            return buildSet {
+                for (index in 0 until releases.length()) {
+                    val release = releases.optJSONObject(index) ?: continue
+                    val tag = release.optString("tag_name")
+                    val major = Regex("""^download_jre(\d+)$""").matchEntire(tag)
+                        ?.groupValues?.get(1)?.toIntOrNull() ?: continue
+                    val expectedName = "jre" + major + "-android-" + architecture + ".tar.xz"
+                    val assets = release.optJSONArray("assets") ?: continue
+                    val hasAsset = (0 until assets.length()).any { assetIndex ->
+                        assets.optJSONObject(assetIndex)?.optString("name") == expectedName
+                    }
+                    if (hasAsset) add(major)
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private data class RuntimeAsset(val url: String, val sha256: String)
+
+    private fun resolveRuntimeAsset(javaMajor: Int, architecture: String): RuntimeAsset {
+        val filename = "jre" + javaMajor + "-android-" + architecture + ".tar.xz"
+        val pinned = expectedArchiveSha256(javaMajor, architecture)
+        val endpoint = "https://api.github.com/repos/" + RUNTIME_REPOSITORY + "/releases/tags/download_jre" + javaMajor
+        val connection = openHttpsDownload(endpoint)
+        try {
+            connection.connect()
+            if (connection.responseCode !in 200..299) {
+                throw IllegalStateException("Android Java " + javaMajor + " is not published for " + architecture + " (HTTP " + connection.responseCode + ").")
+            }
+            val release = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+            val assets = release.optJSONArray("assets") ?: JSONArray()
+            for (index in 0 until assets.length()) {
+                val asset = assets.optJSONObject(index) ?: continue
+                if (asset.optString("name") != filename) continue
+                val digest = asset.optString("digest").removePrefix("sha256:").lowercase()
+                    .takeIf { it.matches(Regex("[a-f0-9]{64}")) } ?: pinned
+                    ?: throw IllegalStateException("Java " + javaMajor + " runtime asset has no published SHA-256 digest.")
+                val url = asset.optString("browser_download_url")
+                require(url.startsWith("https://github.com/" + RUNTIME_REPOSITORY + "/releases/download/")) {
+                    "Runtime catalog returned an unexpected download host."
+                }
+                return RuntimeAsset(url, digest)
+            }
+            throw IllegalStateException("Java " + javaMajor + " Android runtime asset for " + architecture + " is not published.")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     private val xzMagic = byteArrayOf(0xFD.toByte(), 0x37, 0x7A, 0x58, 0x5A, 0x00)
 
     fun deviceArchitecture(): String {
@@ -68,16 +149,12 @@ object AndroidRuntimeInstaller {
         gameDirectory: File,
         onProgress: (Long, Long) -> Unit
     ): RuntimeArchiveResult = withContext(Dispatchers.IO) {
-        require(javaMajor in supportedJava) { "Java $javaMajor runtime is not available from the configured Android runtime source." }
+        require(javaMajor >= 8) { "Legacy Java targets must be mapped to Java 8 or newer before runtime installation." }
         val architecture = deviceArchitecture()
-        if (javaMajor == 25 && architecture == "x86") {
-            throw IllegalStateException("Java 25 Android runtime is not published for 32-bit x86.")
-        }
-        val tag = "download_jre$javaMajor"
-        val filename = "jre$javaMajor-android-$architecture.tar.xz"
-        val expectedSha256 = expectedArchiveSha256(javaMajor, architecture)
-            ?: throw IllegalStateException("No pinned SHA-256 is available for Java $javaMajor on $architecture.")
-        val address = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/$tag/$filename"
+        val filename = "jre" + javaMajor + "-android-" + architecture + ".tar.xz"
+        val asset = resolveRuntimeAsset(javaMajor, architecture)
+        val expectedSha256 = asset.sha256
+        val address = asset.url
         val directory = File(gameDirectory, "oengine/runtime-archives")
         if (!directory.exists() && !directory.mkdirs()) {
             throw IllegalStateException("Could not create the runtime archive directory.")
@@ -180,7 +257,7 @@ object AndroidRuntimeInstaller {
 
     suspend fun installRuntime(archive: File, javaMajor: Int, gameDirectory: File, onProgress: (String) -> Unit): RuntimeInstallResult = withContext(Dispatchers.IO) {
         require(archive.isFile && archive.length() > 0L) { "Download the Java runtime archive first." }
-        require(javaMajor in supportedJava) { "Unsupported Java runtime version: " + javaMajor }
+        require(javaMajor >= 8) { "Unsupported Java runtime version: " + javaMajor }
         val gameRoot = gameDirectory.canonicalFile
         require(gameRoot.isDirectory || gameRoot.mkdirs()) { "Could not create the Minecraft game directory." }
         OEngineMojoAwtInstallerHandoff.migrateLegacyRuntimeLayout(
@@ -286,8 +363,8 @@ object AndroidRuntimeInstaller {
         onDownloadProgress: (Long, Long) -> Unit,
         onStatus: (String) -> Unit
     ): RuntimeInstallResult = withContext(Dispatchers.IO) {
-        require(javaMajor in supportedJava) {
-            "Java $javaMajor has no supported Android runtime package in the configured source."
+        require(javaMajor >= 8) {
+            "Legacy Java targets must be mapped to Java 8 or newer before runtime installation."
         }
         val root = gameDirectory.canonicalFile
         require(root.isDirectory || root.mkdirs()) { "Could not create the Minecraft game directory." }
@@ -295,23 +372,32 @@ object AndroidRuntimeInstaller {
             OEngineMojoAwtRuntimeLayout.paths(root)
         )
         val architecture = deviceArchitecture()
-        val runtimeHome = File(File(root, "runtimes"), "Java-$javaMajor-$architecture")
+        val installed = installedRuntimeMajors(root, architecture)
+        val bundled = runtimeSha256.keys.filter { it.second == architecture }.map { it.first }
+        var selectedMajor = selectCompatibleRuntimeMajor(javaMajor, installed + bundled)
+        if (selectedMajor == null) {
+            val published = runCatching { discoverPublishedRuntimeMajors(architecture) }.getOrElse { emptySet() }
+            selectedMajor = selectCompatibleRuntimeMajor(javaMajor, installed + bundled + published)
+        }
+        val selectedRuntimeMajor = selectedMajor
+            ?: throw IllegalStateException("No Android Java runtime at or above Java " + javaMajor + " is installed or published for " + architecture + ". O Launcher will use a newer compatible runtime automatically when its Android package becomes available.")
+        val runtimeHome = File(File(root, "runtimes"), "Java-" + selectedRuntimeMajor + "-" + architecture)
         val release = File(runtimeHome, "release")
         val java = File(runtimeHome, "bin/java")
         if (java.isFile && release.isFile) {
             val major = Regex("""JAVA_VERSION="(?:1\.)?(\d+)""")
                 .find(release.readText())?.groupValues?.get(1)?.toIntOrNull()
-            if (major == javaMajor) {
-                onStatus("Reusing installed Android Java $javaMajor runtime.")
+            if (major == selectedRuntimeMajor) {
+                onStatus("Reusing installed Android Java " + selectedRuntimeMajor + " runtime for the Java " + javaMajor + " game target.")
                 return@withContext RuntimeInstallResult(
-                    javaMajor, architecture, runtimeHome, java, "JAVA_VERSION=$javaMajor", 0
+                    selectedRuntimeMajor, architecture, runtimeHome, java, "JAVA_VERSION=" + selectedRuntimeMajor, 0
                 )
             }
         }
-        onStatus("Downloading Android Java $javaMajor automatically…")
-        val archive = downloadRuntime(javaMajor, gameDirectory, onDownloadProgress)
-        onStatus("Installing Android Java $javaMajor…")
-        installRuntime(archive.archive, javaMajor, gameDirectory, onStatus)
+        onStatus("Downloading Android Java " + selectedRuntimeMajor + " automatically for the Java " + javaMajor + " game target…")
+        val archive = downloadRuntime(selectedRuntimeMajor, gameDirectory, onDownloadProgress)
+        onStatus("Installing Android Java " + selectedRuntimeMajor + "…")
+        installRuntime(archive.archive, selectedRuntimeMajor, gameDirectory, onStatus)
     }
 
 }
