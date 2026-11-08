@@ -33,8 +33,8 @@ data class OEngineJavaCompatibility(
         fun resolve(versionId: String, metadataMajor: Int? = null): OEngineJavaCompatibility {
             val target = metadataMajor?.takeIf { it > 0 } ?: inferLegacyTarget(versionId)
             val runtime = when (target) {
-                5, 6 -> 8
-                16 -> 17
+                in 0..8 -> 8
+                in 9..16 -> 17
                 else -> target
             }
             val source = if (metadataMajor != null && metadataMajor > 0) {
@@ -43,10 +43,10 @@ data class OEngineJavaCompatibility(
                 Source.LEGACY_VERSION_POLICY
             }
             val explanation = when {
-                target == 5 || target == 6 ->
+                target in 5..8 ->
                     "Legacy Java $target target; use Android Java 8 runtime for backward-compatible bytecode."
-                target == 16 ->
-                    "Java 16 target; use Android Java 17 runtime for backward-compatible execution."
+                target in 9..16 ->
+                    "Java $target target; use Android Java 17 runtime for backward-compatible execution."
                 source == Source.MOJANG_METADATA ->
                     "Java $target selected from Mojang version metadata."
                 else ->
