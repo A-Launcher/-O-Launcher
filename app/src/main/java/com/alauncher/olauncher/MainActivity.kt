@@ -1060,7 +1060,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         onDismissRequest = { showCreate = false; showNewFile = false },
         title = { Text(if (showCreate) "NEW FOLDER" else "NEW FILE") },
         text = { OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, label = { Text("Name") }) },
-        confirmButton = { TextButton(enabled = newName.isNotBlank() && !newName.contains("/") && !newName.contains("\\\\"), onClick = {
+        confirmButton = { TextButton(enabled = newName.isNotBlank() && !newName.contains("/") && !newName.contains("\\"), onClick = {
             val target = current.resolve(newName.trim())
             val created = if (showCreate) target.mkdirs() else runCatching { target.createNewFile() }.getOrDefault(false)
             if (created) refresh++ else message = "Could not create that item."
