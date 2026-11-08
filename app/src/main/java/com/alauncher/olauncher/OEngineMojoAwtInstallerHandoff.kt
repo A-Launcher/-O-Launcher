@@ -104,6 +104,14 @@ object OEngineMojoAwtInstallerHandoff {
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 17)
         val nativeLibraryDirectory = File(context.applicationInfo.nativeLibraryDir)
         OEngineMojoAwtPathBinder.bind(request.instanceRoot, context.classLoader, nativeLibraryDirectory)
+        val validRuntimes = paths.runtimes.listFiles().orEmpty()
+            .filter { it.isDirectory }
+            .mapNotNull { runtime -> runCatching {
+                OEngineMojoAwtRuntimeLayout.inspectRuntime(paths, runtime.name)
+            }.getOrNull() }
+        require(validRuntimes.isNotEmpty()) {
+            "Install a supported Android Java runtime before installing Forge or NeoForge."
+        }
         require(paths.instanceRoot == request.instanceRoot.canonicalFile) {
             "Mojo AWT runtime was bound to a different Minecraft instance."
         }
