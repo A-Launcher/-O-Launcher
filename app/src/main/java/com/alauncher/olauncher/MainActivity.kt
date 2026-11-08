@@ -884,6 +884,8 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var pendingDelete by remember { mutableStateOf<File?>(null) }
     var pendingRename by remember { mutableStateOf<File?>(null) }
     var renameName by remember { mutableStateOf("") }
+    var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    var previewImageName by remember { mutableStateOf("") }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -1022,7 +1024,11 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                                     if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                                         editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                                    } else message = "Stored file: ${file.name}"
+                                                    } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
+                                            val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
+                                            if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
+                                            else message = "Could not preview ${file.name}."
+                                        } else message = "${file.name} · ${OEngineInstalledContentManager.formatSize(file.length())}"
                                                 }, onLongClick = { renameName = file.name; pendingRename = file }),
                                                 color = Color(0xFFFFF2E2),
                                                 shape = RoundedCornerShape(18.dp),
@@ -1046,7 +1052,11 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                         if (file.isDirectory) navigateTo(file)
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                             editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
-                                        } else message = "Stored file: ${file.name}"
+                                        } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
+                                            val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
+                                            if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
+                                            else message = "Could not preview ${file.name}."
+                                        } else message = "${file.name} · ${OEngineInstalledContentManager.formatSize(file.length())}"
                                     }, onLongClick = { renameName = file.name; pendingRename = file }).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (file.isDirectory) "📁" else "📄", fontSize = 23.sp)
                                         Spacer(Modifier.width(12.dp))
@@ -1097,6 +1107,14 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         }) { Text("CREATE") } },
         dismissButton = { TextButton(onClick = { showCreate = false; showNewFile = false }) { Text("CANCEL") } }
     )
+    previewImage?.let { bitmap ->
+        AlertDialog(
+            onDismissRequest = { previewImage = null },
+            title = { Text(previewImageName) },
+            text = { Image(bitmap = bitmap, contentDescription = previewImageName, modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp), contentScale = ContentScale.Fit) },
+            confirmButton = { TextButton(onClick = { previewImage = null }) { Text("CLOSE") } }
+        )
+    }
     pendingRename?.let { file ->
         AlertDialog(
             onDismissRequest = { pendingRename = null },
