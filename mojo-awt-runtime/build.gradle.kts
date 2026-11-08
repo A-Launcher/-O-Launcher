@@ -7,6 +7,26 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
     from("../third_party/MojoLauncher/app_mojo/src/main/java")
     exclude("git/artdeell/mojo/ExitActivity.java")
     into(mojoAwtJava)
+    doLast {
+        // Upstream hard-codes /games/PojavLauncher on Android 26–28. O Launcher
+        // must keep every supported API level inside the selected instance, so patch
+        // only the generated build copy to use the Activity's scoped external-files root.
+        val toolsSource = mojoAwtJava.get().file("git/artdeell/mojo/Tools.java").asFile
+        val original = toolsSource.readText()
+        val legacyStorage = """        if(SDK_INT >= 29) {
+            return ctx.getExternalFilesDir(null);
+        }
+        File externalStorageDirectory = Environment.getExternalStorageDirectory();
+        if(externalStorageDirectory == null) return null;
+        // PojavLauncher is left for compatibility purposes
+        File launcherRoot = new File(externalStorageDirectory,"games/PojavLauncher");
+        if(!Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState(launcherRoot))) return null;
+        return launcherRoot;"""
+        check(original.contains(legacyStorage)) {
+            "Pinned Mojo Tools storage implementation changed; review the O Launcher instance-root patch."
+        }
+        toolsSource.writeText(original.replace(legacyStorage, "        return ctx.getExternalFilesDir(null);"))
+    }
 }
 
 android {
