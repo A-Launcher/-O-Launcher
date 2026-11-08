@@ -251,7 +251,7 @@ object OEngineLwjglNativeResolver {
 
         when (surface) {
             OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
-                blockers += "LWJGL 2 loads its single core JNI library through org.lwjgl.librarypath/System.loadLibrary; O Engine still needs an Android LWJGL 2 native build with the matching JNI ABI and a verified GL4ES/OpenGL entry-point bridge. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace it."
+                blockers += "LWJGL 2 loads its core JNI library through org.lwjgl.librarypath/System.loadLibrary. O Engine stages the pinned Mojo Android LWJGL2 native artifact, but must still prove that the matching liblwjgl JNI library loads with the staged GLFW dependency and that the GL4ES/OpenGL context and swap bridge is active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
