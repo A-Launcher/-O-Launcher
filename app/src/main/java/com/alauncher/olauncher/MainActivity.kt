@@ -2713,7 +2713,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     try {
                                         val arch = AndroidRuntimeInstaller.deviceArchitecture()
                                         val filename = "jre" + requiredJavaMajor + "-android-" + arch + ".tar.xz"
-                                        val archive = File(context.filesDir, "minecraft/runtimes/archives/" + filename)
+                                        val archive = File(activeInstance.root, "oengine/runtime-archives/" + filename)
                                         val result = AndroidRuntimeInstaller.installRuntime(
                                             archive,
                                             requiredJavaMajor,
