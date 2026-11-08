@@ -192,7 +192,7 @@ jobs:
         working-directory: .third_party/LTW
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon :ltw:assembleRelease
+          gradle --no-daemon :ltw:assembleRelease
           test -s ltw/build/outputs/aar/ltw-release.aar
           mkdir -p ../../app/libs
           cp ltw/build/outputs/aar/ltw-release.aar ../../app/libs/ltw-release.aar
@@ -288,10 +288,10 @@ jobs:
           "$RUNNER_TEMP/oengine_ltw_egl_abi"
 
       - name: Run engine JVM unit tests
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: gradle --no-daemon :app:testDebugUnitTest
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
 
       - name: Verify Rust native engine and JNI exports in APK
         run: |
