@@ -1,5 +1,5 @@
 # Keep Mojo's JNI-reflected Java entry points, static storage fields, and callbacks.
--keep class git.artdeell.mojo.awt.AWTActivity { *; }
+-keep class git.artdeell.mojo.awt.** { *; }
 -keep class git.artdeell.mojo.ExitActivity { *; }
 -keep class git.artdeell.mojo.CallbackBridge { *; }
 -keep class git.artdeell.mojo.awt.AWTBridge { *; }
@@ -8,5 +8,5 @@
 -keep class git.artdeell.mojo.MojoApplication { *; }
 -keep class git.artdeell.mojo.prefs.LauncherPreferences { *; }
 -keep class git.artdeell.mojo.utils.lifecycle.ContextExecutor { *; }
--keep class git.artdeell.mojo.utils.jre.JavaRunner { *; }
--keep class git.artdeell.mojo.multirt.MultiRTUtils { *; }
+-keep class git.artdeell.mojo.utils.jre.** { *; }
+-keep class git.artdeell.mojo.multirt.** { *; }
