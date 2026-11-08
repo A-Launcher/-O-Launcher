@@ -190,6 +190,28 @@ jobs:
           test -s ../../app/src/main/assets/licenses/GPL-3.0.txt
           cp ../../THIRD_PARTY_NOTICES.md ../../app/src/main/assets/THIRD_PARTY_NOTICES.md
 
+      - name: Package pinned Mojo Caciocavallo AWT runtime components
+        run: |
+          set -euo pipefail
+          base="https://jitpack.io/com/github/MojoLauncher"
+          shared="app/src/main/assets/components/caciocavallo"
+          java17="app/src/main/assets/components/caciocavallo17"
+          mkdir -p "$shared" "$java17"
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            "$base/caciocavallo/cacio-shared/d0efb5aaba/cacio-shared-d0efb5aaba.jar" \
+            -o "$shared/cacio-shared.jar"
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            "$base/caciocavallo/cacio-androidnw/d0efb5aaba/cacio-androidnw-d0efb5aaba.jar" \
+            -o "$shared/cacio-androidnw.jar"
+          curl --fail --show-error --location --retry 4 --retry-all-errors \
+            "$base/caciocavallo17/cacio-tta/-411454b006-1/cacio-tta--411454b006-1-jar-with-dependencies.jar" \
+            -o "$java17/cacio-tta.jar"
+          for file in "$shared"/*.jar "$java17"/*.jar; do
+            test -s "$file"
+            jar tf "$file" >/dev/null
+            echo "Validated Mojo AWT runtime component: $file"
+          done
+
       - name: Install MojoLauncher LGPL source license
         run: |
           set -euo pipefail
@@ -246,6 +268,9 @@ jobs:
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
           unzip -p "$apk" assets/THIRD_PARTY_NOTICES.md | grep -q "Android LWJGL native runtime"
           unzip -l "$apk" | grep -q "assets/forge_installer.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-shared.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo/cacio-androidnw.jar"
+          unzip -l "$apk" | grep -q "assets/components/caciocavallo17/cacio-tta.jar"
           echo "APK contains the O Engine, Android GLFW, LTW, LWJGL, and GL4ES runtime libraries."
 
       - name: Upload debug APK
