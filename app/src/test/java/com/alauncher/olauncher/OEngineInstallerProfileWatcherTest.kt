@@ -18,7 +18,8 @@ class OEngineInstallerProfileWatcherTest {
         val version = coordinate[2]
         val artifactFile = File(
             root,
-            "libraries/${coordinate[0].replace('.', '/')}/$artifact/$version/$artifact-$version.jar"
+            "libraries/${coordinate[0].replace('.', '/')}/$artifact/$version/" +
+                "$artifact-$version" + (coordinate.getOrNull(3)?.let { "-$it" } ?: "") + ".jar"
         )
         artifactFile.parentFile?.mkdirs()
         artifactFile.writeBytes(byteArrayOf(0x50, 0x4b, 0x03, 0x04))
