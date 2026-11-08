@@ -205,7 +205,7 @@ object MinecraftVersionInstaller {
         require(indexId.matches(Regex("[A-Za-z0-9._-]{1,128}"))) {
             "Minecraft asset index contains an invalid index ID."
         }
-        val indexRoot = File(gameDirectory, "assets/indexes")
+        val indexRoot = OEngineAssetObjectPath.resolveRoot(gameDirectory, "assets/indexes")
         val indexFile = OEngineAssetObjectPath.resolveMapped(indexRoot, "$indexId.json")
         val indexUrl = assetIndex.getString("url")
         val indexSha1 = assetIndex.optString("sha1")
@@ -225,7 +225,7 @@ object MinecraftVersionInstaller {
         tasks.add(Task(indexUrl, indexFile, indexSha1, indexSize, "Asset index"))
 
         val totalObjects = assetIndexMetadata.getJSONObject("objects")
-        val objectBase = File(gameDirectory, "assets/objects")
+        val objectBase = OEngineAssetObjectPath.resolveRoot(gameDirectory, "assets/objects")
         var assetCount = 0
         val iterator = totalObjects.keys()
         while (iterator.hasNext()) {
@@ -299,10 +299,10 @@ object MinecraftVersionInstaller {
         mapToResources: Boolean
     ): Int {
         if (!createVirtual && !mapToResources) return 0
-        val objectBase = File(gameDirectory, "assets/objects").canonicalFile
+        val objectBase = OEngineAssetObjectPath.resolveRoot(gameDirectory, "assets/objects")
         val destinations = buildList {
-            if (createVirtual) add(File(gameDirectory, "assets/virtual/$indexId").canonicalFile)
-            if (mapToResources) add(File(gameDirectory, "resources").canonicalFile)
+            if (createVirtual) add(OEngineAssetObjectPath.resolveRoot(gameDirectory, "assets/virtual/$indexId"))
+            if (mapToResources) add(OEngineAssetObjectPath.resolveRoot(gameDirectory, "resources"))
         }
         var created = 0
         val iterator = objects.keys()
