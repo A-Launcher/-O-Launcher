@@ -28,10 +28,19 @@ object OEngineAndroidGlfwArtifactInstaller {
         val destination = File(root, abi).canonicalFile
         require(destination.toPath().startsWith(root.toPath())) { "Android GLFW destination escapes its private root." }
 
+        // These are the Android-specific native counterparts required by the
+        // embedded LWJGL runtime and audio subsystem. Keep them in the same ABI-scoped
+        // private directory so the JVM native search path can be configured atomically.
         val names = buildList {
             add("libglfw.so")
             add("libmojoexec.so")
             add("liblinkerhook.so")
+            add("liblwjgl.so")
+            add("liblwjgl_opengl.so")
+            add("liblwjgl_nanovg.so")
+            add("liblwjgl_stb.so")
+            add("liblwjgl_tinyfd.so")
+            add("libopenal.so")
             if (abi == "arm64-v8a") add("libfopenhook.so")
         }
         if (!destination.exists() && !destination.mkdirs()) {
@@ -73,7 +82,7 @@ object OEngineAndroidGlfwArtifactInstaller {
         val manifestLibraries = installed.joinToString(",") { file ->
             """{"name":"${jsonEscape(file.name)}","size":${file.length()},"sha256":"${hashes.getValue(file.name)}","elfCompatibility":"ANDROID_COMPATIBILITY_UNVERIFIED"}"""
         }
-        val manifestContent = """{"schemaVersion":1,"abi":"${jsonEscape(abi)}","backend":"MojoLauncher Android GLFW platform port","notice":"Platform backend staged only; LWJGL org.lwjgl.glfw JNI/runtime adapter is not yet connected.","libraries":[${manifestLibraries}]}"""
+        val manifestContent = """{"schemaVersion":1,"abi":"${jsonEscape(abi)}","backend":"MojoLauncher Android GLFW platform port","notice":"Android GLFW platform and Android LWJGL/OpenAL native modules staged; HotSpot native search-path activation and runtime ABI compatibility still require validation.","libraries":[${manifestLibraries}]}"""
         val temporaryManifest = File(destination, manifest.name + ".part")
         temporaryManifest.writeText(manifestContent)
         if (manifest.exists() && !manifest.delete()) {
