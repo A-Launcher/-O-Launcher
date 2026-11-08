@@ -164,6 +164,31 @@ jobs:
             echo "Built Android GLFW + MojoExec for $abi"
           done
 
+      - name: Build pinned Mojo AWT and JVM native runtime libraries
+        run: |
+          set -euo pipefail
+          mojo_jni="$GITHUB_WORKSPACE/third_party/MojoLauncher/app_mojo/src/main/jni"
+          mojoexec_include="$GITHUB_WORKSPACE/native/upstream/mojoexec/include"
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            destination="$GITHUB_WORKSPACE/app/src/main/jniLibs/$abi"
+            mojoexec="$destination/libmojoexec.so"
+            test -s "$mojoexec"
+            build_dir="$RUNNER_TEMP/oengine-mojo-awt-$abi"
+            cmake -S native/mojo-awt -B "$build_dir" \
+              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="$abi" -DANDROID_PLATFORM=26 \
+              -DMOJO_JNI_ROOT="$mojo_jni" \
+              -DMOJOEXEC_LIBRARY="$mojoexec" \
+              -DMOJOEXEC_INCLUDE_DIR="$mojoexec_include"
+            cmake --build "$build_dir" --parallel 2
+            for library in libmojort.so libmojoawt.so libawt_headless.so libawt_xawt.so; do
+              source="$(find "$build_dir" -type f -name "$library" -print -quit)"
+              test -n "$source" && test -s "$source"
+              cp "$source" "$destination/$library"
+              echo "$abi: packaged $library"
+            done
+          done
+
       - name: Build and package pinned LTW release AAR
         working-directory: .third_party/LTW
         run: |
@@ -263,6 +288,10 @@ jobs:
           unzip -l "$apk" | grep -q "lib/arm64-v8a/liboengine.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libglfw.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libltw.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojort.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libmojoawt.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_headless.so"
+          unzip -l "$apk" | grep -q "lib/arm64-v8a/libawt_xawt.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/liblwjgl_opengl.so"
           unzip -l "$apk" | grep -q "lib/arm64-v8a/libgl4es_114.so"
