@@ -32,9 +32,30 @@ O Launcher builds the Java installer agent from the unmodified
 `forge_installer.jar` is packaged as an application asset for the Java
 installer runtime. The agent source is covered by MojoLauncher's LGPL-3.0
 license; its shaded `org.json` dependency retains its own license notices.
-The agent is not yet invoked by O Engine: Forge/NeoForge installation is not
-considered complete until the Java/AWT installer runtime, progress/error
-handling, and post-install profile discovery are connected.
+The agent is now staged and handed to the pinned Mojo AWT installer process using
+Mojo's `javaArgs` and `modPath` contract. The O Launcher process adapter binds
+the selected instance before AWT startup and receives the JVM exit callback for
+profile discovery. End-to-end Forge/NeoForge installation is still unverified
+until the Android build and a real installer run succeed.
+
+
+## Mojo Caciocavallo AWT runtime
+
+O Launcher packages the Java 8 Caciocavallo components from
+[MojoLauncher/caciocavallo](https://github.com/MojoLauncher/caciocavallo/tree/d0efb5aaba)
+and the Java 17+ Caciocavallo component from
+[MojoLauncher/caciocavallo17](https://github.com/MojoLauncher/caciocavallo17/tree/411454b006).
+The CI workflow verifies that each downloaded JAR is a readable archive and
+includes the corresponding upstream **GPL-2.0** license texts in
+`assets/licenses/GPL-2.0-Caciocavallo.txt` and
+`assets/licenses/GPL-2.0-Caciocavallo17.txt`.
+
+The AWT runtime module compiles the pinned MojoLauncher Java sources as an
+Android library without modifying the upstream submodule. O Launcher's activity
+adapter initializes the instance-specific Mojo storage paths before the AWT
+activity starts; a replacement for Mojo's launcher-specific exit callback
+returns installer status to O Launcher. Packaging and source integration do
+not prove successful Forge/NeoForge installation or device-side Java execution.
 
 ## LTW
 
