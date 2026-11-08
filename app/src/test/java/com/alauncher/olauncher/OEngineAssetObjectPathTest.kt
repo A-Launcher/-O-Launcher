@@ -7,6 +7,32 @@ import java.io.File
 import java.nio.file.Files
 
 class OEngineAssetObjectPathTest {
+    @Test fun rejectsAssetRootSymlinkEscape() {
+        val game = Files.createTempDirectory("asset-game").toFile()
+        val outside = Files.createTempDirectory("asset-outside").toFile()
+        try {
+            File(game, "assets").parentFile?.mkdirs()
+            Files.createSymbolicLink(File(game, "assets").toPath(), outside.toPath())
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineAssetObjectPath.resolveRoot(game, "assets/objects")
+            }
+        } finally {
+            game.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsAssetRootTraversal() {
+        val game = Files.createTempDirectory("asset-game-traversal").toFile()
+        try {
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineAssetObjectPath.resolveRoot(game, "../outside")
+            }
+        } finally {
+            game.deleteRecursively()
+        }
+    }
+
     @Test fun resolvesSha1ObjectInsideObjectRoot() {
         val root = Files.createTempDirectory("asset-objects").toFile()
         val hash = "0123456789abcdef0123456789abcdef01234567"
