@@ -150,7 +150,11 @@ object AndroidRuntimeInstaller {
         if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create the installed runtimes directory.")
         val runtimeName = "Java-" + javaMajor + "-" + architecture
         val destination = File(root, runtimeName)
-        val staging = File(root, runtimeName + ".installing")
+        val stagingRoot = File(gameRoot, "oengine/runtime-staging")
+        if (!stagingRoot.exists() && !stagingRoot.mkdirs()) {
+            throw IllegalStateException("Could not create the runtime staging directory.")
+        }
+        val staging = File(stagingRoot, runtimeName + ".installing")
         if (staging.exists()) staging.deleteRecursively()
         if (!staging.mkdirs()) throw IllegalStateException("Could not create the runtime staging directory.")
         var extracted = 0
