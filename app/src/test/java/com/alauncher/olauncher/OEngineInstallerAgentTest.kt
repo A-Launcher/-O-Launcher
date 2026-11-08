@@ -37,21 +37,21 @@ class OEngineInstallerAgentTest {
         }
     }
 
-    @Test fun buildsJavaAgentInvocationForForgeAndOptifine() {
+    @Test fun buildsMojoAwtIntentArgumentsWithJarPathSeparateFromVmOptions() {
         val temp = Files.createTempDirectory("installer-args").toFile()
         try {
             val agent = File(temp, "agent.jar")
             val installer = File(temp, "installer.jar")
             makeAgent(agent)
             installer.writeBytes(byteArrayOf(1))
-            assertEquals(
-                listOf("-javaagent:${agent.absolutePath}", "-jar", installer.absolutePath),
-                OEngineInstallerAgent.buildLaunchArguments(agent, installer)
-            )
-            assertEquals(
-                "-javaagent:${agent.absolutePath}=OF",
-                OEngineInstallerAgent.buildLaunchArguments(agent, installer, optiFine = true).first()
-            )
+            val invocation = OEngineInstallerAgent.buildAwtInvocation(agent, installer)
+            assertEquals(listOf("-javaagent:${agent.absolutePath}"), invocation.javaArgs)
+            assertFalse(invocation.javaArgs.any { it == "-jar" || it == installer.absolutePath })
+            assertEquals(installer.canonicalPath, invocation.installerPath)
+
+            val optiFine = OEngineInstallerAgent.buildAwtInvocation(agent, installer, optiFine = true)
+            assertEquals(listOf("-javaagent:${agent.absolutePath}=OF"), optiFine.javaArgs)
+            assertEquals(installer.canonicalPath, optiFine.installerPath)
         } finally {
             temp.deleteRecursively()
         }
