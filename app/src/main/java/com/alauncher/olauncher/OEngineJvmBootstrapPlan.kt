@@ -71,7 +71,8 @@ object OEngineJvmBootstrapPlanner {
         timezoneId: String = "UTC",
         availableProcessors: Int = 1,
         rendererLibraryAlias: String? = null,
-        androidGlfwLibrary: File? = null
+        androidGlfwLibrary: File? = null,
+        additionalNativeLibraryDirectories: List<File> = emptyList()
     ): OEngineJvmBootstrapPlan {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
@@ -98,6 +99,12 @@ object OEngineJvmBootstrapPlanner {
 
         val nativeDir = nativeLibraryDirectory.canonicalFile
         if (!nativeDir.isDirectory) blockers += "Android native-library directory is missing."
+        val nativeSearchDirectories = (listOf(nativeDir) + additionalNativeLibraryDirectories)
+            .map { it.canonicalFile }.distinct()
+        if (nativeSearchDirectories.any { !it.isDirectory }) {
+            blockers += "One or more additional Android native-library directories are missing."
+        }
+        val nativeSearchPath = nativeSearchDirectories.joinToString(File.pathSeparator) { it.absolutePath }
 
         val workDir = workingDirectory.canonicalFile
         if (!workDir.isDirectory) blockers += "Minecraft working directory is missing."
@@ -118,11 +125,11 @@ object OEngineJvmBootstrapPlanner {
         val ownedVmProperties = linkedMapOf(
 
                 "-Djava.home" to home.absolutePath,
-                "-Djava.library.path" to nativeDir.absolutePath,
+                "-Djava.library.path" to nativeSearchPath,
                 "-Djava.class.path" to resolvedClasspath.joinToString(File.pathSeparator) { it.absolutePath },
                 "-Duser.home" to workDir.absolutePath,
                 "-Djava.io.tmpdir" to File(workDir, "tmp").absolutePath,
-                "-Djna.boot.library.path" to nativeDir.absolutePath,
+                "-Djna.boot.library.path" to nativeSearchPath,
                 "-Dos.name" to "Linux",
                 "-Dos.version" to "Android-" + androidRelease,
                 "-Duser.language" to "en",
