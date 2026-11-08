@@ -126,8 +126,8 @@ object OEngineLoaderInstaller {
             !java.nio.file.Files.isSymbolicLink(temporaryMetadata.toPath())) {
             "Loader profile metadata path must not be a symbolic link."
         }
-        temporaryMetadata.writeText(profileText)
         try {
+            temporaryMetadata.writeText(profileText)
             try {
                 java.nio.file.Files.move(
                     temporaryMetadata.toPath(),
