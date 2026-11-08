@@ -51,7 +51,7 @@ object OEngineMojoAwtInstallerHandoff {
             "Mojo installer agent is missing or invalid."
         }
         val loader = required("pending_installer_loader")
-        require(loader == "Forge" || loader == "NeoForge") { "Unsupported AWT installer type." }
+        require(loader == "Forge" || loader == "NeoForge" || loader == "OptiFine") { "Unsupported AWT installer type." }
         val minecraft = required("pending_installer_mc")
         require(minecraft.matches(Regex("""\d+(?:\.\d+){1,2}(?:[-+][A-Za-z0-9._-]+)?"""))) {
             "Pending Minecraft version is invalid."
