@@ -2320,6 +2320,15 @@ private fun InstallationsDestination(images: LauncherImages) {
     var runtimeTotal by remember { mutableStateOf(0L) }
     var runtimeStatus by remember { mutableStateOf("Android Java runtime will be installed automatically when preparing a version.") }
     var instanceNameDraft by remember { mutableStateOf("") }
+    var showNewInstanceWizard by remember { mutableStateOf(false) }
+    var newInstanceStep by remember { mutableIntStateOf(0) }
+    var newInstanceName by remember { mutableStateOf("") }
+    var newInstanceLoader by remember { mutableStateOf("Vanilla") }
+    var newInstanceRam by remember { mutableIntStateOf(5000) }
+    var useLauncherRam by remember { mutableStateOf(true) }
+    var sharedGameFolder by remember { mutableStateOf(false) }
+    var newInstanceVersion by remember { mutableStateOf<String?>(null) }
+    var newLoaderVersion by remember { mutableStateOf<String?>(null) }
     var activeInstance by remember { mutableStateOf(OEngineInstanceManager.active(context)) }
     var instances by remember { mutableStateOf(OEngineInstanceManager.list(context)) }
 
@@ -2448,29 +2457,15 @@ private fun InstallationsDestination(images: LauncherImages) {
                                 }
                             }
                         }
-                        BasicTextField(
-                            value = instanceNameDraft,
-                            onValueChange = { instanceNameDraft = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(8.dp)).padding(10.dp),
-                            decorationBox = { inner ->
-                                if (instanceNameDraft.isEmpty()) Text("New instance name (e.g. Survival / Modpack)", color = Muted)
-                                inner()
-                            }
-                        )
                         Button(onClick = {
-                            try {
-                                val created = OEngineInstanceManager.create(context, instanceNameDraft)
-                                instances = OEngineInstanceManager.list(context)
-                                activeInstance = OEngineInstanceManager.select(context, created.id)
-                                instanceNameDraft = ""
-                                preparedLaunchPlan = null
-                                launchPlanStatus = "Created isolated instance: ${created.name}"
-                            } catch (error: Exception) {
-                                launchPlanStatus = error.message ?: "Could not create instance."
-                            }
-                        }, enabled = instanceNameDraft.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF557F9E))) {
-                            Text("CREATE INSTANCE")
+                            newInstanceStep = 0
+                            newInstanceName = ""
+                            newInstanceLoader = "Vanilla"
+                            newInstanceVersion = selectedVersion
+                            newLoaderVersion = null
+                            showNewInstanceWizard = true
+                        }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(14.dp)) {
+                            Text("＋ CREATE NEW INSTANCE", fontWeight = FontWeight.Black)
                         }
                         Text("Each instance has its own versions, libraries, assets, saves and configuration.", color = Muted, fontSize = 11.sp)
                     }
@@ -3621,6 +3616,39 @@ private fun InstallationsDestination(images: LauncherImages) {
         }
     }
 
+
+    if (showNewInstanceWizard) {
+        NewInstanceWizard(
+            step = newInstanceStep, onStepChange = { newInstanceStep = it }, onClose = { showNewInstanceWizard = false },
+            name = newInstanceName, onNameChange = { newInstanceName = it }, loader = newInstanceLoader, onLoaderChange = { newInstanceLoader = it },
+            versions = versions.map { it.id }, selectedVersion = newInstanceVersion ?: selectedVersion, onVersionChange = { newInstanceVersion = it },
+            loaderVersions = loaderVersions.map { it.version }, selectedLoaderVersion = newLoaderVersion ?: selectedLoaderVersion, onLoaderVersionChange = { newLoaderVersion = it },
+            ram = newInstanceRam, onRamChange = { newInstanceRam = it }, useLauncherRam = useLauncherRam, onUseLauncherRamChange = { useLauncherRam = it },
+            sharedGameFolder = sharedGameFolder, onSharedGameFolderChange = { sharedGameFolder = it },
+            onCreate = {
+                try {
+                    val instanceName = newInstanceName.trim().ifBlank { "New Instance" }
+                    val created = OEngineInstanceManager.create(context, instanceName)
+                    activeInstance = OEngineInstanceManager.select(context, created.id)
+                    instances = OEngineInstanceManager.list(context)
+                    selectedLoader = newInstanceLoader
+                    selectedVersion = newInstanceVersion ?: selectedVersion
+                    profilePreferences.edit().putString("selected_profile", instanceName)
+                        .putString("version.$instanceName", selectedVersion).putString("loader.$instanceName", newInstanceLoader)
+                        .putInt("memory.$instanceName", if (useLauncherRam) 5000 else newInstanceRam)
+                        .putBoolean("shared_folder.$instanceName", sharedGameFolder).apply()
+                    showNewInstanceWizard = false
+                    launchPlanStatus = "Created instance: " + instanceName
+                } catch (failure: Exception) { launchPlanStatus = failure.message ?: "Could not create instance." }
+            },
+            onBrowseModpacks = {
+                showNewInstanceWizard = false
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://modrinth.com/modpacks"))) }
+                    .onFailure { launchPlanStatus = "Could not open Modrinth modpacks." }
+            }
+        )
+    }
+
     if (showCreateProfile) {
         AlertDialog(
             onDismissRequest = { showCreateProfile = false },
@@ -3657,6 +3685,119 @@ private fun InstallationsDestination(images: LauncherImages) {
             },
             dismissButton = { TextButton(onClick = { showCreateProfile = false }) { Text("CANCEL") } }
         )
+    }
+}
+
+
+@Composable
+private fun NewInstanceWizard(
+    step: Int, onStepChange: (Int) -> Unit, onClose: () -> Unit,
+    name: String, onNameChange: (String) -> Unit, loader: String, onLoaderChange: (String) -> Unit,
+    versions: List<String>, selectedVersion: String, onVersionChange: (String) -> Unit,
+    loaderVersions: List<String>, selectedLoaderVersion: String?, onLoaderVersionChange: (String) -> Unit,
+    ram: Int, onRamChange: (Int) -> Unit, useLauncherRam: Boolean, onUseLauncherRamChange: (Boolean) -> Unit,
+    sharedGameFolder: Boolean, onSharedGameFolderChange: (Boolean) -> Unit,
+    onCreate: () -> Unit, onBrowseModpacks: () -> Unit
+) {
+    var versionMenu by remember { mutableStateOf(false) }
+    var loaderMenu by remember { mutableStateOf(false) }
+    var nameDialog by remember { mutableStateOf(false) }
+    val brown = Color(0xFF51240E)
+    val cream = Color(0xFFFFE9C4)
+    val gold = Color(0xFFFFB51B)
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xFF24160B).copy(alpha = .78f)).padding(12.dp), contentAlignment = Alignment.Center) {
+            Surface(Modifier.width(maxWidth.coerceAtMost(1120.dp)).fillMaxHeight(.96f), color = cream, shape = RoundedCornerShape(28.dp),
+                border = androidx.compose.foundation.BorderStroke(4.dp, Color(0xFFFFC13A)), shadowElevation = 22.dp) {
+                Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (step == 1) Text("←", Modifier.clickable { onStepChange(0) }.padding(8.dp), color = brown, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                        Column(Modifier.weight(1f)) {
+                            Text(if (step == 0) "NEW INSTANCE" else "CREATE INSTANCE", color = brown, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                            Text(if (step == 0) "What do you want to create?" else "NORMAL PROFILE • $loader", color = brown, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text("×", Modifier.clickable(onClick = onClose).padding(8.dp), color = brown, fontSize = 30.sp, fontWeight = FontWeight.Black)
+                    }
+                    if (step == 0) {
+                        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            WizardChoiceCard("🦊", "NORMAL", "Vanilla, Fabric, Forge, Quilt or NeoForge.", { onStepChange(1) }, Modifier.weight(1f))
+                            WizardChoiceCard("🐺", "MODPACK", "Browse and install Modrinth modpacks.", onBrowseModpacks, Modifier.weight(1f))
+                        }
+                    } else {
+                        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                WizardTitle("NAME", brown)
+                                WizardBox(name.ifBlank { "Tap to enter instance name" }, Modifier.fillMaxWidth().height(45.dp).clickable { nameDialog = true }, brown)
+                                WizardTitle("LOADER", brown)
+                                listOf("Vanilla","Fabric","Forge","NeoForge","Quilt","OptiFine").chunked(3).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        row.forEach { option ->
+                                            Surface(Modifier.weight(1f).height(43.dp).clickable { onLoaderChange(option) }, color = if (loader == option) gold else Color(0xFFFFF8EE),
+                                                shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
+                                                Box(contentAlignment = Alignment.Center) { Text(option.uppercase(), color = brown, fontSize = 12.sp, fontWeight = FontWeight.Black) }
+                                            }
+                                        }
+                                    }
+                                }
+                                WizardTitle("MINECRAFT VERSION", brown)
+                                Box {
+                                    WizardBox(selectedVersion, Modifier.fillMaxWidth().height(48.dp).clickable { versionMenu = true }, brown)
+                                    DropdownMenu(versionMenu, { versionMenu = false }) { versions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onVersionChange(v); versionMenu = false }) } }
+                                }
+                                WizardTitle("LOADER VERSION", brown)
+                                Box {
+                                    WizardBox(selectedLoaderVersion ?: "Latest compatible", Modifier.fillMaxWidth().height(48.dp).clickable { loaderMenu = true }, brown)
+                                    DropdownMenu(loaderMenu, { loaderMenu = false }) { loaderVersions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onLoaderVersionChange(v); loaderMenu = false }) } }
+                                }
+                            }
+                            Column(Modifier.weight(.95f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                                WizardTitle("MEMORY (RAM)", brown)
+                                Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                                Slider(value = ram.toFloat(), onValueChange = { onRamChange(it.toInt()) }, valueRange = 512f..12288f, enabled = !useLauncherRam)
+                                WizardSwitch("USE LAUNCHER DEFAULT (5000 MB)", useLauncherRam, onUseLauncherRamChange, brown)
+                                WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown)
+                                WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown)
+                                WizardSwitch("SHARED GAME FOLDER\nUse common worlds, resource packs and options.", sharedGameFolder, onSharedGameFolderChange, brown)
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("$loader • Minecraft $selectedVersion • " + if (useLauncherRam) "Default RAM" else "$ram MB", Modifier.weight(1f), color = brown, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD36B), contentColor = brown)) { Text("CANCEL", fontWeight = FontWeight.Black) }
+                            Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF77D900), contentColor = Color.White)) { Text("＋ CREATE", fontWeight = FontWeight.Black) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (nameDialog) AlertDialog(onDismissRequest = { nameDialog = false }, title = { Text("Instance name") },
+        text = { OutlinedTextField(value = name, onValueChange = onNameChange, singleLine = true) },
+        confirmButton = { TextButton(onClick = { nameDialog = false }) { Text("DONE") } })
+}
+
+@Composable
+private fun WizardChoiceCard(emoji: String, title: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(modifier.fillMaxHeight().clickable(onClick = onClick), color = Color(0xFFFFF5E5), shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFC04A)), shadowElevation = 7.dp) {
+        Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+            Text(emoji, fontSize = 68.sp)
+            Text(title, color = Color(0xFF51240E), fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text(description, color = Color(0xFF51240E), fontSize = 15.sp, textAlign = TextAlign.Center)
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB51B), contentColor = Color(0xFF51240E)), shape = RoundedCornerShape(24.dp)) {
+                Text("Select  ➜", fontSize = 20.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+@Composable private fun WizardTitle(value: String, color: Color) { Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black) }
+@Composable private fun WizardBox(value: String, modifier: Modifier, color: Color) {
+    Surface(modifier = modifier, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
+        Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) { Text(value, color = color, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Spacer(Modifier.weight(1f)); Text("▾", color = color, fontSize = 18.sp) }
+    }
+}
+@Composable private fun WizardSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, color: Color) {
+    Surface(color = Color(0xFFFFF8EE), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
+        Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f), color = color, fontSize = 12.sp, fontWeight = FontWeight.Black); Switch(checked, onChecked) }
     }
 }
 
