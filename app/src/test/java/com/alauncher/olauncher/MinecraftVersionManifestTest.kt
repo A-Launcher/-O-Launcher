@@ -35,4 +35,13 @@ class MinecraftVersionManifestTest {
         assertEquals(21, MinecraftVersionInstaller.resolveJavaCompatibility("1.21.1", base, null).runtimeJavaMajor)
     }
 
+    @Test fun acceptsLegacyAndSnapshotIdsButRejectsPathTraversal() {
+        listOf("rd-132211", "b1.7.3", "26.4-snapshot-7", "1.21.11-rc1").forEach {
+            assertEquals(true, MinecraftVersionInstaller.isSafeVersionId(it))
+        }
+        listOf("../escape", "/absolute", "bad\\\\name", "").forEach {
+            assertEquals(false, MinecraftVersionInstaller.isSafeVersionId(it))
+        }
+    }
+
 }
