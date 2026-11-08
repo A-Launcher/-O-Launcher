@@ -154,6 +154,7 @@ object OEngineInstallerProfileWatcher {
             .remove("pending_installer_agent.$profileKey")
             .remove("pending_installer_args.$profileKey")
             .remove("pending_installer_jar.$profileKey")
+            .remove("pending_installer_instance.$profileKey")
             .commit()
         check(saved) { "Could not save the installed loader profile." }
         return installed
