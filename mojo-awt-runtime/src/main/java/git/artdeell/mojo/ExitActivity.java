@@ -14,7 +14,7 @@ import androidx.annotation.Keep;
 public final class ExitActivity {
     private static final String TAG = "OEngineMojoExit";
 
-    private ExitActivity() {}
+    private static volatile String pendingProfileKey;\n\n    private ExitActivity() {}\n\n    public static void setPendingProfileKey(String profileKey) {\n        pendingProfileKey = profileKey;\n    }
 
     @Keep
     public static void showExitMessage(Context context, int code, boolean isSignal) {
