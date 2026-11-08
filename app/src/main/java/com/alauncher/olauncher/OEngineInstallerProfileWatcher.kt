@@ -146,8 +146,14 @@ object OEngineInstallerProfileWatcher {
         }
         val before = restoreSnapshot(encodedSnapshot)
         val installed = resolve(gameDirectory, before, minecraftVersion, loader)
+        val loaderDisplayName = when (loader) {
+            Loader.FORGE -> "Forge"
+            Loader.NEOFORGE -> "NeoForge"
+        }
         val saved = preferences.edit()
             .putString("loader_profile.$profileKey", installed.versionId)
+            .putString("loader_profile_loader.$profileKey", loaderDisplayName)
+            .putString("loader_profile_mc.$profileKey", minecraftVersion)
             .remove(snapshotKey)
             .remove(loaderKey)
             .remove(versionKey)
