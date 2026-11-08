@@ -38,6 +38,7 @@ object OEngineJvmBootstrapPlanner {
     private val launcherOwnedProperties = setOf(
         "-Djava.home",
         "-Djava.library.path",
+        "-Dorg.lwjgl.librarypath",
         "-Djava.class.path",
         "-Duser.home",
         "-Djava.io.tmpdir",
@@ -126,6 +127,7 @@ object OEngineJvmBootstrapPlanner {
 
                 "-Djava.home" to home.absolutePath,
                 "-Djava.library.path" to nativeSearchPath,
+                "-Dorg.lwjgl.librarypath" to nativeSearchPath,
                 "-Djava.class.path" to resolvedClasspath.joinToString(File.pathSeparator) { it.absolutePath },
                 "-Duser.home" to workDir.absolutePath,
                 "-Djava.io.tmpdir" to File(workDir, "tmp").absolutePath,
