@@ -46,6 +46,25 @@ object OEngineInstallerProfileWatcher {
         return Snapshot(fingerprints)
     }
 
+    /** Rehydrates a previously persisted snapshot for the post-installer completion step. */
+    fun restoreSnapshot(encoded: String): Snapshot {
+        require(encoded.length <= 4 * 1024 * 1024) { "Installer profile snapshot is too large." }
+        val json = JSONObject(encoded)
+        require(json.length() <= 100_000) { "Installer profile snapshot contains too many entries." }
+        val fingerprints = linkedMapOf<String, String>()
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val id = keys.next()
+            val fingerprint = json.optString(id)
+            require(id.isNotBlank() && id != "." && id != ".." &&
+                !id.contains('/') && !id.contains('\\\\') && fingerprint.matches(Regex("[a-f0-9]{64}"))) {
+                "Installer profile snapshot contains invalid data."
+            }
+            fingerprints[id] = fingerprint
+        }
+        return Snapshot(fingerprints)
+    }
+
     fun resolve(
         gameDirectory: File,
         before: Snapshot,
