@@ -160,7 +160,8 @@ object MinecraftVersionInstaller {
             val sha1: String,
             val size: Long,
             val label: String,
-            val nativeArchive: Boolean = false
+            val nativeArchive: Boolean = false,
+            val legacyLwjgl2Native: Boolean = false
         )
         val tasks = mutableListOf<Task>()
         val librariesDirectory = File(gameDirectory, "libraries")
@@ -186,6 +187,29 @@ object MinecraftVersionInstaller {
                         "Pinned Mojo LWJGL 2 compatibility library"
                     ))
                     libraryCount++
+                    // Pair the Java fork with its ABI-specific Android native library.
+                    val abi = when (AndroidRuntimeInstaller.deviceArchitecture()) {
+                        "arm64" -> "arm64-v8a"
+                        "arm" -> "armeabi-v7a"
+                        "x86" -> "x86"
+                        "x86_64" -> "x86_64"
+                        else -> throw IllegalStateException("Unsupported ABI for legacy LWJGL2.")
+                    }
+                    val native = OEngineLegacyLwjgl2Compatibility.nativeArchive(abi)
+                    val nativeRoot = File(File(gameDirectory, "versions/" + version.id), "natives").canonicalFile
+                    val targetNative = File(nativeRoot, native.fileName).canonicalFile
+                    require(targetNative.toPath().startsWith(nativeRoot.toPath())) {
+                        "Legacy LWJGL2 native archive path escaped the version native directory."
+                    }
+                    tasks.add(Task(
+                        native.url,
+                        File(librariesDirectory, "oengine/mojo-lwjgl2/" + native.fileName),
+                        "",
+                        native.size,
+                        "Pinned Mojo LWJGL2 Android native (" + abi + ")",
+                        legacyLwjgl2Native = true
+                    ))
+                    nativeArchiveCount++
                     // Never download the desktop LWJGL2 artifact for Android.
                     continue
                 }
@@ -310,6 +334,22 @@ object MinecraftVersionInstaller {
         val nativeInspectionRoot = File(gameDirectory, "natives/${version.id}/linux-archive")
         val nativeFiles = tasks.filter { it.nativeArchive && it.file.isFile }
             .sumOf { OEngineNativeArchiveInspector.extractLinuxNativeArchive(it.file, nativeInspectionRoot) }
+        val legacyNativeTasks = tasks.filter { it.legacyLwjgl2Native && it.file.isFile }
+        for (task in legacyNativeTasks) {
+            val abi = when (AndroidRuntimeInstaller.deviceArchitecture()) {
+                "arm64" -> "arm64-v8a"
+                "arm" -> "armeabi-v7a"
+                "x86" -> "x86"
+                "x86_64" -> "x86_64"
+                else -> throw IllegalStateException("Unsupported ABI for legacy LWJGL2.")
+            }
+            installLegacyLwjgl2NativeArchive(
+                task.file,
+                File(File(gameDirectory, "versions/" + version.id), "natives"),
+                OEngineLegacyLwjgl2Compatibility.nativeArchive(abi),
+                abi
+            )
+        }
         if (nativeFiles > 0) {
             val expectedAbi = when (AndroidRuntimeInstaller.deviceArchitecture()) {
                 "arm64" -> "arm64-v8a"
@@ -333,6 +373,84 @@ object MinecraftVersionInstaller {
             mapToResources = assetIndexMetadata.optBoolean("map_to_resources", false)
         )
         DependencyInstallResult(libraryCount, assetCount, mappedAssets, nativeArchiveCount, nativeFiles, completedBytes)
+    }
+
+    private fun installLegacyLwjgl2NativeArchive(
+        archive: File,
+        destinationDirectory: File,
+        artifact: OEngineLegacyLwjgl2Compatibility.NativeArchive,
+        abi: String
+    ) {
+        require(archive.isFile && archive.length() == artifact.size) {
+            "Pinned Mojo LWJGL2 native archive is missing or has an invalid size."
+        }
+        require(sha256(archive).equals(artifact.sha256, ignoreCase = true)) {
+            "Pinned Mojo LWJGL2 native archive failed SHA-256 verification."
+        }
+        val root = destinationDirectory.canonicalFile
+        if (!root.exists() && !root.mkdirs()) {
+            throw IllegalStateException("Could not create the legacy LWJGL2 native directory.")
+        }
+        val target = File(root, artifact.libraryFileName).canonicalFile
+        require(target.toPath().startsWith(root.toPath())) {
+            "Legacy LWJGL2 native output escaped the version native directory."
+        }
+        val temporary = File(root, target.name + ".part")
+        if (temporary.exists()) temporary.delete()
+        var matches = 0
+        try {
+            ZipInputStream(archive.inputStream().buffered()).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (!entry.isDirectory && entry.name.substringAfterLast('/') == artifact.libraryFileName) {
+                        matches++
+                        require(matches == 1) { "Mojo LWJGL2 archive contains duplicate native library entries." }
+                        var written = 0L
+                        temporary.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(32 * 1024)
+                            while (true) {
+                                val count = zip.read(buffer)
+                                if (count < 0) break
+                                written += count
+                                require(written <= 32L * 1024L * 1024L) {
+                                    "Mojo LWJGL2 native library exceeds the extraction limit."
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                    }
+                    zip.closeEntry()
+                }
+            }
+            require(matches == 1 && temporary.isFile && temporary.length() > 0L) {
+                "Mojo LWJGL2 native archive does not contain the expected " + artifact.libraryFileName + "."
+            }
+            val inspection = OEngineElfCompatibilityInspector.inspect(temporary, abi)
+            require(inspection.compatibility == OEngineElfCompatibility.ANDROID_COMPATIBILITY_UNVERIFIED) {
+                "Mojo LWJGL2 native library failed ELF/ABI validation: " + inspection.explanation
+            }
+            if (target.exists() && !target.delete()) {
+                throw IllegalStateException("Could not replace the previous legacy LWJGL2 native library.")
+            }
+            if (!temporary.renameTo(target)) {
+                throw IllegalStateException("Could not atomically install the legacy LWJGL2 native library.")
+            }
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun materializeLegacyAssetMappings(
