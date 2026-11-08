@@ -44,7 +44,7 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
             .file("git/artdeell/mojo/awt/AWTActivity.java").asFile
         val awtOriginal = awtActivity.readText()
         val mouseButtonSwitch = Regex(
-            """        switch \\(v\\.getId\\(\\)\\) \\{\\s+case R\\.id\\.installmod_mouse_pri:\\s+Platform\\.sendMouseButtonEvent\\(MotionEvent\\.BUTTON_PRIMARY, isDown \\? 1 : 0, CallbackBridge\\.getCurrentMods\\(\\)\\);\\s+break;\\s+case R\\.id\\.installmod_mouse_sec:\\s+Platform\\.sendMouseButtonEvent\\(MotionEvent\\.BUTTON_SECONDARY, isDown \\? 1 : 0, CallbackBridge\\.getCurrentMods\\(\\)\\);\\s+break;\\s+\\}"""
+            """        switch \(v\.getId\(\)\) \{\s+case R\.id\.installmod_mouse_pri:\s+Platform\.sendMouseButtonEvent\(MotionEvent\.BUTTON_PRIMARY, isDown \? 1 : 0, CallbackBridge\.getCurrentMods\(\)\);\s+break;\s+case R\.id\.installmod_mouse_sec:\s+Platform\.sendMouseButtonEvent\(MotionEvent\.BUTTON_SECONDARY, isDown \? 1 : 0, CallbackBridge\.getCurrentMods\(\)\);\s+break;\s+\}"""
         )
         val mouseButtonIf = """        if (v.getId() == R.id.installmod_mouse_pri) {
             Platform.sendMouseButtonEvent(MotionEvent.BUTTON_PRIMARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
