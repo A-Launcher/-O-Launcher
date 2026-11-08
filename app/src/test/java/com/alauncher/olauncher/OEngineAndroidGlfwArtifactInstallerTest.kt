@@ -31,7 +31,7 @@ class OEngineAndroidGlfwArtifactInstallerTest {
             assertEquals(64, result.sha256ByLibrary.values.first().length)
             val manifest = result.manifest.readText()
             assertTrue(manifest.contains("\"abi\":\"arm64-v8a\""))
-            assertEquals(4, Regex("\"name\"").findAll(manifest).count())
+            assertEquals(10, Regex("\"name\"").findAll(manifest).count())
             assertTrue(manifest.contains("HotSpot native search-path activation"))
         } finally {
             root.deleteRecursively()
