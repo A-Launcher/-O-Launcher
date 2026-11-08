@@ -62,4 +62,31 @@ class OEngineModrinthPackImporterTest {
             assertFalse(File(temp, "escape.txt").exists())
         } finally { temp.deleteRecursively() }
     }
+    @Test fun overrideImportDoesNotFollowPrecreatedPartFileSymlink() {
+        val temp = Files.createTempDirectory("mrpack-part-symlink").toFile()
+        try {
+            val archive = File(temp, "test.mrpack")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("modrinth.index.json"))
+                zip.write("""{"formatVersion":1,"dependencies":{"minecraft":"1.20.1"},"files":[]}""".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("overrides/config/example.txt"))
+                zip.write("safe-content".toByteArray())
+                zip.closeEntry()
+            }
+            val game = File(temp, "game")
+            val config = File(game, "config")
+            assertTrue(config.mkdirs())
+            val outside = File(temp, "outside.txt").apply { writeText("untouched") }
+            val planted = File(config, "example.txt.oengine-part")
+            Files.createSymbolicLink(planted.toPath(), outside.toPath())
+
+            OEngineModrinthPackImporter.importPack(archive, game)
+
+            assertEquals("untouched", outside.readText())
+            assertEquals("safe-content", File(config, "example.txt").readText())
+            assertTrue(Files.isSymbolicLink(planted.toPath()))
+        } finally { temp.deleteRecursively() }
+    }
+
 }
