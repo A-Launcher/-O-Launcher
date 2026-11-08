@@ -86,9 +86,14 @@ object OEngineModrinthPackImporter {
                 val destination = safeDestination(root, relative)
                 require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
                 verifySafeDestination(root, destination)
-                val temp = File(destination.parentFile, destination.name + ".oengine-part")
-                downloadVerified(url, temp, size, sha1, sha512)
-                moveIntoPlace(temp, destination)
+                val temp = createSafeTempFile(destination)
+                try {
+                    downloadVerified(url, temp, size, sha1, sha512)
+                    moveIntoPlace(temp, destination)
+                } catch (failure: Exception) {
+                    temp.delete()
+                    throw failure
+                }
                 completed += size
                 downloaded++
                 onProgress(completed, expectedTotal)
@@ -128,6 +133,20 @@ object OEngineModrinthPackImporter {
         return destination
     }
 
+    /** Create a unique, exclusively-created staging file in the verified destination directory. */
+    private fun createSafeTempFile(destination: File): File {
+        val parent = destination.parentFile ?: error("Modpack destination has no parent directory.")
+        require(parent.isDirectory && !java.nio.file.Files.isSymbolicLink(parent.toPath())) {
+            "Modpack staging directory is unsafe."
+        }
+        val temp = File.createTempFile(".oengine-", ".part", parent)
+        require(!java.nio.file.Files.isSymbolicLink(temp.toPath()) && temp.isFile) {
+            temp.delete()
+            "Could not create a safe modpack staging file."
+        }
+        return temp
+    }
+
     /** Re-resolve after parent creation so a symlinked parent cannot redirect extraction outside the instance. */
     private fun verifySafeDestination(root: File, destination: File) {
         val canonicalRoot = root.canonicalFile.toPath()
@@ -148,7 +167,7 @@ object OEngineModrinthPackImporter {
             val destination = safeDestination(root, relative)
             require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
             verifySafeDestination(root, destination)
-            val temp = File(destination.parentFile, destination.name + ".oengine-part")
+            val temp = createSafeTempFile(destination)
             try {
                 zip.getInputStream(entry).use { input ->
                     temp.outputStream().buffered().use { output ->
