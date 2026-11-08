@@ -90,11 +90,18 @@ class OEngineJvmBootstrapPlanTest {
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=" + glfw.canonicalPath))
-            val expectedNativePath = listOf(glfw.parentFile!!.canonicalPath, nativeDir.canonicalPath)
-                .joinToString(File.pathSeparator)
-            assertTrue(plan.vmOptions.contains("-Djava.library.path=" + expectedNativePath))
-            assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.librarypath=" + expectedNativePath))
-            assertTrue(plan.vmOptions.contains("-Djna.boot.library.path=" + expectedNativePath))
+            val expectedNativeDirectories = setOf(
+                glfw.parentFile!!.canonicalPath,
+                nativeDir.canonicalPath
+            )
+            for (property in listOf("-Djava.library.path=", "-Dorg.lwjgl.librarypath=", "-Djna.boot.library.path=")) {
+                val configured = plan.vmOptions.firstOrNull { it.startsWith(property) }
+                assertTrue("Missing " + property, configured != null)
+                val actualDirectories = configured!!.removePrefix(property)
+                    .split(File.pathSeparator).toSet()
+                assertTrue("Missing GLFW directory in " + property, actualDirectories.contains(glfw.parentFile!!.canonicalPath))
+                assertTrue("Missing game natives directory in " + property, actualDirectories.contains(nativeDir.canonicalPath))
+            }
             assertFalse(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=/wrong/path"))
         } finally { root.deleteRecursively() }
     }
