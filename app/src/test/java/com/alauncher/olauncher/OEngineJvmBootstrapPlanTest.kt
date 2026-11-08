@@ -90,10 +90,6 @@ class OEngineJvmBootstrapPlanTest {
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=" + glfw.canonicalPath))
-            val expectedNativeDirectories = setOf(
-                glfw.parentFile!!.canonicalPath,
-                nativeDir.canonicalPath
-            )
             for (property in listOf("-Djava.library.path=", "-Dorg.lwjgl.librarypath=", "-Djna.boot.library.path=")) {
                 val configured = plan.vmOptions.firstOrNull { it.startsWith(property) }
                 assertTrue("Missing " + property, configured != null)
