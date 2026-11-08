@@ -2723,7 +2723,7 @@ private fun InstallationsDestination(images: LauncherImages) {
                                     try {
                                         val arch = AndroidRuntimeInstaller.deviceArchitecture()
                                         val filename = "jre" + requiredJavaMajor + "-android-" + arch + ".tar.xz"
-                                        val archive = File(activeInstance.root, "oengine/runtime-archives/" + filename)
+                                        val archive = File(activeInstance.root, "runtimes/archives/" + filename)
                                         val result = AndroidRuntimeInstaller.installRuntime(
                                             archive,
                                             requiredJavaMajor,
