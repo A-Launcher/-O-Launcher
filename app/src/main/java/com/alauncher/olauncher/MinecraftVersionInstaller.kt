@@ -21,6 +21,18 @@ object MinecraftVersionInstaller {
         parseVersionManifest(JSONObject(requestText(MANIFEST_URL)))
     }
 
+    internal fun resolveJavaCompatibility(
+        versionId: String,
+        baseMetadata: JSONObject,
+        loaderMetadata: JSONObject?
+    ): OEngineJavaCompatibility {
+        val loaderMajor = loaderMetadata?.optJSONObject("javaVersion")
+            ?.optInt("majorVersion")?.takeIf { it > 0 }
+        val baseMajor = baseMetadata.optJSONObject("javaVersion")
+            ?.optInt("majorVersion")?.takeIf { it > 0 }
+        return OEngineJavaCompatibility.resolve(versionId, loaderMajor ?: baseMajor)
+    }
+
     internal fun parseVersionManifest(manifest: JSONObject): Pair<List<MinecraftRelease>, String> {
         val latest = manifest.getJSONObject("latest").optString("release")
         val entries = manifest.getJSONArray("versions")
@@ -396,8 +408,7 @@ object MinecraftVersionInstaller {
             }
         }
         val launchVersionId = loaderMetadata?.optString("id")?.takeIf { it.isNotBlank() } ?: version.id
-        val metadataJavaMajor = metadata.optJSONObject("javaVersion")?.optInt("majorVersion")?.takeIf { it > 0 }
-        val javaCompatibility = OEngineJavaCompatibility.resolve(version.id, metadataJavaMajor)
+        val javaCompatibility = resolveJavaCompatibility(version.id, metadata, loaderMetadata)
         javaCompatibility.nativeLaunchBlocker()?.let { throw IllegalStateException(it) }
         val javaMajorVersion = javaCompatibility.runtimeJavaMajor
         val mainClass = loaderMetadata?.optString("mainClass")?.takeIf { it.isNotBlank() }
