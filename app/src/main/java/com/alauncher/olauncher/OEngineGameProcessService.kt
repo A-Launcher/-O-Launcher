@@ -424,7 +424,9 @@ class OEngineGameProcessService : Service() {
                             "The JVM must use the exact staged libglfw.so absolute path through org.lwjgl.glfw.libname."
                         }
                         val options = requestedOptions
-                        require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
+                        require(OEngineJavaCompatibility.supportsNativeHookMajor(javaMajor)) {
+                            "Java $javaMajor is below the supported Java 8 or ABI-probed Java 17+ native-library hook profiles."
+                        }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
                         val androidNativeDir = glfwLibrary.parentFile?.canonicalFile
                             ?: throw IllegalStateException("Staged Android native-library directory is missing.")
