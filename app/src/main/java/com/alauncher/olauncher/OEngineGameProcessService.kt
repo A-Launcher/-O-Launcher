@@ -426,17 +426,18 @@ class OEngineGameProcessService : Service() {
                         val options = requestedOptions
                         require(javaMajor in setOf(8, 17, 21)) { "Java $javaMajor has no verified native-library hook profile." }
                         val nativeDir = File(applicationInfo.nativeLibraryDir).canonicalFile
-                        // Minecraft's LWJGL 3 Java modules require the Android-native
-                        // JNI core and OpenGL helper libraries before their static
-                        // Library initializers can run. Linux classifier archives are
-                        // not valid Android substitutes.
+                        val androidNativeDir = glfwLibrary.parentFile?.canonicalFile
+                            ?: throw IllegalStateException("Staged Android native-library directory is missing.")
+                        // System.loadLibrary resolves through java.library.path. Verify the
+                        // private staged set itself (not just the APK source directory) so
+                        // the exact files referenced by the JVM bootstrap plan are present.
                         val requiredLwjglNativeModules = listOf(
                             "liblwjgl.so",
                             "liblwjgl_opengl.so",
                             "libopenal.so"
                         )
                         val missingLwjglModules = requiredLwjglNativeModules.filter { name ->
-                            val file = File(nativeDir, name)
+                            val file = File(androidNativeDir, name)
                             !file.isFile || file.length() <= 0L
                         }
                         check(missingLwjglModules.isEmpty()) {
@@ -448,7 +449,7 @@ class OEngineGameProcessService : Service() {
                             this,
                             "LWJGL_ANDROID_NATIVE_READY",
                             requiredLwjglNativeModules.joinToString { name ->
-                                val file = File(nativeDir, name)
+                                val file = File(androidNativeDir, name)
                                 name + ":" + file.length() + "B"
                             }
                         )
@@ -457,7 +458,7 @@ class OEngineGameProcessService : Service() {
                             File(runtimeHome, "lib/server"),
                             File(runtimeHome, "lib/jli"),
                             nativeDir,
-                            glfwLibrary.parentFile
+                            androidNativeDir
                         ).filter { it.isDirectory }.map { it.absolutePath }
                         val existing = System.getenv("LD_LIBRARY_PATH").orEmpty()
                         val ldPath = (searchPaths + existing.split(File.pathSeparator).filter { it.isNotBlank() })
