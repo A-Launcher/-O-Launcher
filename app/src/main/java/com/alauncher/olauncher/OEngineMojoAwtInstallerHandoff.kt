@@ -168,7 +168,8 @@ object OEngineMojoAwtInstallerHandoff {
         // stages under oengine/runtime-staging, so every remaining *.installing entry
         // here is from the old layout and can be preserved outside MultiRTUtils' scan.
         runtimeRoot.listFiles().orEmpty()
-            .filter { it.name.endsWith(".installing") }
+            .filter { it.name.endsWith(".installing") &&
+                System.currentTimeMillis() - it.lastModified() > 6L * 60L * 60L * 1000L }
             .forEach { staging ->
                 val target = File(legacyStore, "staging/${staging.name}")
                 require(!target.exists()) { "Legacy runtime staging backup already exists." }
