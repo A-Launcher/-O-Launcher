@@ -2501,9 +2501,12 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                 instances.forEach { item ->
                                     DropdownMenuItem(text = { Text(item.name) }, onClick = {
                                         activeInstance = OEngineInstanceManager.select(context, item.id)
+                                        val instanceProfile = profilePreferences.getString("instance_profile.${item.id}", item.name) ?: item.name
+                                        profilePreferences.edit().putString("instance_profile.${item.id}", instanceProfile).apply()
+                                        restoreProfile(instanceProfile)
                                         instanceMenu = false
                                         preparedLaunchPlan = null
-                                        launchPlanStatus = "Selected instance: ${item.name}. Install the selected version in this instance."
+                                        launchPlanStatus = "Selected instance: ${item.name} · profile: ${instanceProfile}"
                                     })
                                 }
                             }
@@ -3694,6 +3697,7 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                     selectedLoaderVersion = newLoaderVersion?.takeIf { it.isNotBlank() }
                     installedLoaderProfileId = null
                     profilePreferences.edit().putString("selected_profile", instanceName)
+                        .putString("instance_profile.${created.id}", instanceName)
                         .putString("version.$instanceName", selectedVersion)
                         .putString("loader.$instanceName", newInstanceLoader)
                         .putString("loader_version.$instanceName", newLoaderVersion?.takeIf { it.isNotBlank() })
