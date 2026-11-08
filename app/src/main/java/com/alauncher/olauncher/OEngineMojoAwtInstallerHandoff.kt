@@ -98,6 +98,7 @@ object OEngineMojoAwtInstallerHandoff {
     /** Called by the AWT process bootstrap before it invokes AWTActivity.onCreate(). */
     fun bindRuntimePaths(request: Request, context: Context): OEngineMojoAwtRuntimeLayout.Paths {
         val paths = OEngineMojoAwtRuntimeLayout.paths(request.instanceRoot)
+        migrateLegacyRuntimeLayout(paths)
         initializeMojoPreferences(context, paths)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 8)
         OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 17)
@@ -107,6 +108,92 @@ object OEngineMojoAwtInstallerHandoff {
             "Mojo AWT runtime was bound to a different Minecraft instance."
         }
         return paths
+    }
+
+    /**
+     * Older O Engine builds stored Java folders in runtimes/installed and archives in
+     * runtimes/archives. Mojo snapshots the entire runtimes directory before the path
+     * binder runs, so migrate these legacy children out of the scan root first.
+     */
+    private fun migrateLegacyRuntimeLayout(paths: OEngineMojoAwtRuntimeLayout.Paths) {
+        val runtimeRoot = paths.runtimes
+        require(!java.nio.file.Files.isSymbolicLink(runtimeRoot.toPath())) {
+            "Java runtime root must not be a symbolic link."
+        }
+        require(runtimeRoot.isDirectory || runtimeRoot.mkdirs()) {
+            "Could not create the Java runtime root."
+        }
+
+        val legacyStore = File(paths.instanceRoot, "oengine/mojo/legacy-runtimes")
+        val archiveStore = File(paths.instanceRoot, "oengine/runtime-archives")
+
+        fun movePreserving(source: File, destination: File) {
+            require(!java.nio.file.Files.isSymbolicLink(source.toPath())) {
+                "Legacy runtime migration refuses symbolic links."
+            }
+            val parent = destination.parentFile
+                ?: error("Legacy runtime migration destination has no parent.")
+            require(parent.isDirectory || parent.mkdirs()) {
+                "Could not create a legacy runtime migration directory."
+            }
+            require(!java.nio.file.Files.isSymbolicLink(parent.toPath())) {
+                "Legacy runtime migration destination contains a symbolic link."
+            }
+            require(destination.canonicalFile.toPath().startsWith(paths.instanceRoot.toPath())) {
+                "Legacy runtime migration destination escapes the selected instance."
+            }
+            java.nio.file.Files.move(source.toPath(), destination.toPath())
+        }
+
+        val legacyInstalled = File(runtimeRoot, "installed")
+        if (legacyInstalled.exists()) {
+            require(!java.nio.file.Files.isSymbolicLink(legacyInstalled.toPath()) && legacyInstalled.isDirectory) {
+                "Legacy installed runtimes directory is unsafe."
+            }
+            val children = legacyInstalled.listFiles()
+                ?: error("Could not inspect legacy installed runtimes.")
+            children.forEach { source ->
+                require(source.name.matches(Regex("[A-Za-z0-9._+-]{1,100}"))) {
+                    "Legacy runtime folder name is invalid."
+                }
+                val directTarget = File(runtimeRoot, source.name)
+                val target = if (directTarget.exists()) {
+                    File(legacyStore, "installed/${source.name}")
+                } else {
+                    directTarget
+                }
+                require(!target.exists()) { "Legacy runtime migration found a duplicate backup folder." }
+                movePreserving(source, target)
+            }
+            if (legacyInstalled.exists()) {
+                require(legacyInstalled.delete()) { "Could not finish legacy runtime migration." }
+            }
+        }
+
+        val legacyArchives = File(runtimeRoot, "archives")
+        if (legacyArchives.exists()) {
+            require(!java.nio.file.Files.isSymbolicLink(legacyArchives.toPath()) && legacyArchives.isDirectory) {
+                "Legacy runtime archive directory is unsafe."
+            }
+            val children = legacyArchives.listFiles()
+                ?: error("Could not inspect legacy runtime archives.")
+            children.forEach { source ->
+                require(source.isFile && source.name.matches(Regex("[A-Za-z0-9._+-]{1,160}"))) {
+                    "Legacy runtime archive entry is invalid."
+                }
+                val directTarget = File(archiveStore, source.name)
+                val target = if (directTarget.exists()) {
+                    File(legacyStore, "archives/${source.name}")
+                } else {
+                    directTarget
+                }
+                require(!target.exists()) { "Legacy runtime migration found a duplicate archive backup." }
+                movePreserving(source, target)
+            }
+            if (legacyArchives.exists()) {
+                require(legacyArchives.delete()) { "Could not finish legacy runtime archive migration." }
+            }
+        }
     }
 
     /**
