@@ -156,6 +156,13 @@ jobs:
         run: |
           set -euo pipefail
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86 -t x86_64 -o ../../app/src/main/jniLibs build --release
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            destination="../../app/src/main/jniLibs/$abi"
+            source="$destination/liboengine_native.so"
+            test -s "$source" || { echo "Missing Cargo output $source"; exit 1; }
+            cp "$source" "$destination/liboengine.so"
+            echo "Packaged Rust JNI library as $destination/liboengine.so"
+          done
 
       - name: Build pinned Android GLFW backend for all Android ABIs
         run: |
