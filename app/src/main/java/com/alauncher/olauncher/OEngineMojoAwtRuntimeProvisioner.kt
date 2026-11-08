@@ -3,7 +3,7 @@ package com.alauncher.olauncher
 import android.content.Context
 import java.io.File
 import java.security.MessageDigest
-import java.util.jar.JarFile
+import java.util.jar.JarFile\nimport java.nio.file.Files\nimport java.nio.file.StandardCopyOption
 
 /**
  * Installs the pinned Mojo Caciocavallo runtime jars into the selected instance.
