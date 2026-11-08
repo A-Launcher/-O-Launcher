@@ -881,6 +881,8 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var message by remember { mutableStateOf("") }
     var search by remember { mutableStateOf("") }
     var gridMode by remember { mutableStateOf(true) }
+    var sortMode by remember { mutableStateOf("Name") }
+    var showHidden by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<File?>(null) }
     var pendingRename by remember { mutableStateOf<File?>(null) }
     var renameName by remember { mutableStateOf("") }
@@ -915,9 +917,19 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         }
         refresh++
     }
-    val entries = remember(current, refresh, search) {
-        current.listFiles()?.filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
-            ?.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase() })) ?: emptyList()
+    val entries = remember(current, refresh, search, sortMode, showHidden) {
+        current.listFiles()?.filter {
+            (showHidden || !it.name.startsWith(".")) &&
+                (search.isBlank() || it.name.contains(search, ignoreCase = true))
+        }?.sortedWith(
+            compareBy<File>({ !it.isDirectory }).then(
+                when (sortMode) {
+                    "Size" -> compareBy<File> { if (it.isDirectory) 0L else it.length() }
+                    "Modified" -> compareBy<File> { it.lastModified() }
+                    else -> compareBy<File> { it.name.lowercase() }
+                }
+            )
+        ) ?: emptyList()
     }
     val parent = current.parentFile?.takeIf { current != root && runCatching { it.canonicalPath.startsWith(root.canonicalPath + File.separator) }.getOrDefault(false) }
     val storageStats = remember(root, refresh) {
@@ -1003,6 +1015,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             }
                         }
                         TextButton(onClick = { importPicker.launch(arrayOf("*/*")) }) { Text("IMPORT", color = Ink, fontWeight = FontWeight.Bold) }
+                        TextButton(onClick = { sortMode = when (sortMode) { "Name" -> "Size"; "Size" -> "Modified"; else -> "Name" } }) {
+                            Text("SORT: $sortMode", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        }
+                        TextButton(onClick = { showHidden = !showHidden }) {
+                            Text(if (showHidden) "HIDDEN ON" else "HIDDEN OFF", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        }
                         Surface(onClick = { gridMode = true }, color = if (gridMode) Gold else Color.Transparent, shape = RoundedCornerShape(12.dp)) { Text("▦", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Ink, fontSize = 20.sp) }
                         Surface(onClick = { gridMode = false }, color = if (!gridMode) Gold else Color.Transparent, shape = RoundedCornerShape(12.dp)) { Text("☷", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Ink, fontSize = 20.sp) }
                     }
