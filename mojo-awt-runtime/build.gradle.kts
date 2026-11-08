@@ -46,6 +46,8 @@ android {
 
     defaultConfig {
         minSdk = 26
+        // Mojo's application sources reference this generated field; this module is an AAR.
+        buildConfigField("String", "VERSION_NAME", "\"0.1.0\"")
         consumerProguardFiles("consumer-rules.pro")
         resValue("string", "application_package", "com.alauncher.olauncher")
         resValue("string", "storageProviderAuthorities", "com.alauncher.olauncher.scoped.gamefolder")
@@ -58,9 +60,10 @@ android {
         buildConfig = true
     }
 
+    // Compile the pinned upstream Java sources with their original Java 8 language level.
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     sourceSets.getByName("main").apply {
@@ -90,10 +93,13 @@ dependencies {
     api("commons-io:commons-io:2.19.0")
     api("org.apache.commons:commons-compress:1.28.0")
     api("androidx.recyclerview:recyclerview:1.4.0")
-    api("com.google.code.gson:gson:2.13.1")
     api("org.tukaani:xz:1.10")
     api("net.sourceforge.htmlcleaner:htmlcleaner:2.29")
-    api("net.objecthunter:exp4j:0.4.8")
+
+    // Match the pinned Mojo app's local exp4j/Gson patches and bundled support AARs.
+    api(fileTree("../third_party/MojoLauncher/app_mojo/libs") {
+        include("*.jar", "*.aar")
+    })
 
     api("com.github.duanhong169:checkerboarddrawable:1.0.2")
     api("com.github.PojavLauncherTeam:portrait-sdp:ed33e89cbc")
