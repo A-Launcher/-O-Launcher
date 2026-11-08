@@ -24,8 +24,8 @@ object OEngineModrinthPackImporter {
     private const val MAX_ENTRIES = 100_000
 
     fun safeRelativePath(raw: String): String {
-        val normalized = raw.replace('\\\\', '/')
-        require(normalized.isNotBlank() && !normalized.startsWith('/') && !normalized.startsWith('\\\\'))
+        val normalized = raw.replace('\\', '/')
+        require(normalized.isNotBlank() && !normalized.startsWith('/') && !normalized.startsWith('\\'))
         require(!Regex("^[A-Za-z]:").containsMatchIn(normalized))
         val parts = normalized.split('/')
         require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Unsafe archive path." }

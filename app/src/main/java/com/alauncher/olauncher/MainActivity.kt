@@ -1584,6 +1584,7 @@ private fun AccountDestination(images: LauncherImages) {
 @Composable
 private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) {
     val context = LocalContext.current
+    var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
     val categories = listOf("All", "Mods", "Modpacks", "Resource Packs", "Data Packs", "Shaders")
     var selectedCategory by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
@@ -1605,7 +1606,6 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
     var installStatus by remember { mutableStateOf<String?>(null) }
     var choosingDataPackWorldFor by remember { mutableStateOf<Pair<OEngineModrinthCatalog.Project, OEngineModrinthInstaller.ProjectVersion>?>(null) }
     val scope = rememberCoroutineScope()
-    var activeGameRoot by remember { mutableStateOf(OEngineInstanceManager.active(context).root) }
     var installedContent by remember { mutableStateOf(OEngineInstalledContentManager.list(activeGameRoot)) }
     var removingContent by remember { mutableStateOf<OEngineInstalledContentManager.Entry?>(null) }
     fun refreshInstalledContent() {
@@ -1801,7 +1801,6 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp) 
                         Text("Try another search or category.", color = Muted, fontSize = 11.sp)
                     }
                 }
-            }
             } else projects.forEach { project ->
                 Surface(
                     color = Panel,
