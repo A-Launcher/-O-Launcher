@@ -151,6 +151,7 @@ object OEngineInstallerProfileWatcher {
             .remove(snapshotKey)
             .remove(loaderKey)
             .remove(versionKey)
+            .remove("pending_installer_version.$profileKey")
             .remove("pending_installer_agent.$profileKey")
             .remove("pending_installer_args.$profileKey")
             .remove("pending_installer_jar.$profileKey")
