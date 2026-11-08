@@ -48,25 +48,25 @@ class OEngineMojoAwtInstallerHandoffTest {
 
             val legacyJava17 = File(runtimeRoot, "installed/Java-17-arm64")
             assertEquals(true, legacyJava17.mkdirs())
-            File(legacyJava17, "release").writeText("JAVA_VERSION=\"17\"\\nOS_ARCH=\"aarch64\"\\n")
+            File(legacyJava17, "release").writeText("JAVA_VERSION=\"17\"\nOS_ARCH=\"aarch64\"\n")
             val java17Lib = File(legacyJava17, "lib/server/libjvm.so")
             assertEquals(true, java17Lib.parentFile.mkdirs())
             java17Lib.writeBytes(byteArrayOf(1))
 
             val legacyJava21 = File(runtimeRoot, "installed/Java-21-arm64")
             assertEquals(true, legacyJava21.mkdirs())
-            File(legacyJava21, "release").writeText("JAVA_VERSION=\"21\"\\n")
+            File(legacyJava21, "release").writeText("JAVA_VERSION=\"21\"\n")
 
             val existingJava21 = File(runtimeRoot, "Java-21-arm64")
             assertEquals(true, existingJava21.mkdirs())
-            File(existingJava21, "release").writeText("JAVA_VERSION=\"21\"\\nOS_ARCH=\"aarch64\"\\n")
+            File(existingJava21, "release").writeText("JAVA_VERSION=\"21\"\nOS_ARCH=\"aarch64\"\n")
             val java21Lib = File(existingJava21, "lib/server/libjvm.so")
             assertEquals(true, java21Lib.parentFile.mkdirs())
             java21Lib.writeBytes(byteArrayOf(1))
 
             val invalidRuntime = File(runtimeRoot, "Java-8-arm64")
             assertEquals(true, invalidRuntime.mkdirs())
-            File(invalidRuntime, "release").writeText("JAVA_VERSION=\"8\"\\n")
+            File(invalidRuntime, "release").writeText("JAVA_VERSION=\"8\"\n")
 
             val oldArchive = File(runtimeRoot, "archives/jre17-android-arm64.tar.xz")
             assertEquals(true, oldArchive.parentFile.mkdirs())
@@ -88,7 +88,7 @@ class OEngineMojoAwtInstallerHandoffTest {
             assertEquals(false, File(runtimeRoot, "installed").exists())
             assertEquals(false, File(runtimeRoot, "archives").exists())
             assertEquals(
-                "JAVA_VERSION=\"21\"\\nOS_ARCH=\"aarch64\"\\n",
+                "JAVA_VERSION=\"21\"\nOS_ARCH=\"aarch64\"\n",
                 File(existingJava21, "release").readText()
             )
         } finally {
