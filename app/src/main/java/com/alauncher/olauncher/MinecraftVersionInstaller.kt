@@ -202,10 +202,28 @@ object MinecraftVersionInstaller {
         }
 
         val indexId = assetIndex.optString("id").ifBlank { version.id }
-        val indexFile = File(File(gameDirectory, "assets/indexes"), "$indexId.json")
-        tasks.add(Task(assetIndex.getString("url"), indexFile, assetIndex.optString("sha1"), assetIndex.optLong("size", -1L), "Asset index"))
+        require(indexId.matches(Regex("[A-Za-z0-9._-]{1,128}"))) {
+            "Minecraft asset index contains an invalid index ID."
+        }
+        val indexRoot = File(gameDirectory, "assets/indexes")
+        val indexFile = OEngineAssetObjectPath.resolveMapped(indexRoot, "$indexId.json")
+        val indexUrl = assetIndex.getString("url")
+        val indexSha1 = assetIndex.optString("sha1")
+        val indexSize = assetIndex.optLong("size", -1L)
+        require(indexSize > 0L && indexSize <= 64L * 1024L * 1024L) {
+            "Minecraft asset index has an invalid or excessive declared size."
+        }
+        if (!indexFile.isFile || indexFile.length() != indexSize ||
+            (indexSha1.isNotBlank() && !sha1(indexFile).equals(indexSha1, ignoreCase = true))
+        ) {
+            downloadVerified(indexUrl, indexFile, indexSha1, indexSize) { received ->
+                onProgress(received, indexSize, "Downloading and verifying asset index")
+            }
+        }
+        // Parse only the exact index file whose Mojang-provided size and SHA-1 passed.
+        val assetIndexMetadata = JSONObject(indexFile.readText())
+        tasks.add(Task(indexUrl, indexFile, indexSha1, indexSize, "Asset index"))
 
-        val assetIndexMetadata = JSONObject(requestText(assetIndex.getString("url")))
         val totalObjects = assetIndexMetadata.getJSONObject("objects")
         val objectBase = File(gameDirectory, "assets/objects")
         var assetCount = 0
@@ -219,7 +237,7 @@ object MinecraftVersionInstaller {
             require(assetSize >= 0L) { "Asset index contains an invalid size for $name." }
             tasks.add(Task(
                 "https://resources.download.minecraft.net/" + hash.substring(0, 2) + "/" + hash,
-                target, hash, item.optLong("size", -1L), "Asset: " + name
+                target, hash, assetSize, "Asset: " + name
             ))
             assetCount++
         }
