@@ -14,7 +14,7 @@ import java.io.File
  * Mojo AWT runtime has been compiled into the application.
  */
 object OEngineMojoAwtInstallerHandoff {
-    const val AWT_ACTIVITY_CLASS = "git.artdeell.mojo.awt.AWTActivity"
+    const val AWT_ACTIVITY_CLASS = "com.alauncher.olauncher.OEngineMojoAwtActivity"
     private const val MAX_ARGS = 32
     private const val MAX_ARG_LENGTH = 4096
 
