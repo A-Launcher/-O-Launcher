@@ -33,7 +33,7 @@ O Launcher is under active development. The Android launcher UI, Minecraft metad
 - Physical-device validation across Android versions, GPU vendors, and all packaged ABIs.
 
 #### Launcher features
-- Real mod-loader installation and launch integration (Fabric, Forge, NeoForge, and Quilt as applicable).
+- End-to-end verification of loader installation and subsequent game launch. Fabric/Quilt profile metadata and library staging are implemented; Forge/NeoForge are routed through the pinned Mojo installer agent and AWT runtime, but still need successful installer and launch validation. OptiFine's official download/install flow is not integrated yet.
 - Complete skin import, preview, local apply, and authenticated upload flow.
 - Marketplace provider/API integration, browsing, downloads, and install management.
 - Applying every settings control to the actual runtime, renderer, input, and game process.
@@ -49,11 +49,11 @@ A successful APK build, Rust test, or native-library packaging check is not evid
 - Rust for O Engine native contracts, JNI integration and native runtime components.
 - Gradle Kotlin DSL and GitHub Actions for reproducible Android builds.
 
-O Engine is an original implementation. Other launchers and upstream libraries may be used as technical references or integrated components only where their licenses permit it, with provenance and notices preserved.
+O Engine is an independent launcher implementation that deliberately reuses selected upstream components where their licenses permit it. MojoLauncher is not merely a reference: its source is pinned as a Git submodule and its AWT runtime, resources, and Forge/NeoForge installer-agent build are integrated into O Launcher. O Engine retains its own launcher UI, profile orchestration, Rust/JNI process model, and game-launch pipeline. Provenance and applicable license notices are recorded in `THIRD_PARTY_NOTICES.md`.
 
 ### Technical references
 
-- [MojoLauncher](https://github.com/MojoLauncher/MojoLauncher), LGPL-3.0: used as a technical reference for Android GLES renderer setup, the LTW OpenGL ES 3 requirement, renderer environment defaults, and the Android game-surface lifecycle. O Engine's Rust JNI, process model, launcher UI, and renderer integration remain independently implemented.
+- [MojoLauncher](https://github.com/MojoLauncher/MojoLauncher), LGPL-3.0: source pinned at `third_party/MojoLauncher` to commit `1b8d90424c1cb791321d45f60ac62c54f4b013fa`. O Launcher compiles the upstream Java/AWT runtime and resources and builds the upstream Forge installer-agent module; see `mojo-awt-runtime`, `mojo-forge-installer`, `OEngineMojoAwtInstallerHandoff`, and `THIRD_PARTY_NOTICES.md`. The pinned source includes Mojo's Fabric, Quilt, Forge, NeoForge, and OptiFine implementation families; not all of those flows are connected to O Launcher's UI yet.
 - [MojoLauncher GLES renderer setup](https://github.com/MojoLauncher/MojoLauncher/blob/v3_openjdk/app_mojo/src/main/java/git/artdeell/mojo/game/renderer/impl/GLESRenderSpec.java)
 - [MojoLauncher Android surface lifecycle](https://github.com/MojoLauncher/MojoLauncher/tree/v3_openjdk/app_mojo/src/main/java/git/artdeell/mojo/game/render)
 
