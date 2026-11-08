@@ -41,9 +41,10 @@ object OEngineModrinthInstaller {
   else -> throw IllegalArgumentException("Only individual mods, resource packs, shaders and data packs can be installed here.")
  }
  fun safeFilename(value:String):String {
-  val name=value.substringAfterLast('/').substringAfterLast('\\').trim()
-  require(name.isNotBlank() && name!="." && name!="..")
-  require(name.length<=180 && name.matches(Regex("[A-Za-z0-9._() +\\-]+"))) { "Unsafe Modrinth filename." }
+  val name=value.trim()
+  require(name.isNotBlank() && name!="." && name!=".." &&
+   !name.contains("/") && !name.contains("\\") &&
+   name.length<=180 && name.matches(Regex("[A-Za-z0-9._() +\\-]+"))) { "Unsafe Modrinth filename." }
   return name
  }
  /** URL-encodes Modrinth's JSON-array filters without changing their JSON meaning. */

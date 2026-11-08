@@ -236,9 +236,12 @@ object OEngineMojoAwtInstallerHandoff {
             require(!java.nio.file.Files.isSymbolicLink(release.toPath())) {
                 "Java runtime release metadata must not be a symbolic link."
             }
-            if (!runtime.isDirectory || runCatching {
+            val activeStaging = runtime.isDirectory &&
+                runtime.name.endsWith(".installing") &&
+                System.currentTimeMillis() - runtime.lastModified() <= 6L * 60L * 60L * 1000L
+            if (!activeStaging && (!runtime.isDirectory || runCatching {
                 OEngineMojoAwtRuntimeLayout.inspectRuntime(paths, runtime.name)
-            }.isFailure) {
+            }.isFailure)) {
                 val backupName = if (runtime.isDirectory) "invalid/${runtime.name}"
                     else "invalid-files/${runtime.name}"
                 val backup = File(legacyStore, backupName)

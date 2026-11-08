@@ -36,6 +36,8 @@ class OEngineInstalledContentManagerTest {
         val root = Files.createTempDirectory("oengine-world-packs").toFile()
         try {
             File(root, "datapacks/root-pack.zip").apply { parentFile.mkdirs(); writeText("wrong location") }
+            File(root, "saves/Survival/level.dat").writeText("world")
+            File(root, "saves/Creative/level.dat").writeText("world")
             File(root, "saves/Survival/datapacks/world-pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             File(root, "saves/Creative/datapacks/another-pack.zip").apply { parentFile.mkdirs(); writeText("pack2") }
             val entries = OEngineInstalledContentManager.list(root)
@@ -79,6 +81,8 @@ class OEngineInstalledContentManagerTest {
     @Test fun removesDataPackFromItsOwningWorldOnly() {
         val root = Files.createTempDirectory("oengine-remove-world-pack").toFile()
         try {
+            File(root, "saves/Survival/level.dat").writeText("world")
+            File(root, "saves/Creative/level.dat").writeText("world")
             val pack = File(root, "saves/Survival/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             val other = File(root, "saves/Creative/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("other") }
             val entry = OEngineInstalledContentManager.list(root).single()
@@ -117,6 +121,7 @@ class OEngineInstalledContentManagerTest {
         val root = Files.createTempDirectory("oengine-world-replaced").toFile()
         try {
             val world = File(root, "saves/Survival")
+            File(world, "level.dat").apply { parentFile.mkdirs(); writeText("world") }
             val pack = File(world, "datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             val entry = OEngineInstalledContentManager.list(root).single()
             val saves = File(root, "saves")
