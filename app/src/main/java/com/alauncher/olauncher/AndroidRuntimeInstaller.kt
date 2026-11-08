@@ -141,7 +141,7 @@ object AndroidRuntimeInstaller {
         require(archive.isFile && archive.length() > 0L) { "Download the Java runtime archive first." }
         require(javaMajor in supportedJava) { "Unsupported Java runtime version: " + javaMajor }
         val architecture = deviceArchitecture()
-        val root = File(gameDirectory, "runtimes/installed").canonicalFile
+        val root = File(gameDirectory, "runtimes").canonicalFile
         if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create the installed runtimes directory.")
         val runtimeName = "Java-" + javaMajor + "-" + architecture
         val destination = File(root, runtimeName)
