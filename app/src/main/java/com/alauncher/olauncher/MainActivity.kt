@@ -1653,11 +1653,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
         }
     }
     fun prepareProjectInstall(project: OEngineModrinthCatalog.Project) {
-        if (project.projectType == OEngineModrinthCatalog.ProjectType.MODPACK ||
-            project.projectType == OEngineModrinthCatalog.ProjectType.ALL) {
-            installStatus = "Modpack archives need the dedicated instance-import workflow. Open the project page to view its instructions."
-            return
-        }
+        if (project.projectType == OEngineModrinthCatalog.ProjectType.ALL) return
         installingProject = project
         installVersions = emptyList()
         installStatus = null
@@ -1672,6 +1668,52 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
         }
     }
 
+    fun installModpackVersion(project: OEngineModrinthCatalog.Project, version: OEngineModrinthInstaller.ProjectVersion) {
+        if (installingFile) return
+        installingFile = true
+        installStatus = "Downloading and verifying modpack archive…"
+        scope.launch {
+            var created: OEngineInstance? = null
+            val staged = File(context.cacheDir, "modrinth-" + version.id + ".mrpack")
+            try {
+                val file = version.files.firstOrNull { it.primary } ?: version.files.firstOrNull() ?: error("Modrinth did not provide a modpack archive.")
+                require(file.size in 1..(512L * 1024L * 1024L)) { "Modpack archive exceeds 512 MiB or has invalid size." }
+                withContext(Dispatchers.IO) {
+                    val connection = (URL(file.url).openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 30000; instanceFollowRedirects = false; requestMethod = "GET"; setRequestProperty("User-Agent", "O-Launcher/1.0") }
+                    try {
+                        val status = connection.responseCode
+                        require(status in 200..299) { "Modrinth archive download failed: HTTP " + status }
+                        val contentLength = connection.contentLengthLong
+                        require(contentLength < 0 || contentLength == file.size) { "Modrinth archive size did not match its metadata." }
+                        val sha1 = java.security.MessageDigest.getInstance("SHA-1")
+                        val sha512 = java.security.MessageDigest.getInstance("SHA-512")
+                        var total = 0L
+                        connection.inputStream.use { input -> staged.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(65536)
+                            while (true) { val count = input.read(buffer); if (count < 0) break; total += count; require(total <= file.size && total <= 512L * 1024L * 1024L) { "Modpack archive exceeded its declared size." }; sha1.update(buffer, 0, count); sha512.update(buffer, 0, count); output.write(buffer, 0, count) }
+                        } }
+                        require(total == file.size) { "Modpack archive was incomplete." }
+                        val actual1 = sha1.digest().joinToString("") { "%02x".format(it) }
+                        val actual512 = sha512.digest().joinToString("") { "%02x".format(it) }
+                        require((file.sha1.isBlank() || actual1.equals(file.sha1, true)) && (file.sha512.isBlank() || actual512.equals(file.sha512, true))) { "Modpack archive failed hash verification." }
+                    } finally { connection.disconnect() }
+                }
+                val base = project.title.replace(Regex("[^A-Za-z0-9 _.-]"), "").trim().take(40).ifBlank { "Modpack" }
+                var instanceName = base
+                var suffix = 2
+                while (OEngineInstanceManager.list(context).any { it.name.equals(instanceName, true) }) { instanceName = base + " " + suffix; suffix++ }
+                created = OEngineInstanceManager.create(context, instanceName)
+                val imported = OEngineModrinthPackImporter.importPack(staged, created!!.root)
+                OEngineInstanceManager.select(context, created!!.id)
+                activeGameRoot = created!!.root
+                refreshInstalledContent()
+                installStatus = "Created " + project.title + ": " + imported.downloadedFiles + " verified downloads and " + imported.copiedOverrideFiles + " override files. Minecraft " + imported.minecraftVersion + "; loader " + imported.loaders.entries.joinToString { it.key + " " + it.value }.ifBlank { "Vanilla" } + "."
+            } catch (failure: Exception) {
+                created?.let { runCatching { it.root.parentFile?.deleteRecursively() } }
+                installStatus = failure.message ?: "Modpack installation failed."
+            } finally { staged.delete(); installingFile = false }
+        }
+    }
     fun installProjectVersion(project: OEngineModrinthCatalog.Project, version: OEngineModrinthInstaller.ProjectVersion, worldName: String? = null) {
         if (installingFile) return
         if (project.projectType == OEngineModrinthCatalog.ProjectType.DATA_PACK && worldName == null) {
@@ -1828,7 +1870,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Button(onClick = { prepareProjectInstall(project) },
                                 enabled = !loadingVersions && !installingFile &&
-                                    project.projectType !in setOf(OEngineModrinthCatalog.ProjectType.MODPACK, OEngineModrinthCatalog.ProjectType.ALL),
+                                    project.projectType != OEngineModrinthCatalog.ProjectType.ALL,
                                 colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)
                             ) { Text("INSTALL", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                             TextButton(onClick = {
@@ -1924,7 +1966,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(version.name.ifBlank { version.versionNumber }, color = Ink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         Text("Version " + version.versionNumber + " • MC: " + version.gameVersions.take(5).joinToString() + " • Loaders: " + version.loaders.joinToString().ifBlank { "Any / not specified" }, color = Muted, fontSize = 9.sp)
-                                        TextButton(onClick = { installProjectVersion(installingProject!!, version) }, enabled = !installingFile) { Text("INSTALL THIS VERSION") }
+                                        TextButton(onClick = { val chosen = installingProject!!; if (chosen.projectType == OEngineModrinthCatalog.ProjectType.MODPACK) installModpackVersion(chosen, version) else installProjectVersion(chosen, version) }, enabled = !installingFile) { Text(if (installingProject!!.projectType == OEngineModrinthCatalog.ProjectType.MODPACK) "CREATE INSTANCE" else "INSTALL THIS VERSION") }
                                     }
                                 }
                             }
