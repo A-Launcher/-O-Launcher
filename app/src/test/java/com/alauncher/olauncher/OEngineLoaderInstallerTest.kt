@@ -61,4 +61,73 @@ class OEngineLoaderInstallerTest {
             // expected
         }
     }
+
+    @Test fun profileMetadataPathsStayInsideVersionsAndRejectSymlinks() {
+        val root = createTempDir(prefix = "loader-profile-")
+        try {
+            val versions = java.io.File(root, "versions")
+            assertTrue(versions.mkdirs())
+            val (metadata, temporary) = OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
+            assertEquals(java.io.File(versions, "fabric-test/fabric-test.json").canonicalFile, metadata)
+            assertEquals(java.io.File(versions, "fabric-test/fabric-test.json.part").canonicalFile, temporary)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsSymlinkedLoaderProfileMetadataFile() {
+        val root = createTempDir(prefix = "loader-profile-")
+        val outside = createTempDir(prefix = "loader-profile-outside-")
+        try {
+            val directory = java.io.File(root, "versions/fabric-test")
+            assertTrue(directory.mkdirs())
+            val external = java.io.File(outside, "external.json")
+            external.writeText("do not overwrite")
+            java.nio.file.Files.createSymbolicLink(
+                java.io.File(directory, "fabric-test.json").toPath(),
+                external.toPath()
+            )
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
+            }
+            assertEquals("do not overwrite", external.readText())
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsSymlinkedLoaderProfileDirectoryAndVersionsRoot() {
+        val root = createTempDir(prefix = "loader-profile-")
+        val outside = createTempDir(prefix = "loader-profile-outside-")
+        try {
+            val versions = java.io.File(root, "versions")
+            assertTrue(versions.mkdirs())
+            java.nio.file.Files.createSymbolicLink(
+                java.io.File(versions, "fabric-test").toPath(),
+                outside.toPath()
+            )
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                OEngineLoaderInstaller.prepareProfileMetadataPaths(root, "fabric-test")
+            }
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+
+        val secondRoot = createTempDir(prefix = "loader-profile-")
+        val externalVersions = createTempDir(prefix = "loader-profile-external-")
+        try {
+            java.nio.file.Files.createSymbolicLink(
+                java.io.File(secondRoot, "versions").toPath(),
+                externalVersions.toPath()
+            )
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                OEngineLoaderInstaller.prepareProfileMetadataPaths(secondRoot, "fabric-test")
+            }
+        } finally {
+            secondRoot.deleteRecursively()
+            externalVersions.deleteRecursively()
+        }
+    }
 }
