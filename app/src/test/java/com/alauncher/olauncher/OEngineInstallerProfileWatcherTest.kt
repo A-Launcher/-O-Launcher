@@ -91,4 +91,30 @@ class OEngineInstallerProfileWatcherTest {
         }
     }
 
+
+    @Test fun persistedSnapshotCanBeRestored() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            profile(root, "old-forge", "1.20.1", "net.minecraftforge:forge:1.20.1-47.2.0")
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            val encoded = org.json.JSONObject().apply {
+                before.fingerprints.forEach { (id, fingerprint) -> put(id, fingerprint) }
+            }.toString()
+            val restored = OEngineInstallerProfileWatcher.restoreSnapshot(encoded)
+            profile(root, "old-forge", "1.20.1", "net.minecraftforge:forge:1.20.1-47.3.0")
+            val result = OEngineInstallerProfileWatcher.resolve(
+                root, restored, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
+            )
+            assertEquals("old-forge", result.versionId)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun rejectsMalformedPersistedSnapshot() {
+        assertThrows(IllegalArgumentException::class.java) {
+            OEngineInstallerProfileWatcher.restoreSnapshot("""{"../escape":"bad"}""")
+        }
+    }
+
 }
