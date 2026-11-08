@@ -45,6 +45,7 @@ class OEngineMojoAwtInstallerHandoffTest {
             val interrupted = File(runtimeRoot, "Java-8-arm64.installing")
             assertEquals(true, interrupted.mkdirs())
             File(interrupted, "partial.bin").writeBytes(byteArrayOf(1))
+            interrupted.setLastModified(System.currentTimeMillis() - 7L * 60L * 60L * 1000L)
 
             val legacyJava17 = File(runtimeRoot, "installed/Java-17-arm64")
             assertEquals(true, legacyJava17.mkdirs())
