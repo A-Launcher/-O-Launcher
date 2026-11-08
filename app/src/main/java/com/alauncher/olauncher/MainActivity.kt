@@ -2991,15 +2991,18 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                                     .getInt("minecraft_memory_mb", 2048)
                                             ).coerceIn(512, 12288)
                                         )
-                                        preparedLaunchPlan = plan
-                                        requiredJavaMajor = plan.javaMajorVersion
                                         installingRuntime = true
-                                        launchPlanStatus = "Game files ready. Checking and installing Android Java ${plan.javaMajorVersion} automatically…"
+                                        launchPlanStatus = "Game files ready. Checking and installing an Android Java runtime at or above Java ${plan.javaMajorVersion}…"
                                         val runtime = AndroidRuntimeInstaller.ensureRuntime(
                                             plan.javaMajorVersion,
                                             activeInstance.root,
                                             { received, total -> runtimeBytes = received; runtimeTotal = total },
                                             { status -> runtimeStatus = status }
+                                        )
+                                        requiredJavaMajor = runtime.javaMajor
+                                        preparedLaunchPlan = plan.copy(
+                                            javaMajorVersion = runtime.javaMajor,
+                                            javaCompatibilityNote = plan.javaCompatibilityNote + " Android runtime selected: Java " + runtime.javaMajor + "."
                                         )
                                         installedRuntimeStatus = "Ready: Android Java ${runtime.javaMajor} (${runtime.architecture})"
                                         val mb = dependencies.bytes / (1024.0 * 1024.0)
