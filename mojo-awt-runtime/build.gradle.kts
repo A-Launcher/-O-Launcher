@@ -2,6 +2,13 @@ plugins {
     id("com.android.library")
 }
 
+val mojoAwtJava = layout.buildDirectory.dir("generated/mojoAwtJava")
+val prepareMojoAwtJava by tasks.registering(Sync::class) {
+    from("../third_party/MojoLauncher/app_mojo/src/main/java")
+    exclude("git/artdeell/mojo/ExitActivity.java")
+    into(mojoAwtJava)
+}
+
 android {
     namespace = "git.artdeell.mojo"
     compileSdk = 36
@@ -26,13 +33,14 @@ android {
     }
 
     sourceSets.getByName("main").apply {
-        java.srcDir("../third_party/MojoLauncher/app_mojo/src/main/java")
-        java.exclude("git/artdeell/mojo/ExitActivity.java")
+        java.srcDir(mojoAwtJava)
         res.srcDir("../third_party/MojoLauncher/app_mojo/src/main/res")
         assets.srcDir("../third_party/MojoLauncher/app_mojo/src/main/assets")
         manifest.srcFile("src/main/AndroidManifest.xml")
     }
 }
+
+tasks.named("preBuild").configure { dependsOn(prepareMojoAwtJava) }
 
 dependencies {
     api("androidx.annotation:annotation:1.10.0")
