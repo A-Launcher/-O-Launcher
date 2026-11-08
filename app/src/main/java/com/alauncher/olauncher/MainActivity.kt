@@ -862,6 +862,13 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     val context = LocalContext.current
     val root = remember(context) { OEngineInstanceManager.active(context).root.apply { mkdirs() } }
     var current by remember(root) { mutableStateOf(root) }
+    val navigationHistory = remember(root) { mutableStateListOf<File>() }
+    val navigateTo: (File) -> Unit = { destination ->
+        if (destination != current && destination.canonicalPath.startsWith(root.canonicalPath)) {
+            navigationHistory.add(current)
+            current = destination
+        }
+    }
     var refresh by remember { mutableIntStateOf(0) }
     var showCreate by remember { mutableStateOf(false) }
     var showNewFile by remember { mutableStateOf(false) }
@@ -892,12 +899,13 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         current.listFiles()?.filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
             ?.sortedWith(compareBy<File>({ !it.isDirectory }, { it.name.lowercase() })) ?: emptyList()
     }
-    val parent = current.parentFile?.takeIf { current != root && it.canonicalPath.startsWith(root.canonicalPath) }
-    val storageBytes = remember(root, refresh) {
-        runCatching { root.walkTopDown().filter { it.isFile }.sumOf { it.length() } }.getOrDefault(0L)
+    val parent = current.parentFile?.takeIf { current != root && runCatching { it.canonicalPath.startsWith(root.canonicalPath + File.separator) }.getOrDefault(false) }
+    val storageStats = remember(root, refresh) {
+        runCatching { android.os.StatFs(root.absolutePath) }.getOrNull()
     }
-    val storageLimit = 12L * 1024L * 1024L * 1024L
-    val storageProgress = (storageBytes.toFloat() / storageLimit).coerceIn(0f, 1f)
+    val storageTotal = storageStats?.totalBytes?.takeIf { it > 0L } ?: 1L
+    val storageUsed = storageStats?.let { (it.totalBytes - it.availableBytes).coerceAtLeast(0L) } ?: 0L
+    val storageProgress = (storageUsed.toFloat() / storageTotal.toFloat()).coerceIn(0f, 1f)
     val shortcuts = listOf(
         Triple("Home", "⬢", root),
         Triple("Internal Storage", "💽", root),
@@ -928,8 +936,10 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                         val selected = if (index <= 3) current == root else current == item.third
                         Surface(
                             onClick = {
-                                if (item.third.exists() && item.third.isDirectory) current = item.third
-                                else message = "${item.first} folder is not available in this instance yet."
+                                if (item.third == root || item.third.exists() && item.third.isDirectory) {
+                                    item.third.mkdirs()
+                                    navigateTo(item.third)
+                                } else message = "${item.first} folder is not available in this instance yet."
                             },
                             color = if (selected) Gold else Color.Transparent,
                             shape = RoundedCornerShape(13.dp),
@@ -948,7 +958,9 @@ private fun LauncherFilesDestination(images: LauncherImages) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
+                        OutlinedButton(onClick = {
+                            if (navigationHistory.isNotEmpty()) current = navigationHistory.removeAt(navigationHistory.lastIndex)
+                        }, enabled = navigationHistory.isNotEmpty(), shape = RoundedCornerShape(18.dp)) {
                             Icon(Icons.Filled.ArrowBack, null); Spacer(Modifier.width(6.dp)); Text("Back")
                         }
                         OutlinedButton(onClick = { parent?.let { current = it } }, enabled = parent != null, shape = RoundedCornerShape(18.dp)) {
@@ -989,7 +1001,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                         group.forEach { file ->
                                             Surface(
                                                 onClick = {
-                                                    if (file.isDirectory) current = file
+                                                    if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
                                                         editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
                                                     } else message = "Stored file: ${file.name}"
@@ -1041,7 +1053,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("Storage Usage:", color = Muted, fontSize = 11.sp)
                                 Spacer(Modifier.weight(1f))
-                                Text("${OEngineInstalledContentManager.formatSize(storageBytes)} / 12 GB", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                                Text("${OEngineInstalledContentManager.formatSize(storageUsed)} / ${OEngineInstalledContentManager.formatSize(storageTotal)}", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Black)
                             }
                             Box(Modifier.fillMaxWidth().height(12.dp).clip(CircleShape).background(Color(0xFFF1DCC1))) {
                                 Box(Modifier.fillMaxWidth(storageProgress).fillMaxHeight().clip(CircleShape).background(Brush.horizontalGradient(listOf(Color(0xFFFFC52F), Color(0xFFEAA019)))))
