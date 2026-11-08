@@ -54,7 +54,7 @@ object AndroidRuntimeInstaller {
         val tag = "download_jre$javaMajor"
         val filename = "jre$javaMajor-android-$architecture.tar.xz"
         val address = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/$tag/$filename"
-        val directory = File(gameDirectory, "runtimes/archives")
+        val directory = File(gameDirectory, "oengine/runtime-archives")
         if (!directory.exists() && !directory.mkdirs()) {
             throw IllegalStateException("Could not create the runtime archive directory.")
         }
@@ -141,7 +141,7 @@ object AndroidRuntimeInstaller {
         require(archive.isFile && archive.length() > 0L) { "Download the Java runtime archive first." }
         require(javaMajor in supportedJava) { "Unsupported Java runtime version: " + javaMajor }
         val architecture = deviceArchitecture()
-        val root = File(gameDirectory, "runtimes/installed").canonicalFile
+        val root = File(gameDirectory, "runtimes").canonicalFile
         if (!root.exists() && !root.mkdirs()) throw IllegalStateException("Could not create the installed runtimes directory.")
         val runtimeName = "Java-" + javaMajor + "-" + architecture
         val destination = File(root, runtimeName)
