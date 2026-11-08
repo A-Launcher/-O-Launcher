@@ -115,7 +115,7 @@ object OEngineMojoAwtInstallerHandoff {
      * runtimes/archives. Mojo snapshots the entire runtimes directory before the path
      * binder runs, so migrate these legacy children out of the scan root first.
      */
-    private fun migrateLegacyRuntimeLayout(paths: OEngineMojoAwtRuntimeLayout.Paths) {
+    internal fun migrateLegacyRuntimeLayout(paths: OEngineMojoAwtRuntimeLayout.Paths) {
         val runtimeRoot = paths.runtimes
         require(!java.nio.file.Files.isSymbolicLink(runtimeRoot.toPath())) {
             "Java runtime root must not be a symbolic link."
@@ -157,7 +157,7 @@ object OEngineMojoAwtInstallerHandoff {
                     "Legacy runtime folder name is invalid."
                 }
                 val directTarget = File(runtimeRoot, source.name)
-                val target = if (directTarget.exists()) {
+                val target = if (!source.isDirectory || directTarget.exists()) {
                     File(legacyStore, "installed/${source.name}")
                 } else {
                     directTarget
