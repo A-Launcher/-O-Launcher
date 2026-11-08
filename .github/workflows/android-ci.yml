@@ -178,8 +178,7 @@ jobs:
               -DCMAKE_TOOLCHAIN_FILE="$MOJO_ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
               -DANDROID_ABI="$abi" -DANDROID_PLATFORM=26 \
               -DMOJO_JNI_ROOT="$mojo_jni" \
-              -DMOJOEXEC_LIBRARY="$mojoexec" \
-              -DMOJOEXEC_INCLUDE_DIR="$mojoexec_include"
+              -DMOJOEXEC_ROOT="$mojoexec_root"
             cmake --build "$build_dir" --parallel 2
             for library in libmojoexec.so libmojort.so libmojoawt.so libawt_headless.so libawt_xawt.so; do
               source="$(find "$build_dir" -type f -name "$library" -print -quit)"
