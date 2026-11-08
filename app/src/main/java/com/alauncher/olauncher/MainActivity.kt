@@ -2672,8 +2672,11 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release,
                                             activeInstance.root,
-                                            maxMemoryMb = context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
-                                                .getInt("minecraft_memory_mb", 2048).coerceIn(512, 8192)
+                                            maxMemoryMb = profilePreferences.getInt(
+                                                "memory.$selectedProfile",
+                                                context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
+                                                    .getInt("minecraft_memory_mb", 2048)
+                                            ).coerceIn(512, 12288)
                                         )
                                         preparedLaunchPlan = plan
                                         requiredJavaMajor = plan.javaMajorVersion
@@ -3218,8 +3221,11 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                             account.uuid,
                                             account.accessToken,
                                             installedLoaderProfileId,
-                                            context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
-                                                .getInt("minecraft_memory_mb", 2048).coerceIn(512, 8192)
+                                            profilePreferences.getInt(
+                                                "memory.$selectedProfile",
+                                                context.getSharedPreferences("o_launcher_settings", android.content.Context.MODE_PRIVATE)
+                                                    .getInt("minecraft_memory_mb", 2048)
+                                            ).coerceIn(512, 12288)
                                         )
                                         preparedLaunchPlan = authenticatedPlan
                                         withTimeout(15_000L) {
