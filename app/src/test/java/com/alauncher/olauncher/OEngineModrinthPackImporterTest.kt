@@ -89,4 +89,25 @@ class OEngineModrinthPackImporterTest {
         } finally { temp.deleteRecursively() }
     }
 
+    @Test fun rejectsCaseInsensitiveCollisionsAcrossOverrideRoots() {
+        val temp = Files.createTempDirectory("mrpack-override-collision").toFile()
+        try {
+            val archive = File(temp, "collision.mrpack")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("modrinth.index.json"))
+                zip.write("""{"formatVersion":1,"dependencies":{"minecraft":"1.20.1"},"files":[]}""".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("overrides/config/Options.txt"))
+                zip.write("first".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("client-overrides/config/options.txt"))
+                zip.write("second".toByteArray())
+                zip.closeEntry()
+            }
+            val game = File(temp, "game")
+            runCatching { OEngineModrinthPackImporter.importPack(archive, game) }
+                .onSuccess { throw AssertionError("Case-insensitive override collision was accepted.") }
+        } finally { temp.deleteRecursively() }
+    }
+
 }
