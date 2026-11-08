@@ -59,7 +59,11 @@ object OEngineMojoAwtRuntimeLayout {
      */
     fun inspectRuntime(paths: Paths, runtimeName: String): RuntimeInfo {
         require(runtimeName.matches(Regex("[A-Za-z0-9._+-]{1,80}"))) { "Invalid Java runtime name." }
-        val home = File(paths.runtimes, runtimeName).canonicalFile
+        val rawHome = File(paths.runtimes, runtimeName)
+        require(!Files.isSymbolicLink(rawHome.toPath())) {
+            "Java runtime directory must not be a symbolic link."
+        }
+        val home = rawHome.canonicalFile
         require(home.toPath().startsWith(paths.runtimes.canonicalFile.toPath())) {
             "Java runtime path escapes the selected instance."
         }
