@@ -28,6 +28,7 @@ class OEngineMojoAwtActivity : AWTActivity() {
             ExitActivity.setPendingProfileKey(profileKey)
             ExitActivity.setPendingFailureMessage(null)
             OEngineMojoAwtInstallerHandoff.bindRuntimePaths(request, this)
+            ContextExecutor.setActivity(this)
         } catch (failure: Throwable) {
             val message = failure.message ?: "Could not initialize the Forge/NeoForge installer runtime."
             if (profileKey != null) {
