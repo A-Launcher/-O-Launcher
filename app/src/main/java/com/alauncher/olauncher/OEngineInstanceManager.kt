@@ -16,9 +16,12 @@ object OEngineInstanceManager {
         val result = mutableListOf(OEngineInstance(DEFAULT_ID, "Default", base))
         File(base, "instances").listFiles()?.filter { it.isDirectory }?.forEach { directory ->
             val metadata = File(directory, "instance.properties")
-            val name = if (metadata.isFile) metadata.readLines().firstOrNull { it.startsWith("name=") }
-                ?.substringAfter("name=")?.take(48) else null
-            result.add(OEngineInstance(directory.name, name?.ifBlank { null } ?: directory.name, File(directory, "game")))
+            val lines = if (metadata.isFile) runCatching { metadata.readLines() }.getOrDefault(emptyList()) else emptyList()
+            val name = lines.firstOrNull { it.startsWith("name=") }?.substringAfter("name=")?.take(48)
+            val sharesGameFolder = lines.firstOrNull { it.startsWith("sharedGameFolder=") }
+                ?.substringAfter("=")?.toBooleanStrictOrNull() == true
+            val gameRoot = if (sharesGameFolder) base else File(directory, "game")
+            result.add(OEngineInstance(directory.name, name?.ifBlank { null } ?: directory.name, gameRoot))
         }
         return result.distinctBy { it.id }.sortedBy { if (it.id == DEFAULT_ID) 0 else 1 }
     }
@@ -39,16 +42,16 @@ object OEngineInstanceManager {
         return instance
     }
 
-    fun create(context: Context, displayName: String): OEngineInstance {
+    fun create(context: Context, displayName: String, sharedGameFolder: Boolean = false): OEngineInstance {
         val clean = displayName.trim().replace(Regex("[^A-Za-z0-9 _.-]"), "")
             .replace(Regex("\\s+"), " ").take(40)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val id = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifBlank { "instance" }
         val parent = File(File(context.filesDir, "minecraft/instances"), id)
         require(!parent.exists()) { "An instance with this name already exists." }
-        val game = File(parent, "game")
-        if (!game.mkdirs()) throw IllegalStateException("Could not create the new instance.")
-        File(parent, "instance.properties").writeText("name=$clean\n")
+        val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
+        if (!game.exists() && !game.mkdirs()) throw IllegalStateException("Could not create the instance game directory.")
+        File(parent, "instance.properties").writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
         return OEngineInstance(id, clean, game)
     }
 }
