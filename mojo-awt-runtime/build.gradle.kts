@@ -43,24 +43,18 @@ val prepareMojoAwtJava by tasks.registering(Sync::class) {
         val awtActivity = mojoAwtJava.get()
             .file("git/artdeell/mojo/awt/AWTActivity.java").asFile
         val awtOriginal = awtActivity.readText()
-        val mouseButtonSwitch = """        switch (v.getId()) {
-            case R.id.installmod_mouse_pri:
-                Platform.sendMouseButtonEvent(MotionEvent.BUTTON_PRIMARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
-                break;
-
-            case R.id.installmod_mouse_sec:
-                Platform.sendMouseButtonEvent(MotionEvent.BUTTON_SECONDARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
-                break;
-        }"""
+        val mouseButtonSwitch = Regex(
+            """        switch \\(v\\.getId\\(\\)\\) \\{\\s+case R\\.id\\.installmod_mouse_pri:\\s+Platform\\.sendMouseButtonEvent\\(MotionEvent\\.BUTTON_PRIMARY, isDown \\? 1 : 0, CallbackBridge\\.getCurrentMods\\(\\)\\);\\s+break;\\s+case R\\.id\\.installmod_mouse_sec:\\s+Platform\\.sendMouseButtonEvent\\(MotionEvent\\.BUTTON_SECONDARY, isDown \\? 1 : 0, CallbackBridge\\.getCurrentMods\\(\\)\\);\\s+break;\\s+\\}"""
+        )
         val mouseButtonIf = """        if (v.getId() == R.id.installmod_mouse_pri) {
             Platform.sendMouseButtonEvent(MotionEvent.BUTTON_PRIMARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
         } else if (v.getId() == R.id.installmod_mouse_sec) {
             Platform.sendMouseButtonEvent(MotionEvent.BUTTON_SECONDARY, isDown ? 1 : 0, CallbackBridge.getCurrentMods());
         }"""
-        check(awtOriginal.contains(mouseButtonSwitch)) {
+        check(mouseButtonSwitch.containsMatchIn(awtOriginal)) {
             "Pinned Mojo AWT mouse-button switch changed; review the non-final resource ID patch."
         }
-        var awtPatched = awtOriginal.replace(mouseButtonSwitch, mouseButtonIf)
+        var awtPatched = mouseButtonSwitch.replace(awtOriginal, mouseButtonIf)
         val windowMoveSwitch = """        if(isDown) switch(v.getId()) {
             case R.id.installmod_window_moveup:
                 AWTBridge.nativeMoveWindow(0, -10);
