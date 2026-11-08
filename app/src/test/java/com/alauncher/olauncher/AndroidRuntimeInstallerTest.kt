@@ -26,6 +26,13 @@ class AndroidRuntimeInstallerTest {
         }
     }
 
+    @Test fun choosesNearestAvailableRuntimeThatMeetsTheMinecraftMinimum() {
+        assertEquals(25, AndroidRuntimeInstaller.selectCompatibleRuntimeMajor(22, listOf(8, 17, 21, 25)))
+        assertEquals(26, AndroidRuntimeInstaller.selectCompatibleRuntimeMajor(26, listOf(8, 17, 21, 25, 26, 27)))
+        assertEquals(27, AndroidRuntimeInstaller.selectCompatibleRuntimeMajor(26, listOf(8, 17, 21, 25, 27)))
+        assertNull(AndroidRuntimeInstaller.selectCompatibleRuntimeMajor(28, listOf(8, 17, 21, 25, 27)))
+    }
+
     @Test fun doesNotAdvertiseUnpublishedJavaTwentyFiveX86Runtime() {
         assertNull(AndroidRuntimeInstaller.expectedArchiveSha256(25, "x86"))
     }
