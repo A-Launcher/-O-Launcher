@@ -3682,10 +3682,15 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                     val created = OEngineInstanceManager.create(context, instanceName)
                     activeInstance = OEngineInstanceManager.select(context, created.id)
                     instances = OEngineInstanceManager.list(context)
+                    selectedProfile = instanceName
                     selectedLoader = newInstanceLoader
                     selectedVersion = newInstanceVersion ?: selectedVersion
+                    selectedLoaderVersion = newLoaderVersion?.takeIf { it.isNotBlank() }
+                    installedLoaderProfileId = null
                     profilePreferences.edit().putString("selected_profile", instanceName)
-                        .putString("version.$instanceName", selectedVersion).putString("loader.$instanceName", newInstanceLoader)
+                        .putString("version.$instanceName", selectedVersion)
+                        .putString("loader.$instanceName", newInstanceLoader)
+                        .putString("loader_version.$instanceName", newLoaderVersion?.takeIf { it.isNotBlank() })
                         .putInt("memory.$instanceName", if (useLauncherRam) 5000 else newInstanceRam)
                         .putBoolean("shared_folder.$instanceName", sharedGameFolder).apply()
                     showNewInstanceWizard = false
