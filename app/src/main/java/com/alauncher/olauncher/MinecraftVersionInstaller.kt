@@ -389,6 +389,7 @@ object MinecraftVersionInstaller {
         val launchVersionId = loaderMetadata?.optString("id")?.takeIf { it.isNotBlank() } ?: version.id
         val metadataJavaMajor = metadata.optJSONObject("javaVersion")?.optInt("majorVersion")?.takeIf { it > 0 }
         val javaCompatibility = OEngineJavaCompatibility.resolve(version.id, metadataJavaMajor)
+        javaCompatibility.nativeLaunchBlocker()?.let { throw IllegalStateException(it) }
         val javaMajorVersion = javaCompatibility.runtimeJavaMajor
         val mainClass = loaderMetadata?.optString("mainClass")?.takeIf { it.isNotBlank() }
             ?: metadata.optString("mainClass")
