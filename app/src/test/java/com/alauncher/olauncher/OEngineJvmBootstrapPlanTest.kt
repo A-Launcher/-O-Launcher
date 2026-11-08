@@ -81,7 +81,7 @@ class OEngineJvmBootstrapPlanTest {
 
             val plan = OEngineJvmBootstrapPlanner.prepare(
                 OEngineRuntime("Java-17-arm64", 17, "arm64", runtimeHome, java),
-                listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
+                listOf(client), glfw.parentFile, game, "net.minecraft.client.main.Main",
                 listOf("-Dorg.lwjgl.glfw.libname=/wrong/path"),
                 emptyList(),
                 androidGlfwLibrary = glfw
