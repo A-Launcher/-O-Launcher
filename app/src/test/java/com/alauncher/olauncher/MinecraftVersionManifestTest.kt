@@ -28,4 +28,11 @@ class MinecraftVersionManifestTest {
             versions.map { it.id }
         )
     }
+    @Test fun loaderJavaRequirementOverridesBaseMinecraftMetadata() {
+        val base = JSONObject("""{"javaVersion":{"majorVersion":21}}""")
+        val loader = JSONObject("""{"javaVersion":{"majorVersion":25}}""")
+        assertEquals(25, MinecraftVersionInstaller.resolveJavaCompatibility("1.21.1", base, loader).runtimeJavaMajor)
+        assertEquals(21, MinecraftVersionInstaller.resolveJavaCompatibility("1.21.1", base, null).runtimeJavaMajor)
+    }
+
 }
