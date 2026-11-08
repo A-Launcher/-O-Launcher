@@ -81,8 +81,8 @@ class OEngineInstalledContentManagerTest {
     @Test fun removesDataPackFromItsOwningWorldOnly() {
         val root = Files.createTempDirectory("oengine-remove-world-pack").toFile()
         try {
-            File(root, "saves/Survival/level.dat").writeText("world")
-            File(root, "saves/Creative/level.dat").writeText("world")
+            File(root, "saves/Survival/level.dat").apply { parentFile.mkdirs(); writeText("world") }
+            File(root, "saves/Creative/level.dat").apply { parentFile.mkdirs(); writeText("world") }
             val pack = File(root, "saves/Survival/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             val other = File(root, "saves/Creative/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("other") }
             val entry = OEngineInstalledContentManager.list(root).single()
