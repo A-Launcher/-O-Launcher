@@ -101,11 +101,34 @@ object OEngineInstallerProfileWatcher {
                 if (json.optString("id") != directory.name) return@mapNotNull null
                 if (json.optString("inheritsFrom") != minecraftVersion) return@mapNotNull null
                 val libraries = json.optJSONArray("libraries") ?: return@mapNotNull null
-                val hasLoader = (0 until libraries.length()).any { index ->
-                    val name = libraries.optJSONObject(index)?.optString("name").orEmpty()
-                    name.startsWith(loader.libraryPrefix)
-                }
-                if (!hasLoader) return@mapNotNull null
+                val loaderCoordinates = (0 until libraries.length()).mapNotNull { index ->
+                    libraries.optJSONObject(index)?.optString("name")
+                        ?.takeIf { it.startsWith(loader.libraryPrefix) }
+                }.distinct()
+                if (loaderCoordinates.size != 1) return@mapNotNull null
+
+                // A profile JSON entry alone is insufficient: the loader artifact must
+                // actually exist inside the instance's libraries tree before it is selectable.
+                val coordinate = loaderCoordinates.single().split(':')
+                if (coordinate.size !in 3..4 || coordinate.any { it.isBlank() }) return@mapNotNull null
+                val groupPath = coordinate[0].replace('.', '/')
+                val artifact = coordinate[1]
+                val artifactVersion = coordinate[2]
+                if (!artifact.matches(Regex("[A-Za-z0-9_.-]+")) ||
+                    !artifactVersion.matches(Regex("[A-Za-z0-9_.+-]+"))) return@mapNotNull null
+                val librariesRootPath = File(gameDirectory, "libraries")
+                if (java.nio.file.Files.isSymbolicLink(librariesRootPath.toPath())) return@mapNotNull null
+                val librariesRoot = runCatching { librariesRootPath.canonicalFile }.getOrNull()
+                    ?: return@mapNotNull null
+                val artifactFile = File(
+                    librariesRoot,
+                    "$groupPath/$artifact/$artifactVersion/$artifact-$artifactVersion.jar"
+                )
+                if (java.nio.file.Files.isSymbolicLink(artifactFile.toPath()) ||
+                    !artifactFile.isFile || artifactFile.length() <= 0L) return@mapNotNull null
+                val canonicalArtifact = runCatching { artifactFile.canonicalFile }.getOrNull()
+                    ?: return@mapNotNull null
+                if (!canonicalArtifact.toPath().startsWith(librariesRoot.toPath())) return@mapNotNull null
                 InstalledProfile(directory.name, jsonFile, loader, minecraftVersion)
             }.toList()
 
