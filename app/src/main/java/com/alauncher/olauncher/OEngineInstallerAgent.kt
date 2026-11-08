@@ -68,11 +68,17 @@ object OEngineInstallerAgent {
         }.getOrDefault(false)
     }
 
-    /** Arguments for a Java runtime with AWT support; execution remains owned by the runtime adapter. */
-    fun buildLaunchArguments(agent: File, installer: File, optiFine: Boolean = false): List<String> {
+    /**
+     * Matches Mojo AWTActivity's real Intent contract: javaArgs contains JVM options only,
+     * while the installer JAR is passed separately as modPath. AWTActivity reads Main-Class
+     * and the class-file Java version from that JAR itself.
+     */
+    data class AwtInvocation(val javaArgs: List<String>, val installerPath: String)
+
+    fun buildAwtInvocation(agent: File, installer: File, optiFine: Boolean = false): AwtInvocation {
         require(isValidAgentJar(agent)) { "Mojo installer agent is not staged or valid." }
         require(installer.isFile && installer.length() > 0L) { "Official loader installer JAR is missing." }
         val agentArgument = "-javaagent:${agent.absolutePath}" + if (optiFine) "=OF" else ""
-        return listOf(agentArgument, "-jar", installer.absolutePath)
+        return AwtInvocation(listOf(agentArgument), installer.canonicalPath)
     }
 }
