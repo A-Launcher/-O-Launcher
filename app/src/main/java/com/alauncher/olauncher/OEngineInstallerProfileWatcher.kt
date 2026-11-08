@@ -57,7 +57,7 @@ object OEngineInstallerProfileWatcher {
             val id = keys.next()
             val fingerprint = json.optString(id)
             require(id.isNotBlank() && id != "." && id != ".." &&
-                !id.contains('/') && !id.contains('\\\\') && fingerprint.matches(Regex("[a-f0-9]{64}"))) {
+                !id.contains('/') && !id.contains('\\') && fingerprint.matches(Regex("[a-f0-9]{64}"))) {
                 "Installer profile snapshot contains invalid data."
             }
             fingerprints[id] = fingerprint
