@@ -171,13 +171,31 @@ object MinecraftVersionInstaller {
             for (i in 0 until libraries.length()) {
                 val library = libraries.optJSONObject(i) ?: continue
                 if (!isAllowedForAndroid(library.optJSONArray("rules"))) continue
+                val coordinate = library.optString("name")
+                val mojoLwjgl2Path = OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath(coordinate)
+                if (mojoLwjgl2Path != null) {
+                    val target = File(librariesDirectory, mojoLwjgl2Path).canonicalFile
+                    if (!target.toPath().startsWith(librariesDirectory.canonicalFile.toPath())) {
+                        throw IllegalStateException("Legacy LWJGL2 artifact path escaped the library directory.")
+                    }
+                    tasks.add(Task(
+                        OEngineLegacyLwjgl2Compatibility.JAVA_ARCHIVE_URL,
+                        target,
+                        OEngineLegacyLwjgl2Compatibility.JAVA_ARCHIVE_SHA1,
+                        OEngineLegacyLwjgl2Compatibility.JAVA_ARCHIVE_SIZE,
+                        "Pinned Mojo LWJGL 2 compatibility library"
+                    ))
+                    libraryCount++
+                    // Never download the desktop LWJGL2 artifact for Android.
+                    continue
+                }
                 val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
                 val relativePath = artifact.optString("path")
                 val url = artifact.optString("url")
                 if (relativePath.isBlank() || url.isBlank()) continue
                 val target = File(librariesDirectory, relativePath).canonicalFile
                 if (!target.toPath().startsWith(librariesDirectory.canonicalFile.toPath())) continue
-                tasks.add(Task(url, target, artifact.optString("sha1"), artifact.optLong("size", -1L), "Library: " + library.optString("name")))
+                tasks.add(Task(url, target, artifact.optString("sha1"), artifact.optLong("size", -1L), "Library: " + coordinate))
                 libraryCount++
 
                 // Mojang's metadata commonly describes Linux native classifiers.
@@ -430,9 +448,11 @@ object MinecraftVersionInstaller {
                 val library = libraries.optJSONObject(i) ?: continue
                 if (!isAllowedForAndroid(library.optJSONArray("rules"))) continue
                 val artifact = library.optJSONObject("downloads")?.optJSONObject("artifact")
-                val relative = artifact?.optString("path")?.takeIf { it.isNotBlank() }
-                    ?: OEngineLoaderInstaller.mavenArtifactPath(library.optString("name"))?.takeIf {
-                        library.optString("name").isNotBlank()
+                val coordinate = library.optString("name")
+                val relative = OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath(coordinate)
+                    ?: artifact?.optString("path")?.takeIf { it.isNotBlank() }
+                    ?: OEngineLoaderInstaller.mavenArtifactPath(coordinate)?.takeIf {
+                        coordinate.isNotBlank()
                     }
                     ?: continue
                 val file = File(libraryRoot, relative).canonicalFile
