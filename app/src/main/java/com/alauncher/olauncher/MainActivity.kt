@@ -1111,7 +1111,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
             onDismissRequest = { pendingRename = null },
             title = { Text("Rename item") },
             text = { OutlinedTextField(value = renameName, onValueChange = { renameName = it }, singleLine = true, label = { Text("New name") }) },
-            confirmButton = { TextButton(enabled = renameName.isNotBlank() && !renameName.contains("/") && !renameName.contains("\\\\") && renameName.trim() != file.name && !current.resolve(renameName.trim()).exists(), onClick = {
+            confirmButton = { TextButton(enabled = renameName.isNotBlank() && !renameName.contains("/") && !renameName.contains("\\") && renameName.trim() != file.name && !current.resolve(renameName.trim()).exists(), onClick = {
                 val renamed = runCatching { file.renameTo(current.resolve(renameName.trim())) }.getOrDefault(false)
                 message = if (renamed) "Renamed successfully." else "Could not rename this item."
                 pendingRename = null
