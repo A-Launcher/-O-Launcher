@@ -3336,11 +3336,18 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                         (bootstrap?.blockers?.joinToString(" • ") ?: "Prepare a valid Minecraft Java runtime first.")
                                     return@Button
                                 }
-                                val lwjgl = OEngineLwjglNativeResolver.resolve(launchPlan.classpath.map(::File))
+                                val lwjgl = OEngineLwjglNativeResolver.resolve(
+                                    launchPlan.classpath.map(::File),
+                                    androidGlfwLibrary
+                                )
+                                if (lwjgl.generation == OEngineLwjglGeneration.LWJGL2) {
+                                    gameProcessStatus = "LEGACY LWJGL2 STARTUP BLOCKED • Mojo LWJGL2 Java/native artifacts are staged, but the Android GLFW context handoff and GL4ES/OpenGL renderer path are not yet connected and verified."
+                                    return@Button
+                                }
                                 if (lwjgl.generation != OEngineLwjglGeneration.LWJGL3 ||
                                     !lwjgl.dynamicLinkLoaderClassPresent || !lwjgl.ndlopenSignaturePresent
                                 ) {
-                                    gameProcessStatus = "LTW STARTUP BLOCKED • Selected LWJGL does not expose the verified DynamicLinkLoader.ndlopen(long,int) surface."
+                                    gameProcessStatus = "LWJGL STARTUP BLOCKED • Selected LWJGL does not expose a verified native-loader surface."
                                     return@Button
                                 }
                                 val artifact = try {
