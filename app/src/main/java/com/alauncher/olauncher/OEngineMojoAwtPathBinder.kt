@@ -6,9 +6,9 @@ import java.lang.reflect.Modifier
 /**
  * Binds the pinned Mojo Tools static path fields to one O Launcher instance.
  *
- * This must be called from inside Mojo's :gui_installer process, after MojoApplication
- * initializes its storage fields and before MultiRTUtils is first initialized. Calling
- * it from O Launcher's main process cannot affect Mojo's isolated process.
+ * This must run inside :gui_installer after O Launcher initializes Mojo's preference
+ * and storage context but before MultiRTUtils is first initialized. Calling it from
+ * O Launcher's main process cannot affect Mojo's isolated process.
  *
  * The class name and field names intentionally match the pinned MojoLauncher revision.
  */
