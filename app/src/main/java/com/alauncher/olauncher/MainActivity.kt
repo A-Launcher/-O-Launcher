@@ -886,6 +886,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     var renameName by remember { mutableStateOf("") }
     var previewImage by remember { mutableStateOf<ImageBitmap?>(null) }
     var previewImageName by remember { mutableStateOf("") }
+    var detailsFile by remember { mutableStateOf<File?>(null) }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         uris.forEach { uri ->
@@ -1028,7 +1029,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                             val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
                                             if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
                                             else message = "Could not preview ${file.name}."
-                                        } else message = "${file.name} · ${OEngineInstalledContentManager.formatSize(file.length())}"
+                                        } else detailsFile = file
                                                 }, onLongClick = { renameName = file.name; pendingRename = file }),
                                                 color = Color(0xFFFFF2E2),
                                                 shape = RoundedCornerShape(18.dp),
@@ -1056,7 +1057,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                             val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
                                             if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
                                             else message = "Could not preview ${file.name}."
-                                        } else message = "${file.name} · ${OEngineInstalledContentManager.formatSize(file.length())}"
+                                        } else detailsFile = file
                                     }, onLongClick = { renameName = file.name; pendingRename = file }).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(if (file.isDirectory) "📁" else "📄", fontSize = 23.sp)
                                         Spacer(Modifier.width(12.dp))
@@ -1107,6 +1108,24 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         }) { Text("CREATE") } },
         dismissButton = { TextButton(onClick = { showCreate = false; showNewFile = false }) { Text("CANCEL") } }
     )
+    detailsFile?.let { file ->
+        val modified = java.text.DateFormat.getDateTimeInstance().format(java.util.Date(file.lastModified()))
+        val type = if (file.isDirectory) "Folder" else file.extension.ifBlank { "File" }.uppercase()
+        AlertDialog(
+            onDismissRequest = { detailsFile = null },
+            title = { Text(file.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Type: $type", color = Ink, fontSize = 13.sp)
+                    Text("Size: ${if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length())}", color = Ink, fontSize = 13.sp)
+                    Text("Modified: $modified", color = Ink, fontSize = 13.sp)
+                    Text("Location: ${file.absolutePath}", color = Muted, fontSize = 10.sp)
+                }
+            },
+            confirmButton = { TextButton(onClick = { detailsFile = null; renameName = file.name; pendingRename = file }) { Text("RENAME") } },
+            dismissButton = { TextButton(onClick = { detailsFile = null }) { Text("CLOSE") } }
+        )
+    }
     previewImage?.let { bitmap ->
         AlertDialog(
             onDismissRequest = { previewImage = null },
