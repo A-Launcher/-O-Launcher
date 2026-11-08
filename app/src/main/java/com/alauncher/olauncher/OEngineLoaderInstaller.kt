@@ -182,13 +182,18 @@ object OEngineLoaderInstaller {
         require(!java.nio.file.Files.isSymbolicLink(profilePath.toPath())) {
             "Loader profile directory must not be a symbolic link."
         }
-        val profileDirectory = profilePath.canonicalFile
-        require(profileDirectory.toPath().startsWith(versionsRoot.toPath())) { "Unsafe loader profile path." }
-        if (!profileDirectory.exists() && !profileDirectory.mkdirs()) {
+        if (!profilePath.exists() && !profilePath.mkdirs()) {
             throw IllegalStateException("Could not create loader profile directory.")
         }
-        require(profileDirectory.isDirectory && !java.nio.file.Files.isSymbolicLink(profileDirectory.toPath())) {
-            "Loader profile directory is missing or unsafe."
+        // Resolve after creation so canonical-path checks use the filesystem's
+        // final directory entry rather than a pre-creation path guess.
+        require(!java.nio.file.Files.isSymbolicLink(profilePath.toPath())) {
+            "Loader profile directory must not be a symbolic link."
+        }
+        val profileDirectory = profilePath.canonicalFile
+        require(profileDirectory.toPath().startsWith(versionsRoot.toPath()) &&
+            profileDirectory.isDirectory) {
+            "Loader profile directory is missing or escapes the versions directory."
         }
         val metadataFile = File(profileDirectory, "$profileId.json")
         val temporaryMetadata = File(profileDirectory, "$profileId.json.part")
