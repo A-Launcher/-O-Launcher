@@ -56,7 +56,7 @@ class OEngineJavaCompatibilityTest {
         }
     }
 
-    @Test fun blocksUnmappedIntermediateJavaMajorsBelowSeventeen() {
+    @Test fun mapsIntermediateJavaTargetsToSeventeen() {
         val result = OEngineJavaCompatibility.resolve("legacy", metadataMajor = 15)
         assertEquals(17, result.runtimeJavaMajor)
         assertEquals(null, result.nativeLaunchBlocker())
