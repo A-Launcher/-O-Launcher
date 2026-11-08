@@ -144,7 +144,7 @@ jobs:
           for abi in arm64-v8a armeabi-v7a x86 x86_64; do
             build_dir="$RUNNER_TEMP/oengine-glfw-$abi"
             cmake -S native/android-glfw -B "$build_dir" \
-              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+              -DCMAKE_TOOLCHAIN_FILE="$MOJO_ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
               -DANDROID_ABI="$abi" -DANDROID_PLATFORM=26 \
               -DGLFW_BUILD_ANDROID=ON -DBUILD_SHARED_LIBS=ON \
               -DGLFW_BUILD_EXAMPLES=OFF -DGLFW_BUILD_TESTS=OFF \
@@ -175,7 +175,7 @@ jobs:
             destination="$GITHUB_WORKSPACE/app/src/main/jniLibs/$abi"
             build_dir="$RUNNER_TEMP/oengine-mojo-awt-$abi"
             cmake -S native/mojo-awt -B "$build_dir" \
-              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+              -DCMAKE_TOOLCHAIN_FILE="$MOJO_ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
               -DANDROID_ABI="$abi" -DANDROID_PLATFORM=26 \
               -DMOJO_JNI_ROOT="$mojo_jni" \
               -DMOJOEXEC_LIBRARY="$mojoexec" \
