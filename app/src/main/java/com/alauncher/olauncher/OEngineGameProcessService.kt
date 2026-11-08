@@ -430,7 +430,11 @@ class OEngineGameProcessService : Service() {
                         // JNI core and OpenGL helper libraries before their static
                         // Library initializers can run. Linux classifier archives are
                         // not valid Android substitutes.
-                        val requiredLwjglNativeModules = listOf("liblwjgl.so", "liblwjgl_opengl.so")
+                        val requiredLwjglNativeModules = listOf(
+                            "liblwjgl.so",
+                            "liblwjgl_opengl.so",
+                            "libopenal.so"
+                        )
                         val missingLwjglModules = requiredLwjglNativeModules.filter { name ->
                             val file = File(nativeDir, name)
                             !file.isFile || file.length() <= 0L
