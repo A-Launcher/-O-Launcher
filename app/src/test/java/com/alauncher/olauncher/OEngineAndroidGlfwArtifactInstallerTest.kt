@@ -39,6 +39,34 @@ class OEngineAndroidGlfwArtifactInstallerTest {
     }
 
     @Test
+    fun stagesOpenAlAndLwjglForArm64AndArm32() {
+        val root = Files.createTempDirectory("oengine-arm-native-abis").toFile()
+        try {
+            listOf(
+                Triple("arm64-v8a", 183, 64),
+                Triple("armeabi-v7a", 40, 32)
+            ).forEach { (abi, machine, bits) ->
+                val source = File(root, "$abi/apk-libs").apply { mkdirs() }
+                val destination = File(root, "$abi/private")
+                listOf(
+                    "libglfw.so", "libmojoexec.so", "liblinkerhook.so", "liblwjgl.so",
+                    "liblwjgl_opengl.so", "liblwjgl_nanovg.so", "liblwjgl_stb.so",
+                    "liblwjgl_tinyfd.so", "libopenal.so"
+                ).forEach { name -> File(source, name).writeBytes(fakeElf(machine, bits)) }
+                if (abi == "arm64-v8a") File(source, "libfopenhook.so").writeBytes(fakeElf(machine, bits))
+
+                val result = OEngineAndroidGlfwArtifactInstaller.install(source, destination, abi)
+
+                assertTrue(result.libraries.any { it.name == "libopenal.so" })
+                assertTrue(result.libraries.any { it.name == "liblwjgl.so" })
+                assertEquals(abi, result.abi)
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsWrongAbiBeforeCopyingAnyLibrary() {
         val root = Files.createTempDirectory("oengine-android-glfw-wrong-abi").toFile()
         try {
