@@ -3671,7 +3671,7 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
     if (showNewInstanceWizard) {
         NewInstanceWizard(
             step = newInstanceStep, onStepChange = { newInstanceStep = it }, onClose = { showNewInstanceWizard = false },
-            name = newInstanceName, onNameChange = { newInstanceName = it }, loader = newInstanceLoader, onLoaderChange = { newInstanceLoader = it },
+            name = newInstanceName, onNameChange = { newInstanceName = it }, loader = newInstanceLoader, onLoaderChange = { newInstanceLoader = it; newLoaderVersion = null },
             versions = versions.map { it.id }, selectedVersion = newInstanceVersion ?: selectedVersion, onVersionChange = { newInstanceVersion = it },
             loaderVersions = loaderVersions.map { it.version }, selectedLoaderVersion = newLoaderVersion ?: selectedLoaderVersion, onLoaderVersionChange = { newLoaderVersion = it },
             ram = newInstanceRam, onRamChange = { newInstanceRam = it }, useLauncherRam = useLauncherRam, onUseLauncherRamChange = { useLauncherRam = it },
@@ -3752,6 +3752,31 @@ private fun NewInstanceWizard(
     var versionMenu by remember { mutableStateOf(false) }
     var loaderMenu by remember { mutableStateOf(false) }
     var nameDialog by remember { mutableStateOf(false) }
+    var compatibleLoaderVersions by remember(loader, selectedVersion) { mutableStateOf(loaderVersions) }
+    var loadingCompatibleVersions by remember { mutableStateOf(false) }
+    LaunchedEffect(loader, selectedVersion) {
+        val engineLoader = when (loader) {
+            "Fabric" -> OEngineModLoader.FABRIC
+            "Forge" -> OEngineModLoader.FORGE
+            "NeoForge" -> OEngineModLoader.NEOFORGE
+            "Quilt" -> OEngineModLoader.QUILT
+            "OptiFine" -> OEngineModLoader.OPTIFINE
+            else -> OEngineModLoader.VANILLA
+        }
+        if (engineLoader == OEngineModLoader.VANILLA || loader == "OptiFine") {
+            compatibleLoaderVersions = emptyList()
+        } else {
+            loadingCompatibleVersions = true
+            try {
+                compatibleLoaderVersions = OEngineLoaderVersionCatalog.fetch(engineLoader, selectedVersion)
+                if (selectedLoaderVersion != null && compatibleLoaderVersions.none { it.version == selectedLoaderVersion }) {
+                    onLoaderVersionChange(compatibleLoaderVersions.firstOrNull()?.version ?: "")
+                }
+            } catch (_: Exception) {
+                compatibleLoaderVersions = emptyList()
+            } finally { loadingCompatibleVersions = false }
+        }
+    }
     val brown = Color(0xFF51240E)
     val cream = Color(0xFFFFE9C4)
     val gold = Color(0xFFFFB51B)
@@ -3796,8 +3821,20 @@ private fun NewInstanceWizard(
                                 }
                                 WizardTitle("LOADER VERSION", brown)
                                 Box {
-                                    WizardBox(selectedLoaderVersion ?: "Latest compatible", Modifier.fillMaxWidth().height(48.dp).clickable { loaderMenu = true }, brown)
-                                    DropdownMenu(loaderMenu, { loaderMenu = false }) { loaderVersions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onLoaderVersionChange(v); loaderMenu = false }) } }
+                                    WizardBox(
+                                        when {
+                                            loader == "Vanilla" -> "Not required"
+                                            loader == "OptiFine" -> "Official installer"
+                                            loadingCompatibleVersions -> "Loading compatible versions…"
+                                            else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Latest compatible"
+                                        },
+                                        Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true }, brown
+                                    )
+                                    DropdownMenu(loaderMenu, { loaderMenu = false }) {
+                                        compatibleLoaderVersions.take(80).forEach { v ->
+                                            DropdownMenuItem(text = { Text(v.version) }, onClick = { onLoaderVersionChange(v.version); loaderMenu = false })
+                                        }
+                                    }
                                 }
                             }
                             Column(Modifier.weight(.95f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
