@@ -46,7 +46,7 @@ object OEngineMojoAwtRuntimeLayout {
             accountHome = child("oengine/mojo/accounts"),
             data = child("oengine/mojo/data"),
             cache = child("oengine/mojo/cache"),
-            runtimes = child("runtimes/installed"),
+            runtimes = child("runtimes"),
             nativeLibraries = child("oengine/mojo/native"),
             cacioJava8 = child("caciocavallo"),
             cacioJava17 = child("caciocavallo17")
