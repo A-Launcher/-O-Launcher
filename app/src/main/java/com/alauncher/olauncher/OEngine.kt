@@ -14,7 +14,7 @@ data class OEnginePaths(val root: File) {
     val versions = File(root, "versions")
     val libraries = File(root, "libraries")
     val assets = File(root, "assets")
-    val runtimes = File(root, "runtimes/installed")
+    val runtimes = File(root, "runtimes")
     val logs = File(root, "logs")
 
     fun prepare() {
