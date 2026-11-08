@@ -9,7 +9,7 @@ import org.json.JSONArray
 import java.io.File
 
 /**
- * Validates the durable Forge/NeoForge request and translates it to Mojo's actual
+ * Validates the durable Forge/NeoForge/OptiFine request and translates it to Mojo's actual
  * AWTActivity Intent contract. The caller must launch this only after the pinned
  * Mojo AWT runtime has been compiled into the application.
  */
