@@ -158,7 +158,7 @@ class OEngineLoaderInstallerTest {
     }
 
     @Test fun profileMetadataIsPublishedByReplacingTheStagedFile() {
-        val root = createTempDir(prefix = "loader-profile-commit-")
+        val root = java.nio.file.Files.createTempDirectory("loader-profile-commit-").toFile()
         try {
             assertTrue(java.io.File(root, "versions").mkdirs())
             val (metadata, temporary) =
@@ -174,7 +174,7 @@ class OEngineLoaderInstallerTest {
 
     @Test fun profileMetadataCommitRejectsTemporarySymlink() {
         val root = createTempDir(prefix = "loader-profile-commit-")
-        val outside = createTempDir(prefix = "loader-profile-commit-outside-")
+        val outside = java.nio.file.Files.createTempDirectory("loader-profile-commit-outside-").toFile()
         try {
             assertTrue(java.io.File(root, "versions").mkdirs())
             val (metadata, temporary) =
