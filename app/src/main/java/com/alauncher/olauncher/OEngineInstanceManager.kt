@@ -11,6 +11,17 @@ object OEngineInstanceManager {
     private const val ACTIVE_KEY = "active_instance"
     private const val DEFAULT_ID = "default"
 
+    internal fun sanitizeDisplayName(displayName: String): String =
+        displayName.trim().replace(Regex("[^A-Za-z0-9 _.-]"), "")
+            .replace(Regex("\\s+"), " ").take(40)
+
+    internal fun instanceIdFor(displayName: String): String =
+        sanitizeDisplayName(displayName).lowercase()
+            .replace(Regex("[^a-z0-9]+"), "-").trim('-').ifBlank { "instance" }
+
+    internal fun gameRootFor(base: File, instanceDirectory: File, sharedGameFolder: Boolean): File =
+        if (sharedGameFolder) base else File(instanceDirectory, "game")
+
     fun list(context: Context): List<OEngineInstance> {
         val base = File(context.filesDir, "minecraft")
         val result = mutableListOf(OEngineInstance(DEFAULT_ID, "Default", base))
@@ -20,7 +31,7 @@ object OEngineInstanceManager {
             val name = lines.firstOrNull { it.startsWith("name=") }?.substringAfter("name=")?.take(48)
             val sharesGameFolder = lines.firstOrNull { it.startsWith("sharedGameFolder=") }
                 ?.substringAfter("=")?.toBooleanStrictOrNull() == true
-            val gameRoot = if (sharesGameFolder) base else File(directory, "game")
+            val gameRoot = gameRootFor(base, directory, sharesGameFolder)
             result.add(OEngineInstance(directory.name, name?.ifBlank { null } ?: directory.name, gameRoot))
         }
         return result.distinctBy { it.id }.sortedBy { if (it.id == DEFAULT_ID) 0 else 1 }
@@ -43,10 +54,9 @@ object OEngineInstanceManager {
     }
 
     fun create(context: Context, displayName: String, sharedGameFolder: Boolean = false): OEngineInstance {
-        val clean = displayName.trim().replace(Regex("[^A-Za-z0-9 _.-]"), "")
-            .replace(Regex("\\s+"), " ").take(40)
+        val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
-        val id = clean.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifBlank { "instance" }
+        val id = instanceIdFor(clean)
         val parent = File(File(context.filesDir, "minecraft/instances"), id)
         require(!parent.exists()) { "An instance with this name already exists." }
         val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
