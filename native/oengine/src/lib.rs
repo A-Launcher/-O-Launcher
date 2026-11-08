@@ -1103,7 +1103,7 @@ unsafe extern "system" fn native_load_java21(
 }
 
 unsafe fn install_native_library_hook(env: &mut JNIEnv, java_major: i32) -> Result<(), String> {
-    if java_major != 8 && java_major < 17 {
+    if !supports_native_hook_java_major(java_major) {
         return Err(format!("Java {java_major} is below the supported Android HotSpot hook profiles (Java 8 or Java 17+)"));
     }
     let state = NATIVE_LOAD_HOOK.get_or_init(|| Mutex::new(None));
