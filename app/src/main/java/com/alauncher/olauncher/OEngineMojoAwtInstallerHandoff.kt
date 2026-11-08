@@ -167,7 +167,9 @@ object OEngineMojoAwtInstallerHandoff {
         // Legacy builds staged archives inside the scan root. The current installer
         // stages under oengine/runtime-staging, so every remaining *.installing entry
         // here is from the old layout and can be preserved outside MultiRTUtils' scan.
-        runtimeRoot.listFiles().orEmpty()
+        val runtimeEntries = runtimeRoot.listFiles()
+            ?: error("Could not inspect the Java runtime root before Mojo discovery.")
+        runtimeEntries
             .filter { it.name.endsWith(".installing") &&
                 System.currentTimeMillis() - it.lastModified() > 6L * 60L * 60L * 1000L }
             .forEach { staging ->
@@ -228,7 +230,9 @@ object OEngineMojoAwtInstallerHandoff {
 
         // MultiRTUtils scans this directory immediately during preference loading.
         // Leave only fully valid JVM folders in that scan root.
-        runtimeRoot.listFiles().orEmpty().forEach { runtime ->
+        val remainingRuntimeEntries = runtimeRoot.listFiles()
+            ?: error("Could not inspect Java runtime entries before Mojo discovery.")
+        remainingRuntimeEntries.forEach { runtime ->
             require(!java.nio.file.Files.isSymbolicLink(runtime.toPath())) {
                 "Java runtime root contains a symbolic link."
             }
