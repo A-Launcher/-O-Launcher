@@ -2,6 +2,7 @@ package com.alauncher.olauncher
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import org.json.JSONArray
@@ -88,8 +89,12 @@ object OEngineMojoAwtInstallerHandoff {
         }
 
     /** Called by the AWT process bootstrap before it invokes AWTActivity.onCreate(). */
-    fun bindRuntimePaths(request: Request, classLoader: ClassLoader): OEngineMojoAwtRuntimeLayout.Paths {
-        val paths = OEngineMojoAwtPathBinder.bind(request.instanceRoot, classLoader)
+    fun bindRuntimePaths(request: Request, context: Context): OEngineMojoAwtRuntimeLayout.Paths {
+        val paths = OEngineMojoAwtRuntimeLayout.paths(request.instanceRoot)
+        OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 8)
+        OEngineMojoAwtRuntimeProvisioner.prepare(context, paths, 17)
+        val nativeLibraryDirectory = File(context.applicationInfo.nativeLibraryDir)
+        OEngineMojoAwtPathBinder.bind(request.instanceRoot, context.classLoader, nativeLibraryDirectory)
         require(paths.instanceRoot == request.instanceRoot.canonicalFile) {
             "Mojo AWT runtime was bound to a different Minecraft instance."
         }
