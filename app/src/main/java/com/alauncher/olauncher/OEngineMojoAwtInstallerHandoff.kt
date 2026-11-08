@@ -127,6 +127,16 @@ object OEngineMojoAwtInstallerHandoff {
         val legacyStore = File(paths.instanceRoot, "oengine/mojo/legacy-runtimes")
         val archiveStore = File(paths.instanceRoot, "oengine/runtime-archives")
 
+        runtimeRoot.listFiles().orEmpty()
+            .filter { it.name.endsWith(".installing") }
+            .forEach { staging ->
+                require(!java.nio.file.Files.isSymbolicLink(staging.toPath())) {
+                    "Interrupted Java runtime staging path is unsafe."
+                }
+                val removed = if (staging.isDirectory) staging.deleteRecursively() else staging.delete()
+                require(removed) { "Could not remove an interrupted Java runtime staging folder." }
+            }
+
         fun movePreserving(source: File, destination: File) {
             require(!java.nio.file.Files.isSymbolicLink(source.toPath())) {
                 "Legacy runtime migration refuses symbolic links."
