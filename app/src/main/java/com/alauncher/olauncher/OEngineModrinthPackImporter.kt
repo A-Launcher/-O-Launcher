@@ -102,10 +102,10 @@ object OEngineModrinthPackImporter {
             var copied = 0
             // The 2 GiB cap applies to the complete imported pack, not each source separately.
             var overrideBytes = expectedTotal
-            val firstOverrides = copyOverrides(zip, "overrides/", root, overrideBytes)
+            val firstOverrides = copyOverrides(zip, "overrides/", root, overrideBytes, seen)
             copied += firstOverrides.first
             overrideBytes = firstOverrides.second
-            val clientOverrides = copyOverrides(zip, "client-overrides/", root, overrideBytes)
+            val clientOverrides = copyOverrides(zip, "client-overrides/", root, overrideBytes, seen)
             copied += clientOverrides.first
             return Result(name, versionId, minecraft, loaders, downloaded, copied, skipped)
         }
@@ -156,7 +156,13 @@ object OEngineModrinthPackImporter {
         require(!destination.isDirectory) { "A modpack file cannot replace an instance directory." }
     }
 
-    private fun copyOverrides(zip: ZipFile, prefix: String, root: File, initialBytes: Long): Pair<Int, Long> {
+    private fun copyOverrides(
+        zip: ZipFile,
+        prefix: String,
+        root: File,
+        initialBytes: Long,
+        seenPaths: MutableSet<String>
+    ): Pair<Int, Long> {
         var copied = 0
         var totalBytes = initialBytes
         val entries = zip.entries()
@@ -164,6 +170,9 @@ object OEngineModrinthPackImporter {
             val entry = entries.nextElement()
             if (entry.isDirectory || !entry.name.startsWith(prefix)) continue
             val relative = safeRelativePath(entry.name.removePrefix(prefix))
+            require(seenPaths.add(relative.lowercase())) {
+                "Modpack contains colliding paths across downloads and override folders."
+            }
             val destination = safeDestination(root, relative)
             require(destination.parentFile?.exists() == true || destination.parentFile?.mkdirs() == true)
             verifySafeDestination(root, destination)
