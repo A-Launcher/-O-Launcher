@@ -1,0 +1,107 @@
+package com.alauncher.olauncher
+
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import org.json.JSONArray
+import java.io.File
+
+/**
+ * Validates the durable Forge/NeoForge request and translates it to Mojo's actual
+ * AWTActivity Intent contract. The caller must launch this only after the pinned
+ * Mojo AWT runtime has been compiled into the application.
+ */
+object OEngineMojoAwtInstallerHandoff {
+    const val AWT_ACTIVITY_CLASS = "git.artdeell.mojo.awt.AWTActivity"
+    private const val MAX_ARGS = 32
+    private const val MAX_ARG_LENGTH = 4096
+
+    data class Request(
+        val profileKey: String,
+        val instanceRoot: File,
+        val loader: String,
+        val minecraftVersion: String,
+        val installerJar: File,
+        val agentJar: File,
+        val javaArgs: List<String>
+    )
+
+    fun readPending(preferences: SharedPreferences, profileKey: String): Request {
+        require(profileKey.matches(Regex("[A-Za-z0-9._-]{1,80}"))) { "Invalid launcher profile key." }
+        fun required(key: String): String =
+            preferences.getString("$key.$profileKey", null)?.takeIf { it.isNotBlank() }
+                ?: error("Pending Mojo installer request is missing $key.")
+
+        val instance = File(required("pending_installer_instance")).canonicalFile
+        require(instance.isDirectory && !java.nio.file.Files.isSymbolicLink(instance.toPath())) {
+            "Selected Minecraft instance is missing or unsafe."
+        }
+        val installer = containedFile(instance, required("pending_installer_jar"), "oengine/installers")
+        val agent = containedFile(instance, required("pending_installer_agent"), "oengine/installers/agent")
+        require(installer.isFile && installer.length() in 1..512L * 1024L * 1024L) {
+            "Official loader installer JAR is missing or too large."
+        }
+        require(OEngineInstallerAgent.isValidAgentJar(agent)) {
+            "Mojo installer agent is missing or invalid."
+        }
+        val loader = required("pending_installer_loader")
+        require(loader == "Forge" || loader == "NeoForge") { "Unsupported AWT installer type." }
+        val minecraft = required("pending_installer_mc")
+        require(minecraft.matches(Regex("""\d+(?:\.\d+){1,2}(?:[-+][A-Za-z0-9._-]+)?"""))) {
+            "Pending Minecraft version is invalid."
+        }
+        val encodedArgs = required("pending_installer_args")
+        require(encodedArgs.length <= 64 * 1024) { "Pending installer arguments are too large." }
+        val array = JSONArray(encodedArgs)
+        require(array.length() in 1..MAX_ARGS) { "Pending installer argument count is invalid." }
+        val args = (0 until array.length()).map { index ->
+            val value = array.optString(index)
+            require(value.isNotBlank() && value.length <= MAX_ARG_LENGTH &&
+                !value.contains('\u0000')) { "Pending installer argument is invalid." }
+            value
+        }
+        require(args.any { it.startsWith("-javaagent:") && it.contains(agent.canonicalPath) }) {
+            "Pending installer arguments do not reference the staged Mojo agent."
+        }
+        return Request(profileKey, instance, loader, minecraft, installer, agent, args)
+    }
+
+    /** Creates exactly the extras consumed by the pinned Mojo AWTActivity. */
+    fun createIntent(context: Context, request: Request): Intent =
+        Intent().setComponent(ComponentName(context.packageName, AWT_ACTIVITY_CLASS)).apply {
+            putExtra("trusted", false)
+            putStringArrayListExtra("javaArgs", ArrayList(request.javaArgs))
+            putExtra("modPath", request.installerJar.canonicalPath)
+            putExtra("openLogOutput", true)
+            putExtra("oengine.profileKey", request.profileKey)
+            putExtra("oengine.instanceRoot", request.instanceRoot.canonicalPath)
+            putExtra("oengine.loader", request.loader)
+            putExtra("oengine.minecraftVersion", request.minecraftVersion)
+        }
+
+    /** Called by the AWT process bootstrap before it invokes AWTActivity.onCreate(). */
+    fun bindRuntimePaths(request: Request, classLoader: ClassLoader): OEngineMojoAwtRuntimeLayout.Paths {
+        val paths = OEngineMojoAwtPathBinder.bind(request.instanceRoot, classLoader)
+        require(paths.instanceRoot == request.instanceRoot.canonicalFile) {
+            "Mojo AWT runtime was bound to a different Minecraft instance."
+        }
+        return paths
+    }
+
+    fun complete(request: Request, preferences: SharedPreferences): OEngineInstallerProfileWatcher.InstalledProfile =
+        OEngineInstallerProfileWatcher.completePending(request.instanceRoot, preferences, request.profileKey)
+
+    private fun containedFile(root: File, rawPath: String, relativeParent: String): File {
+        val candidate = File(rawPath).canonicalFile
+        val allowed = File(root, relativeParent).canonicalFile
+        require(allowed.toPath().startsWith(root.toPath()) &&
+            candidate.toPath().startsWith(allowed.toPath())) {
+            "Pending installer file escapes its private staging directory."
+        }
+        require(!java.nio.file.Files.isSymbolicLink(candidate.toPath())) {
+            "Pending installer file must not be a symbolic link."
+        }
+        return candidate
+    }
+}
