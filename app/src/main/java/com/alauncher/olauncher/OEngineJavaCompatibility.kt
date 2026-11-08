@@ -17,13 +17,19 @@ data class OEngineJavaCompatibility(
 ) {
     enum class Source { MOJANG_METADATA, LEGACY_VERSION_POLICY }
 
-    /** Java majors whose HotSpot native-library hook ABI is implemented in O Engine. */
+    /**
+     * Java 8 has its legacy ClassLoader hook. Java 17+ is accepted only when the
+     * native bootstrap can identify one of the supported NativeLibraries.load
+     * signatures at runtime. This is the same fail-closed ABI-probing strategy
+     * used by MojoLauncher, and avoids hardcoding a maximum Java major.
+     */
     fun nativeLaunchBlocker(): String? =
-        if (runtimeJavaMajor in SUPPORTED_NATIVE_HOOK_JAVA_MAJORS) null
-        else "Minecraft requires Java $runtimeJavaMajor, but O Engine's Android native-library hook currently supports Java 8, 17, and 21 only. This version cannot launch until Java $runtimeJavaMajor is integrated."
+        if (runtimeJavaMajor == 8 || runtimeJavaMajor >= 17) null
+        else "Minecraft requires Java $runtimeJavaMajor, but O Engine currently supports the Java 8 hook or probed Java 17+ HotSpot hook ABI."
 
     companion object {
-        val SUPPORTED_NATIVE_HOOK_JAVA_MAJORS = setOf(8, 17, 21)
+        fun supportsNativeHookMajor(javaMajor: Int): Boolean =
+            javaMajor == 8 || javaMajor >= 17
         fun resolve(versionId: String, metadataMajor: Int? = null): OEngineJavaCompatibility {
             val target = metadataMajor?.takeIf { it > 0 } ?: inferLegacyTarget(versionId)
             val runtime = when (target) {
