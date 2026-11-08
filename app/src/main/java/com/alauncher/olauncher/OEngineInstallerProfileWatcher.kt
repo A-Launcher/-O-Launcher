@@ -15,7 +15,8 @@ object OEngineInstallerProfileWatcher {
 
     enum class Loader(val libraryPrefix: String) {
         FORGE("net.minecraftforge:forge:"),
-        NEOFORGE("net.neoforged:neoforge:")
+        NEOFORGE("net.neoforged:neoforge:"),
+        OPTIFINE("optifine:OptiFine:")
     }
 
     data class Snapshot internal constructor(internal val fingerprints: Map<String, String>)
@@ -179,6 +180,7 @@ object OEngineInstallerProfileWatcher {
         val loader = when (loaderName) {
             "Forge" -> Loader.FORGE
             "NeoForge" -> Loader.NEOFORGE
+            "OptiFine" -> Loader.OPTIFINE
             else -> error("Unsupported pending installer loader.")
         }
         val before = restoreSnapshot(encodedSnapshot)
@@ -186,6 +188,7 @@ object OEngineInstallerProfileWatcher {
         val loaderDisplayName = when (loader) {
             Loader.FORGE -> "Forge"
             Loader.NEOFORGE -> "NeoForge"
+            Loader.OPTIFINE -> "OptiFine"
         }
         val saved = preferences.edit()
             .putString("loader_profile.$profileKey", installed.versionId)
