@@ -7,6 +7,9 @@ endif()
 if(NOT DEFINED MOJOEXEC_LIBRARY OR NOT EXISTS "${MOJOEXEC_LIBRARY}")
     message(FATAL_ERROR "MOJOEXEC_LIBRARY must point at the already-built libmojoexec.so")
 endif()
+if(NOT DEFINED MOJOEXEC_INCLUDE_DIR OR NOT IS_DIRECTORY "${MOJOEXEC_INCLUDE_DIR}")
+    message(FATAL_ERROR "MOJOEXEC_INCLUDE_DIR must point at the pinned MojoExec public headers")
+endif()
 
 add_library(mojoexec SHARED IMPORTED GLOBAL)
 set_target_properties(mojoexec PROPERTIES IMPORTED_LOCATION "${MOJOEXEC_LIBRARY}")
@@ -23,7 +26,7 @@ add_library(mojort SHARED
     "${MOJO_JNI_ROOT}/stdio_is.c"
     "${MOJO_JNI_ROOT}/minibridge.c"
 )
-target_include_directories(mojort PRIVATE "${MOJO_JNI_ROOT}")
+target_include_directories(mojort PRIVATE "${MOJO_JNI_ROOT}" "${MOJOEXEC_INCLUDE_DIR}")
 target_link_libraries(mojort PRIVATE log mojoexec)
 
 add_library(mojoawt SHARED
