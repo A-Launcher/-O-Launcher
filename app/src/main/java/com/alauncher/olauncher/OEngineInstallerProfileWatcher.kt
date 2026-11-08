@@ -112,6 +112,9 @@ object OEngineInstallerProfileWatcher {
                 val json = runCatching { JSONObject(String(bytes, Charsets.UTF_8)) }.getOrNull() ?: return@mapNotNull null
                 if (json.optString("id") != directory.name) return@mapNotNull null
                 if (json.optString("inheritsFrom") != minecraftVersion) return@mapNotNull null
+                // A detected profile must be launchable metadata, not just a loader
+                // library marker left behind by a failed installer.
+                if (json.optString("mainClass").isBlank()) return@mapNotNull null
                 val libraries = json.optJSONArray("libraries") ?: return@mapNotNull null
                 val loaderCoordinates = (0 until libraries.length()).mapNotNull { index ->
                     libraries.optJSONObject(index)?.optString("name")
