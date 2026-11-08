@@ -60,4 +60,35 @@ class OEngineInstallerProfileWatcherTest {
             root.deleteRecursively()
         }
     }
+
+    @Test fun resolvesUpdatedExistingProfileId() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            profile(root, "shared-forge-id", "1.20.1", "net.minecraftforge:forge:1.20.1-47.2.0")
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            profile(root, "shared-forge-id", "1.20.1", "net.minecraftforge:forge:1.20.1-47.3.0")
+            val result = OEngineInstallerProfileWatcher.resolve(
+                root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
+            )
+            assertEquals("shared-forge-id", result.versionId)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun unchangedExistingProfileIsNotAcceptedAsInstallResult() {
+        val root = createTempDir(prefix = "installer-profile-")
+        try {
+            profile(root, "old-forge", "1.20.1", "net.minecraftforge:forge:1.20.1-47.2.0")
+            val before = OEngineInstallerProfileWatcher.snapshot(root)
+            assertThrows(IllegalArgumentException::class.java) {
+                OEngineInstallerProfileWatcher.resolve(
+                    root, before, "1.20.1", OEngineInstallerProfileWatcher.Loader.FORGE
+                )
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
