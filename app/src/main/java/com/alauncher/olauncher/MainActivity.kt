@@ -2972,20 +2972,14 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
 
                                         val launchProfileKey = selectedProfile
                                         val launchLoader = selectedLoader
-                                        val launchLoaderProfileId = if (
-                                            launchLoader == "Vanilla" || installedLoaderProfileId == null
-                                        ) {
-                                            null
-                                        } else {
-                                            withContext(Dispatchers.IO) {
-                                                OEngineInstalledLoaderProfile.resolve(
-                                                    activeInstance.root,
-                                                    profilePreferences,
-                                                    launchProfileKey,
-                                                    launchLoader,
-                                                    release.id
-                                                )
-                                            }
+                                        val launchLoaderProfileId = withContext(Dispatchers.IO) {
+                                            OEngineInstalledLoaderProfile.resolve(
+                                                activeInstance.root,
+                                                profilePreferences,
+                                                launchProfileKey,
+                                                launchLoader,
+                                                release.id
+                                            )
                                         }
                                         val plan = MinecraftVersionInstaller.prepareLaunchPlan(
                                             release,
