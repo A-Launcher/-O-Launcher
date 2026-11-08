@@ -2263,6 +2263,16 @@ private fun InstallationsDestination(images: LauncherImages) {
     var installedLoaderProfileId by remember(context, selectedProfile) {
         mutableStateOf(profilePreferences.getString("loader_profile.$selectedProfile", null))
     }
+    DisposableEffect(profilePreferences, selectedProfile) {
+        val key = "loader_profile.$selectedProfile"
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { preferences, changedKey ->
+            if (changedKey == key) {
+                installedLoaderProfileId = preferences.getString(key, null)
+            }
+        }
+        profilePreferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { profilePreferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     var loaderVersionMenu by remember { mutableStateOf(false) }
     var versions by remember { mutableStateOf<List<MinecraftRelease>>(emptyList()) }
     var selectedRelease by remember { mutableStateOf<MinecraftRelease?>(null) }
