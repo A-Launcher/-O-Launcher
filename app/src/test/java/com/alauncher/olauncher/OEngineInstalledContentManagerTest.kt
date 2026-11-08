@@ -85,7 +85,7 @@ class OEngineInstalledContentManagerTest {
             File(root, "saves/Creative/level.dat").apply { parentFile.mkdirs(); writeText("world") }
             val pack = File(root, "saves/Survival/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("pack") }
             val other = File(root, "saves/Creative/datapacks/pack.zip").apply { parentFile.mkdirs(); writeText("other") }
-            val entry = OEngineInstalledContentManager.list(root).single()
+            val entry = OEngineInstalledContentManager.list(root).single { it.worldName == "Survival" }
             assertTrue(OEngineInstalledContentManager.remove(root, entry))
             assertFalse(pack.exists())
             assertTrue(other.exists())
