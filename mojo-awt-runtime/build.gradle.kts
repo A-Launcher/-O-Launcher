@@ -9,6 +9,9 @@ android {
     defaultConfig {
         minSdk = 26
         consumerProguardFiles("consumer-rules.pro")
+        resValue("string", "application_package", "com.alauncher.olauncher")
+        resValue("string", "storageProviderAuthorities", "com.alauncher.olauncher.scoped.gamefolder")
+        resValue("string", "group_id", "com.alauncher")
     }
 
     buildFeatures {
@@ -44,6 +47,8 @@ dependencies {
     api("javax.annotation:javax.annotation-api:1.3.2")
     api("commons-codec:commons-codec:1.19.0")
     api("commons-io:commons-io:2.19.0")
+    api("org.apache.commons:commons-compress:1.28.0")
+    api("androidx.recyclerview:recyclerview:1.4.0")
     api("com.google.code.gson:gson:2.13.1")
     api("org.tukaani:xz:1.10")
     api("net.sourceforge.htmlcleaner:htmlcleaner:2.29")
