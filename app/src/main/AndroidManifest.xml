@@ -8,6 +8,21 @@
         android:label="O Launcher"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- Mojo AWT error/storage screens are part of the pinned Java runtime library. -->
+        <activity
+            android:name="git.artdeell.mojo.MissingStorageActivity"
+            android:exported="false"
+            android:process=":gui_installer" />
+        <activity
+            android:name="git.artdeell.mojo.FatalErrorActivity"
+            android:exported="false"
+            android:process=":gui_installer"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog" />
+        <activity
+            android:name="git.artdeell.mojo.ShowErrorActivity"
+            android:exported="false"
+            android:process=":gui_installer"
+            android:theme="@style/Theme.AppCompat.DayNight.Dialog" />
         <activity
             android:name=".OEngineMojoAwtActivity"
             android:process=":gui_installer"
