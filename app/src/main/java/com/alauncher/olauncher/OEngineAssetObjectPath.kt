@@ -6,6 +6,30 @@ import java.io.File
 internal object OEngineAssetObjectPath {
     private val sha1Pattern = Regex("[0-9a-f]{40}")
 
+    fun resolveRoot(gameRoot: File, relativePath: String): File {
+        require(relativePath.isNotBlank() && !File(relativePath).isAbsolute) {
+            "Asset directory must be relative to the selected game folder."
+        }
+        val root = gameRoot.canonicalFile
+        val requested = File(root, relativePath).toPath().normalize()
+        require(requested.startsWith(root.toPath()) && requested != root.toPath()) {
+            "Asset directory escapes the selected game folder."
+        }
+        var current = root
+        val relative = root.toPath().relativize(requested)
+        for (part in relative) {
+            current = File(current, part.toString())
+            require(!java.nio.file.Files.isSymbolicLink(current.toPath())) {
+                "Asset directory contains an unsafe symbolic link."
+            }
+        }
+        val canonical = current.canonicalFile
+        require(canonical.toPath().startsWith(root.toPath()) && canonical != root) {
+            "Asset directory resolves outside the selected game folder."
+        }
+        return canonical
+    }
+
     fun resolve(objectRoot: File, hash: String): File {
         require(sha1Pattern.matches(hash)) { "Asset index contains an invalid SHA-1 hash." }
         val root = objectRoot.canonicalFile
