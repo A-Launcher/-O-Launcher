@@ -289,6 +289,7 @@ object OEngineLwjglNativeResolver {
             glfwModulePresent = glfwModules.size == 1,
             glfwJavaClassPresent = glfwJavaClassPresent,
             androidGlfwLibraryConfigured = androidGlfwLibraryConfigured,
+            mojoGlfwDisplayClassPresent = mojoGlfwDisplayClassPresent,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )
