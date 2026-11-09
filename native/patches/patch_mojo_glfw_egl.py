@@ -225,8 +225,10 @@ destroy_surface_replacement = '''    if (window->context.egl.surface)
     {
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
-        const GLFWbool is_ltw_surface = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface;
+        const GLFWbool has_ltw_share = oengine_get_ltw_share_info(&oengine_ltw_share);
+        const GLFWbool is_ltw_surface = has_ltw_share &&
+            (window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface ||
+             window->context.egl.surface == (EGLSurface) oengine_ltw_share.pbuffer);
         if (!is_ltw_surface)
 #endif
             eglDestroySurface(_glfw.egl.display, window->context.egl.surface);
@@ -601,6 +603,7 @@ required = [
     "_glfwManageEglSurfaceAndroid(window)",
     "const GLFWbool is_ltw_context",
     "const GLFWbool is_ltw_surface",
+    "window->context.egl.surface == (EGLSurface) oengine_ltw_share.pbuffer",
     "display_is_ltw_owned",
 ]
 for item in required:
