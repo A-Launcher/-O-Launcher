@@ -13,17 +13,17 @@ import java.security.MessageDigest
 object OEngineGl4esArtifactInstaller {
     fun install(context: Context): OEngineNativeRendererArtifact {
         val nativeRoot = File(context.applicationInfo.nativeLibraryDir)
-        val packagedAndAbi = Build.SUPPORTED_ABIS
-            .mapNotNull { abi ->
-                File(nativeRoot, OEngineGraphicsStack.GL4ES_LIBRARY)
-                    .takeIf { it.isFile && it.length() >= 100_000L }
-                    ?.let { abi to it }
-            }
-            .firstOrNull()
+        val packaged = File(nativeRoot, OEngineGraphicsStack.GL4ES_LIBRARY)
+            .takeIf { it.isFile && it.length() >= 100_000L }
             ?: throw IllegalStateException(
-                "The APK does not contain the pinned GL4ES library for any reported device ABI."
+                "The APK does not contain the pinned GL4ES library in the active app native-library directory."
             )
-        val (abi, packaged) = packagedAndAbi
+        // nativeLibraryDir contains the ABI selected for this installed APK. The
+        // device's SUPPORTED_ABIS order is not proof of the ELF's actual machine.
+        val abi = OEngineRendererArtifactGate.detectAbi(packaged)
+            ?: throw IllegalStateException(
+                "The packaged GL4ES ELF does not match any ABI supported by this device."
+            )
 
         val root = File(context.filesDir, "oengine/renderers").canonicalFile
         val directory = File(root, "gl4es/$abi").apply {
