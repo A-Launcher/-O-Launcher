@@ -30,9 +30,19 @@ object OEngineMojoControlMapImporter {
         val json = if (bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
             ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
                 var layout: ByteArray? = null
+                var firstFileSeen = false
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     if (entry.isDirectory) continue
+                    if (!firstFileSeen) {
+                        firstFileSeen = true
+                        // Mojo's LayoutBitmaps.storeZip writes layout.json before bitmap
+                        // assets. Reject other first entries instead of draining an
+                        // untrusted asset (which could be a highly-compressed ZIP bomb).
+                        require(entry.name == "layout.json") {
+                            "Mojo ZIP control map must place layout.json before bitmap assets."
+                        }
+                    }
                     if (entry.name == "layout.json") {
                         val out = ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
