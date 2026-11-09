@@ -8,17 +8,21 @@ import android.view.KeyEvent
 
 /**
  * Imports the portable, fixed-position subset of MojoLauncher control maps.
- * Complex controls are counted in ImportResult so callers can warn users that
- * drawers and joysticks have not yet been converted to O Engine controls.
+ * Drawer and joystick definitions are retained as opaque JSON snapshots. They
+ * are not executable O Engine controls yet, but callers can persist them and
+ * avoid silently destroying compound-control settings during an import.
  */
 object OEngineMojoControlMapImporter {
     data class ImportResult(
         val controls: List<OEngineTouchControl>,
         val sourceVersion: Int,
         val skippedHiddenControls: Int,
-        val unsupportedDrawers: Int,
-        val unsupportedJoysticks: Int
-    )
+        val preservedDrawerJson: List<String>,
+        val preservedJoystickJson: List<String>
+    ) {
+        val unsupportedDrawers: Int get() = preservedDrawerJson.size
+        val unsupportedJoysticks: Int get() = preservedJoystickJson.size
+    }
 
     /**
      * Accepts Mojo's raw JSON format or its LayoutBitmaps ZIP container.
@@ -132,9 +136,24 @@ object OEngineMojoControlMapImporter {
             controls = result,
             sourceVersion = version,
             skippedHiddenControls = hidden,
-            unsupportedDrawers = root.optJSONArray("mDrawerDataList")?.length() ?: 0,
-            unsupportedJoysticks = root.optJSONArray("mJoystickDataList")?.length() ?: 0
+            preservedDrawerJson = preserveCompoundControls(root, "mDrawerDataList"),
+            preservedJoystickJson = preserveCompoundControls(root, "mJoystickDataList")
         )
+    }
+
+    /**
+     * Keep full Mojo objects (including nested drawer buttons and joystick
+     * options) intact. These snapshots are for round-tripping/storage only;
+     * they must not be presented as imported, working touch controls.
+     */
+    private fun preserveCompoundControls(root: JSONObject, field: String): List<String> {
+        val source = root.optJSONArray(field) ?: return emptyList()
+        require(source.length() <= 48) { "Mojo $field contains too many compound controls." }
+        return (0 until source.length()).map { index ->
+            val item = source.optJSONObject(index)
+                ?: throw IllegalArgumentException("Invalid Mojo compound control in $field at index $index.")
+            item.toString()
+        }
     }
 
     private fun numericPosition(item: JSONObject, field: String, index: Int): Float {
