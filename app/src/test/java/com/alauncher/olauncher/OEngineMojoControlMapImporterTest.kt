@@ -182,8 +182,8 @@ class OEngineMojoControlMapImporterTest {
         val decoded = OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(
             """{"orientation":"RIGHT","properties":{"name":"Tools","dynamicX":"40","dynamicY":"80","width":64,"height":48},
             "buttonProperties":[
-                {"name":"Inventory","keycodes":[E_KEY,-1],"isToggle":false},
-                {"name":"Jump","keycodes":[62,-1],"isToggle":true}
+                {"name":"Inventory","keycodes":[E_KEY,-1],"isToggle":false,"dynamicX":"120","dynamicY":"40","width":58,"height":42},
+                {"name":"Jump","keycodes":[62,-1],"isToggle":true,"dynamicX":"190","dynamicY":"40","width":52,"height":42}
             ]}""".replace("E_KEY", KeyEvent.KEYCODE_E.toString())
         )
         assertEquals("Tools", decoded.label)
@@ -194,6 +194,11 @@ class OEngineMojoControlMapImporterTest {
         assertEquals(48f, decoded.heightDp)
         assertEquals(2, decoded.buttons.size)
         assertEquals(KeyEvent.KEYCODE_E, decoded.buttons[0].keyCode)
+        assertEquals(120f, decoded.buttons[0].xDp!!)
+        assertEquals(40f, decoded.buttons[0].yDp!!)
+        assertEquals(58f, decoded.buttons[0].widthDp)
+        assertEquals(42f, decoded.buttons[0].heightDp)
+        assertEquals(190f, decoded.buttons[1].xDp!!)
         assertTrue(decoded.buttons[1].toggle)
     }
 
