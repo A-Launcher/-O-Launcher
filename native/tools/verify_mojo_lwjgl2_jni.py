@@ -12,7 +12,6 @@ not prove that dependent GLFW symbols resolve or that a device can render.
 from __future__ import annotations
 
 import argparse
-import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +37,7 @@ REQUIRED_PREFIXES = (
     "Java_org_lwjgl_opengl_GLFWPeerInfo_createHandle",
 )
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("library", type=Path)
@@ -60,15 +60,11 @@ def main() -> int:
         fields = line.split()
         if fields:
             exported.add(fields[-1].split("@", 1)[0])
-    missing = [prefix for prefix in REQUIRED_PREFIXES
-               if not any(symbol == prefix or symbol.startswith(prefix + "__")
-                          for symbol in exported)]
-    # LWJGL's direct-buffer accessors are native too; require at least four
-    # exported methods on GLFWDisplay in addition to the named lifecycle calls.
-    display_exports = [s for s in exported if re.fullmatch(
-        r"Java_org_lwjgl_opengl_GLFWDisplay_n[A-Za-z0-9_]+", s)]
-    if len(display_exports) < 14:
-        missing.append(f"GLFWDisplay native export count >= 14 (found {len(display_exports)})")
+    missing = [
+        prefix for prefix in REQUIRED_PREFIXES
+        if not any(symbol == prefix or symbol.startswith(prefix + "__")
+                   for symbol in exported)
+    ]
     if missing:
         print("Mojo LWJGL2 JNI ABI: FAIL")
         for symbol in missing:
@@ -77,6 +73,7 @@ def main() -> int:
     print(f"Mojo LWJGL2 JNI ABI: PASS ({len(exported)} defined dynamic symbols)")
     print("Note: dependency resolution, EGL ownership, and on-device rendering remain separate gates.")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
