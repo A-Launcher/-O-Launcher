@@ -270,6 +270,17 @@ fn is_valid_native_input_pair(device: i32, action: i32) -> bool {
     }
 }
 
+fn is_valid_native_input_code(device: i32, action: i32, code: i32) -> bool {
+    match device {
+        0 => code >= 0,
+        1 => (-1..=348).contains(&code),
+        2 => (matches!(action, 0 | 1) && (0..=7).contains(&code))
+            || (matches!(action, 3 | 4) && code == 0),
+        3 => if action == 3 { (0..=6).contains(&code) } else { (0..=13).contains(&code) },
+        _ => false,
+    }
+}
+
 fn glfw_action_from_oengine(action: i32) -> Option<i32> {
     match action {
         0 => Some(1), // O Engine DOWN -> GLFW_PRESS
@@ -459,6 +470,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     let mut parsed = Vec::with_capacity(count);
     for index in 0..count {
         if !is_valid_native_input_pair(d[index], a[index]) ||
+            !is_valid_native_input_code(d[index], a[index], c[index]) ||
             !x[index].is_finite() || !y[index].is_finite() || !v[index].is_finite() ||
             m[index] < 0 || !(0..=0x10FFFF).contains(&cp[index]) ||
             (0xD800..=0xDFFF).contains(&cp[index]) {
@@ -1765,6 +1777,23 @@ mod native_input_dispatch_tests {
         assert_eq!(queue.pressed.len(), INPUT_QUEUE_CAPACITY);
         assert!(queue.reset_required);
         assert!(!queue.pressed.iter().any(|event| event.code == 9001));
+    }
+
+    #[test]
+    fn native_input_validation_enforces_backend_code_domains() {
+        assert!(is_valid_native_input_code(0, 0, 31));
+        assert!(!is_valid_native_input_code(0, 0, -1));
+        assert!(is_valid_native_input_code(1, 0, -1));
+        assert!(is_valid_native_input_code(1, 0, 348));
+        assert!(!is_valid_native_input_code(1, 0, 349));
+        assert!(is_valid_native_input_code(2, 0, 7));
+        assert!(!is_valid_native_input_code(2, 0, 8));
+        assert!(is_valid_native_input_code(2, 4, 0));
+        assert!(!is_valid_native_input_code(2, 4, 1));
+        assert!(is_valid_native_input_code(3, 0, 13));
+        assert!(!is_valid_native_input_code(3, 0, 14));
+        assert!(is_valid_native_input_code(3, 3, 6));
+        assert!(!is_valid_native_input_code(3, 3, 7));
     }
 
     #[test]
