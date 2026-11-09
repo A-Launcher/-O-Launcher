@@ -96,6 +96,9 @@ object OEngineRendererArtifactGate {
             val elfClass = input.readUnsignedByte()
             val dataEncoding = input.readUnsignedByte()
             if (dataEncoding != 1) return null // Android supported ABIs use little-endian ELF.
+            input.seek(16L)
+            val elfType = input.readUnsignedByte() or (input.readUnsignedByte() shl 8)
+            if (elfType != 3) return null // ET_DYN is required for a shared object.
             input.seek(18L)
             val machine = input.readUnsignedByte() or (input.readUnsignedByte() shl 8)
             val bits = when (elfClass) {
@@ -106,6 +109,12 @@ object OEngineRendererArtifactGate {
             ElfIdentity(bits, machine)
         }
     }.getOrNull()
+
+    /** Detect the ABI from the actual ELF payload, not the device's ABI preference order. */
+    fun detectAbi(file: File, supportedAbis: List<String> = Build.SUPPORTED_ABIS.toList()): String? {
+        val identity = readElfIdentity(file) ?: return null
+        return supportedAbis.firstOrNull { expectedElfIdentity(it) == identity }
+    }
 
     private fun expectedElfIdentity(abi: String): ElfIdentity? = when (abi) {
         "armeabi-v7a" -> ElfIdentity(32, 40) // EM_ARM

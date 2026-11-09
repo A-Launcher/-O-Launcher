@@ -60,6 +60,15 @@ internal object OEngineLegacyLwjgl2Compatibility {
     fun isLegacyLwjgl2Coordinate(coordinate: String): Boolean =
         coordinate.startsWith(LIBRARY_PREFIX)
 
+    /** The Mojo fork is published as a distinct Maven version to avoid mixing upstream LWJGL2. */
+    fun javaArtifactRelativePath(coordinate: String): String? {
+        if (!isLegacyLwjgl2Coordinate(coordinate)) return null
+        val parts = coordinate.split(':')
+        if (parts.size != 3 || parts[0] != "org.lwjgl.lwjgl" || parts[1] != "lwjgl") return null
+        val version = MOJO_LIBRARY_COORDINATE.substringAfterLast(':')
+        return "org/lwjgl/lwjgl/$version/lwjgl-$version.jar"
+    }
+
     fun nativeArchive(abi: String): NativeArchive =
         nativeArchives[abi] ?: throw IllegalArgumentException(
             "Mojo LWJGL 2 compatibility has no pinned native archive for ABI $abi."

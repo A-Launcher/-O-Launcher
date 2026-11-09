@@ -112,12 +112,40 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
             assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
             assertTrue(result.blockers.any { it.contains("org.lwjgl.librarypath/System.loadLibrary") })
-            assertTrue(result.blockers.any { it.contains("matching JNI ABI") })
-            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL entry-point bridge") })
+            assertTrue(result.blockers.any { it.contains("neither supported Mojo native filename") })
+            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
             assertFalse(result.blockers.any { it.contains("org.lwjgl.opengl.libname interception") })
         } finally { root.deleteRecursively() }
     }
 
+
+    @Test
+    fun recognizesPinnedMojoLwjgl2GlfwPortClasses() {
+        val root = Files.createTempDirectory("oengine-mojo-lwjgl2").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray(),
+                "org/lwjgl/opengl/GLFWDisplay.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWContextImplementation.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core))
+            assertTrue(result.mojoGlfwDisplayClassPresent)
+            assertTrue(result.blockers.any { it.contains("ABI-matched") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
+    fun blocksUpstreamLwjgl2WithoutPinnedMojoGlfwPortClasses() {
+        val root = Files.createTempDirectory("oengine-upstream-lwjgl2").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4/lwjgl-2.9.4.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray())
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core))
+
+            assertFalse(result.mojoGlfwDisplayClassPresent)
+            assertTrue(result.blockers.any { it.contains("not the pinned Mojo GLFW port") })
+        } finally { root.deleteRecursively() }
+    }
 
     @Test
     fun blocksLwjgl2WhenSysNativeLoadContractCannotBeVerified() {
@@ -140,6 +168,36 @@ class OEngineLwjglNativeResolverTest {
             val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
             assertFalse(resolution.ndlopenSignaturePresent)
             assertTrue(resolution.blockers.any { it.contains("ndlopen(long,int)") })
+        } finally { root.deleteRecursively() }
+    }
+ 
+    @Test
+    fun recognizesStagedMojoLwjgl2NativeLibraryAndGlfwDependency() {
+        val root = Files.createTempDirectory("oengine-mojo-lwjgl2-native").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray(),
+                "org/lwjgl/opengl/GLFWDisplay.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWContextImplementation.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
+            val nativeDirectory = File(root, "versions/test/natives").apply { mkdirs() }
+            // The resolver must find the actual installed filename without assuming
+            // the first device-supported ABI is the process ABI.
+            val nativeLibrary = File(nativeDirectory, "liblwjgl64.so").apply {
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
+            val glfw = File(root, "android-glfw/libglfw.so").apply {
+                parentFile?.mkdirs()
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
+            val result = OEngineLwjglNativeResolver.resolve(
+                listOf(core), glfw, listOf(nativeDirectory)
+            )
+
+            assertTrue(result.legacyNativeLibraryConfigured)
+            assertEquals(nativeLibrary.canonicalFile, result.legacyNativeLibraryPath)
+            assertTrue(result.warnings.any { it.contains("Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are staged") })
+            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
         } finally { root.deleteRecursively() }
     }
 

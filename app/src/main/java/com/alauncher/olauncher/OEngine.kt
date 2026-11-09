@@ -110,11 +110,12 @@ object OLauncherEngine {
                 timezoneId = java.util.TimeZone.getDefault().id,
                 availableProcessors = Runtime.getRuntime().availableProcessors(),
                 rendererLibraryAlias = rendererLibraryAlias,
-                androidGlfwLibrary = androidGlfwLibrary
+                androidGlfwLibrary = androidGlfwLibrary,
+                additionalNativeLibraryDirectories = listOf(nativeDirectory)
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
-        val lwjglResolution = OEngineLwjglNativeResolver.resolve(plan.classpath.map(::File), androidGlfwLibrary)
+        val lwjglResolution = OEngineLwjglNativeResolver.resolve(plan.classpath.map(::File), androidGlfwLibrary, listOf(nativeDirectory))
         blockers.addAll(lwjglResolution.blockers)
 
         val classpath = plan.classpath.joinToString(File.pathSeparator)

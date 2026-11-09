@@ -315,6 +315,53 @@ jobs:
             "$RUNNER_TEMP/oengine_ltw_egl_abi.c" -o "$RUNNER_TEMP/oengine_ltw_egl_abi"
           "$RUNNER_TEMP/oengine_ltw_egl_abi"
 
+      - name: Verify pinned Mojo LWJGL2 JNI and native dependencies for all Android ABIs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import io
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          artifacts = {
+              "arm64-v8a": ("https://github.com/MojoLauncher/lwjgl2-glfw/releases/download/vv8m/lwjgl-native-arm64-v8a.jar", 99240, "93126ae6975f1850d25bf9a7c5d26012a12e40ada2b2c101e504f3e8187007a5", "liblwjgl64.so"),
+              "armeabi-v7a": ("https://github.com/MojoLauncher/lwjgl2-glfw/releases/download/vv8m/lwjgl-native-armeabi-v7a.jar", 76863, "c99a2c617cf29c714128868ac8b3c4a0304a2d8dcfa21dbeee4fa398771b554a", "liblwjgl.so"),
+              "x86": ("https://github.com/MojoLauncher/lwjgl2-glfw/releases/download/vv8m/lwjgl-native-x86.jar", 107351, "59be4d04330874a8e55c98eee2c0913f11b913268dc80a91b0f571730c6db3b3", "liblwjgl.so"),
+              "x86_64": ("https://github.com/MojoLauncher/lwjgl2-glfw/releases/download/vv8m/lwjgl-native-x86_64.jar", 100331, "4129e73bfb44415db29ef9ff9c4057db46cfceafec308c372a41db8bab72a55d", "liblwjgl64.so"),
+          }
+          root = Path("build/mojo-lwjgl2-audit")
+          for abi, (url, expected_size, expected_sha256, library_name) in artifacts.items():
+              archive = urllib.request.urlopen(url, timeout=60).read()
+              if len(archive) != expected_size or hashlib.sha256(archive).hexdigest() != expected_sha256:
+                  raise SystemExit(f"{abi}: pinned Mojo archive size/SHA-256 mismatch")
+              with zipfile.ZipFile(io.BytesIO(archive)) as jar:
+                  matches = [item for item in jar.infolist()
+                             if not item.is_dir() and item.filename.rsplit("/", 1)[-1] == library_name]
+                  if len(matches) != 1:
+                      raise SystemExit(f"{abi}: expected exactly one {library_name}, found {len(matches)}")
+                  output = root / abi / library_name
+                  output.parent.mkdir(parents=True, exist_ok=True)
+                  output.write_bytes(jar.read(matches[0]))
+              print(f"{abi}: verified pinned archive and extracted {library_name}")
+          PY
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            case "$abi" in
+              arm64-v8a) library="liblwjgl64.so" ;;
+              x86_64) library="liblwjgl64.so" ;;
+              *) library="liblwjgl.so" ;;
+            esac
+            native="build/mojo-lwjgl2-audit/$abi/$library"
+            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm" --version >/dev/null
+            python3 native/tools/verify_mojo_lwjgl2_jni.py "$native" \
+              --nm "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+            python3 native/tools/audit_mojo_lwjgl2_dependencies.py "$native" \
+              --readelf "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+              --allow-extra libglfw.so --allow-extra libgl4es_114.so \
+              --allow-extra libjawt.so
+          done
+
       - name: Run engine JVM unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
 

@@ -84,13 +84,20 @@ class OEngineJvmBootstrapPlanTest {
                 listOf(client), nativeDir, game, "net.minecraft.client.main.Main",
                 listOf("-Dorg.lwjgl.glfw.libname=/wrong/path"),
                 emptyList(),
-                androidGlfwLibrary = glfw
+                androidGlfwLibrary = glfw,
+                additionalNativeLibraryDirectories = listOf(nativeDir)
             )
 
             assertTrue(plan.blockers.joinToString(), plan.structurallyReady)
             assertTrue(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=" + glfw.canonicalPath))
-            assertTrue(plan.vmOptions.contains("-Djava.library.path=" + nativeDir.canonicalPath))
-            assertTrue(plan.vmOptions.contains("-Djna.boot.library.path=" + nativeDir.canonicalPath))
+            for (property in listOf("-Djava.library.path=", "-Dorg.lwjgl.librarypath=", "-Djna.boot.library.path=")) {
+                val configured = plan.vmOptions.firstOrNull { it.startsWith(property) }
+                assertTrue("Missing " + property, configured != null)
+                val actualDirectories = configured!!.removePrefix(property)
+                    .split(File.pathSeparator).toSet()
+                assertTrue("Missing GLFW directory in " + property, actualDirectories.contains(glfw.parentFile!!.canonicalPath))
+                assertTrue("Missing game natives directory in " + property, actualDirectories.contains(nativeDir.canonicalPath))
+            }
             assertFalse(plan.vmOptions.contains("-Dorg.lwjgl.glfw.libname=/wrong/path"))
         } finally { root.deleteRecursively() }
     }

@@ -92,7 +92,21 @@ context_anchor = '''    window->context.egl.handle = eglCreateContext(_glfw.egl.
 '''
 context_replacement = '''#if defined(_GLFW_ANDROID)
     if (oengine_use_ltw)
-        window->context.egl.handle = (EGLContext) oengine_ltw_share.context;
+    {
+        typedef EGLContext (*OEngineLtwCreateContextFn)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
+        OEngineLtwCreateContextFn create_context =
+            (OEngineLtwCreateContextFn) oengine_ltw_share.create_context;
+        if (!create_context)
+        {
+            _glfwInputError(GLFW_API_UNAVAILABLE, "O Engine LTW EGL: tracked context creation is unavailable");
+            return GLFW_FALSE;
+        }
+        window->context.egl.handle = create_context(
+            (EGLDisplay) oengine_ltw_share.display,
+            (EGLConfig) oengine_ltw_share.config,
+            (EGLContext) oengine_ltw_share.context,
+            attribs);
+    }
     else
 #endif
         window->context.egl.handle = eglCreateContext(_glfw.egl.display,
@@ -211,8 +225,10 @@ destroy_surface_replacement = '''    if (window->context.egl.surface)
     {
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
-        const GLFWbool is_ltw_surface = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.handle == (EGLContext) oengine_ltw_share.context;
+        const GLFWbool has_ltw_share = oengine_get_ltw_share_info(&oengine_ltw_share);
+        const GLFWbool is_ltw_surface = has_ltw_share &&
+            (window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface ||
+             window->context.egl.surface == (EGLSurface) oengine_ltw_share.pbuffer);
         if (!is_ltw_surface)
 #endif
             eglDestroySurface(_glfw.egl.display, window->context.egl.surface);
@@ -234,9 +250,18 @@ destroy_context_replacement = '''    if (window->context.egl.handle)
     {
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
-        const GLFWbool is_ltw_context = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.handle == (EGLContext) oengine_ltw_share.context;
-        if (!is_ltw_context)
+        const GLFWbool is_ltw_context = oengine_get_ltw_share_info(&oengine_ltw_share);
+        if (is_ltw_context)
+        {
+            typedef EGLBoolean (*OEngineLtwDestroyContextFn)(EGLDisplay, EGLContext);
+            OEngineLtwDestroyContextFn destroy_context =
+                (OEngineLtwDestroyContextFn) oengine_ltw_share.destroy_context;
+            if (!destroy_context ||
+                !destroy_context((EGLDisplay) oengine_ltw_share.display,
+                                 window->context.egl.handle))
+                _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL: tracked context destruction failed");
+        }
+        else
 #endif
             eglDestroyContext(_glfw.egl.display, window->context.egl.handle);
         window->context.egl.handle = EGL_NO_CONTEXT;
@@ -459,7 +484,8 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
     typedef EGLBoolean (*OEngineAndroidMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
     OEngineAndroidMakeCurrentFn make_current =
         (OEngineAndroidMakeCurrentFn) share.make_current;
-    if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
+    if (!make_current((EGLDisplay) share.display, target, target,
+                      (EGLContext) window->context.egl.handle))
     {
         if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
             pthread_mutex_lock(&nw_egl_mutex);
@@ -566,7 +592,9 @@ android_source.write_text(android_text, encoding="utf-8")
 
 required = [
     "oengine_get_ltw_share_info",
-    "window->context.egl.handle = (EGLContext) oengine_ltw_share.context;",
+    "OEngineLtwCreateContextFn create_context",
+    "window->context.egl.handle = create_context(",
+    "OEngineLtwDestroyContextFn destroy_context",
     "window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;",
     "O Engine LTW EGL: failed to make shared context current",
     "O Engine LTW EGL: frame presentation failed",
@@ -575,11 +603,22 @@ required = [
     "_glfwManageEglSurfaceAndroid(window)",
     "const GLFWbool is_ltw_context",
     "const GLFWbool is_ltw_surface",
+    "window->context.egl.surface == (EGLSurface) oengine_ltw_share.pbuffer",
     "display_is_ltw_owned",
 ]
 for item in required:
     if item not in text:
         raise SystemExit("LTW shared EGL integration invariant missing: " + item)
+
+android_required = [
+    "(EGLContext) window->context.egl.handle",
+    "? (EGLSurface) share.window_surface",
+    ": (EGLSurface) share.pbuffer",
+    "window->context.egl.surface = target;",
+]
+for item in android_required:
+    if item not in android_text:
+        raise SystemExit("LTW Android surface integration invariant missing: " + item)
 
 source.write_text(text, encoding="utf-8")
 print("Patched Mojo GLFW to borrow O Engine LTW EGL context, surface, make-current and swap path.")

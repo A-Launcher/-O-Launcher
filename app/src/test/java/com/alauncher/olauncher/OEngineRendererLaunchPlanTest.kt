@@ -102,8 +102,83 @@ class OEngineRendererLaunchPlanTest {
         }
     }
 
-    private fun createArtifact(root: File): OEngineNativeRendererArtifact {
-        val library = File(root, "arm64-v8a/libltw.so")
+    @Test
+    fun gl4esRequiresBothTheLwjgl2LoaderAndItsOwnEglLifecycle() {
+        val root = Files.createTempDirectory("oengine-gl4es-gates").toFile()
+        try {
+            val plan = OEngineRendererLaunchPlanner.prepareGl4es(
+                createArtifact(root, OEngineGraphicsStack.RendererProvider.GL4ES, "libgl4es_114.so"),
+                root,
+                "arm64-v8a",
+                OEngineGlesDriver(major = 2, minor = 0),
+                lwjgl2NativeLoaderVerified = false,
+                rendererEglLifecycleVerified = false
+            )
+
+            assertFalse(plan.readyForNativeBootstrap)
+            assertTrue(plan.blockers.any { it.contains("LWJGL 2 native loader") })
+            assertTrue(plan.blockers.any { it.contains("EGL initialization") })
+            assertEquals(OEngineGraphicsStack.RendererProvider.GL4ES, plan.provider)
+            assertTrue(plan.preloadBeforeJvm)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun gl4esPlanRequiresValidArtifactAndExportsLegacyCompatibilityEnvironment() {
+        val root = Files.createTempDirectory("oengine-gl4es-ready").toFile()
+        try {
+            val plan = OEngineRendererLaunchPlanner.prepareGl4es(
+                createArtifact(root, OEngineGraphicsStack.RendererProvider.GL4ES, "libgl4es_114.so"),
+                root,
+                "arm64-v8a",
+                OEngineGlesDriver(major = 2, minor = 0),
+                lwjgl2NativeLoaderVerified = true,
+                rendererEglLifecycleVerified = true,
+                minecraftReleaseTime = "2011-06-07T23:59:59Z"
+            )
+
+            assertTrue(plan.readyForNativeBootstrap)
+            assertEquals("2", plan.environment["LIBGL_ES"])
+            assertEquals("15", plan.environment["LIBGL_GL"])
+            assertEquals("true", plan.environment["force_glsl_extensions_warn"])
+            assertEquals("true", plan.environment["allow_higher_compat_version"])
+            assertEquals("true", plan.environment["allow_glsl_extension_directive_midshader"])
+            assertEquals("1", plan.environment["LIBGL_NOERROR"])
+            assertTrue(plan.warnings.any { it.contains("predates 2011-06-08") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun gl4esUsesOpenGl21ForMinecraftAtOrAfterLegacyCutoff() {
+        val root = Files.createTempDirectory("oengine-gl4es-modern-legacy").toFile()
+        try {
+            val plan = OEngineRendererLaunchPlanner.prepareGl4es(
+                createArtifact(root, OEngineGraphicsStack.RendererProvider.GL4ES, "libgl4es_114.so"),
+                root,
+                "arm64-v8a",
+                OEngineGlesDriver(major = 2, minor = 0),
+                lwjgl2NativeLoaderVerified = true,
+                rendererEglLifecycleVerified = true,
+                minecraftReleaseTime = "2011-06-08T00:00:00Z"
+            )
+
+            assertEquals("21", plan.environment["LIBGL_GL"])
+            assertTrue(plan.readyForNativeBootstrap)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    private fun createArtifact(
+        root: File,
+        provider: OEngineGraphicsStack.RendererProvider = OEngineGraphicsStack.RendererProvider.LTW,
+        libraryName: String = "libltw.so"
+    ): OEngineNativeRendererArtifact {
+        val library = File(root, "arm64-v8a/$libraryName")
         library.parentFile?.mkdirs()
         val bytes = ByteArray(128)
         bytes[0] = 0x7f
@@ -112,14 +187,16 @@ class OEngineRendererLaunchPlanTest {
         bytes[3] = 0x46
         bytes[4] = 2
         bytes[5] = 1
+        bytes[16] = 3 // ET_DYN: renderer artifacts must be shared objects.
         bytes[18] = 183.toByte()
         library.writeBytes(bytes)
         return OEngineNativeRendererArtifact(
-            provider = OEngineGraphicsStack.RendererProvider.LTW,
+            provider = provider,
             version = "test",
             abi = "arm64-v8a",
             libraryFile = library,
-            license = OEngineGraphicsStack.LTW_LICENSE,
+            license = if (provider == OEngineGraphicsStack.RendererProvider.LTW)
+                OEngineGraphicsStack.LTW_LICENSE else "MIT",
             upstreamRevision = OEngineGraphicsStack.LTW_TARGET_COMMIT
         )
     }

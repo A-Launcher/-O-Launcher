@@ -31,6 +31,9 @@ data class OEngineLwjglResolution(
     val glfwModulePresent: Boolean,
     val glfwJavaClassPresent: Boolean,
     val androidGlfwLibraryConfigured: Boolean,
+    val mojoGlfwDisplayClassPresent: Boolean,
+    val legacyNativeLibraryConfigured: Boolean,
+    val legacyNativeLibraryPath: File?,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -53,6 +56,9 @@ object OEngineLwjglNativeResolver {
     const val DYNAMIC_LINK_LOADER_CLASS_NAME = "org.lwjgl.system.linux.DynamicLinkLoader"
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
     private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
+    private const val MOJO_GLFW_DISPLAY_CLASS = "org/lwjgl/opengl/GLFWDisplay.class"
+    private const val MOJO_GLFW_CONTEXT_CLASS = "org/lwjgl/opengl/GLFWContextImplementation.class"
+    private const val MOJO_GLFW_PEER_CLASS = "org/lwjgl/opengl/GLFWPeerInfo.class"
     private const val LWJGL3_GLFW_CLASS = "org/lwjgl/glfw/GLFW.class"
 
 
@@ -128,7 +134,11 @@ object OEngineLwjglNativeResolver {
         }
     }
 
-    fun resolve(classpath: List<File>, androidGlfwLibrary: File? = null): OEngineLwjglResolution {
+    fun resolve(
+        classpath: List<File>,
+        androidGlfwLibrary: File? = null,
+        legacyNativeLibraryDirectories: List<File> = emptyList()
+    ): OEngineLwjglResolution {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
         val modules = classpath.mapNotNull { file ->
@@ -186,6 +196,15 @@ object OEngineLwjglNativeResolver {
         // LWJGL 3.3.3's generated GLFW class resolves C function addresses from the
         // configured shared library. This is a C ABI contract, not a GLFW JNI-export
         // contract; the ART-side Mojo JNI shim is a separate Android lifecycle API.
+        // Resolve the actual installed archive filename instead of guessing from
+        // SUPPORTED_ABIS (which may include ABIs other than the running process ABI).
+        val legacyNativeCandidates = listOf("liblwjgl64.so", "liblwjgl.so")
+        val legacyNativeLibrary = legacyNativeLibraryDirectories.asSequence()
+            .flatMap { directory -> legacyNativeCandidates.asSequence().map { File(directory, it) } }
+            .mapNotNull { file -> runCatching { file.canonicalFile }.getOrNull() }
+            .firstOrNull { it.isFile && it.length() > 0L }
+        val legacyNativeName = legacyNativeLibrary?.name ?: legacyNativeCandidates.joinToString(" or ")
+        val legacyNativeLibraryConfigured = legacyNativeLibrary != null
         val glfwLibrary = androidGlfwLibrary?.canonicalFile
         val androidGlfwLibraryConfigured =
             glfwLibrary != null && glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L
@@ -204,6 +223,7 @@ object OEngineLwjglNativeResolver {
         var ndlopenSignaturePresent = false
         var lwjgl2SysClassPresent = false
         var lwjgl2SystemLoadMarkerPresent = false
+        var mojoGlfwDisplayClassPresent = false
         if (coreJar != null && coreJar.isFile) {
             try {
                 JarFile(coreJar).use { jar ->
@@ -213,6 +233,9 @@ object OEngineLwjglNativeResolver {
                         val bytes = jar.getInputStream(entry).use { it.readBytes() }
                         ndlopenSignaturePresent = hasStaticNativeNdlopen(bytes)
                     }
+                    mojoGlfwDisplayClassPresent = listOf(
+                        MOJO_GLFW_DISPLAY_CLASS, MOJO_GLFW_CONTEXT_CLASS, MOJO_GLFW_PEER_CLASS
+                    ).all { jar.getJarEntry(it) != null }
                     val sysEntry = jar.getJarEntry(LWJGL2_SYS_CLASS)
                     lwjgl2SysClassPresent = sysEntry != null
                     if (sysEntry != null) {
@@ -233,8 +256,13 @@ object OEngineLwjglNativeResolver {
         if (generation == OEngineLwjglGeneration.LWJGL2) {
             if (coreJar == null) {
                 blockers += "LWJGL 2 core JAR is missing or ambiguous."
-            } else if (!lwjgl2SysClassPresent || !lwjgl2SystemLoadMarkerPresent) {
-                blockers += "LWJGL 2 core JAR does not expose the expected org.lwjgl.Sys native-load contract."
+            } else {
+                if (!lwjgl2SysClassPresent || !lwjgl2SystemLoadMarkerPresent) {
+                    blockers += "LWJGL 2 core JAR does not expose the expected org.lwjgl.Sys native-load contract."
+                }
+                if (!mojoGlfwDisplayClassPresent) {
+                    blockers += "LWJGL 2 core JAR is not the pinned Mojo GLFW port: GLFWDisplay, GLFWContextImplementation, or GLFWPeerInfo is missing."
+                }
             }
         }
 
@@ -250,8 +278,16 @@ object OEngineLwjglNativeResolver {
         }
 
         when (surface) {
-            OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
-                blockers += "LWJGL 2 loads its single core JNI library through org.lwjgl.librarypath/System.loadLibrary; O Engine still needs an Android LWJGL 2 native build with the matching JNI ABI and a verified GL4ES/OpenGL entry-point bridge. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace it."
+            OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD -> {
+                if (!legacyNativeLibraryConfigured) {
+                    blockers += "LWJGL 2 uses org.lwjgl.librarypath/System.loadLibrary, but neither supported Mojo native filename ($legacyNativeName) is present in the configured native directories."
+                } else if (!androidGlfwLibraryConfigured) {
+                    blockers += "LWJGL 2 native library is staged, but its required Android GLFW dependency is not staged at an absolute libglfw.so path."
+                } else {
+                    warnings += "Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are staged; O Engine supplies their directories through java.library.path and org.lwjgl.librarypath. Actual System.loadLibrary resolution remains device-unverified."
+                }
+                blockers += "The GL4ES/OpenGL context and swap bridge is not yet active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
+            }
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
@@ -276,6 +312,9 @@ object OEngineLwjglNativeResolver {
             glfwModulePresent = glfwModules.size == 1,
             glfwJavaClassPresent = glfwJavaClassPresent,
             androidGlfwLibraryConfigured = androidGlfwLibraryConfigured,
+            mojoGlfwDisplayClassPresent = mojoGlfwDisplayClassPresent,
+            legacyNativeLibraryConfigured = legacyNativeLibraryConfigured,
+            legacyNativeLibraryPath = legacyNativeLibrary,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )

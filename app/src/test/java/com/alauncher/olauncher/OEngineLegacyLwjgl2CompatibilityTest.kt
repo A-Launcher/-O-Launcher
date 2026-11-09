@@ -23,6 +23,22 @@ class OEngineLegacyLwjgl2CompatibilityTest {
     }
 
     @Test
+    fun mapsLegacyCoordinateToThePinnedMojoJarWithoutChangingModernLwjgl() {
+        assertEquals(
+            "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+            OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath("org.lwjgl.lwjgl:lwjgl:2.9.4")
+        )
+        assertEquals(
+            "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+            OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath("org.lwjgl.lwjgl:lwjgl:2.9.1")
+        )
+        assertEquals(null,
+            OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath("org.lwjgl.lwjgl:lwjgl_util:2.9.4"))
+        assertEquals(null,
+            OEngineLegacyLwjgl2Compatibility.javaArtifactRelativePath("org.lwjgl:lwjgl:3.3.3"))
+    }
+
+    @Test
     fun pinsMojoJavaArtifactAndItsChecksums() {
         assertEquals("bf01b1b05c417b55cffc04d85dbc3a9cfa3b93df",
             OEngineLegacyLwjgl2Compatibility.UPSTREAM_COMMIT)
