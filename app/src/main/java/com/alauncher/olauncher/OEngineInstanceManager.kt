@@ -70,7 +70,7 @@ object OEngineInstanceManager {
         val metadata = File(source, "instance.properties")
         val existing = if (metadata.isFile) metadata.readLines().filterNot { it.startsWith("name=") } else emptyList()
         val temp = File(source, "instance.properties.tmp")
-        temp.writeText((listOf("name=$clean") + existing).joinToString("\\n", postfix="\\n"))
+        temp.writeText((listOf("name=$clean") + existing).joinToString("\n", postfix="\n"))
         if (!temp.renameTo(metadata)) {
             temp.delete()
             throw IllegalStateException("Could not update instance metadata.")
