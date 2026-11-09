@@ -64,7 +64,15 @@ object OEngineMojoControlMapImporter {
         )
     }
 
-    data class DrawerButtonConfig(val label: String, val keyCode: Int, val toggle: Boolean)
+    data class DrawerButtonConfig(
+        val label: String,
+        val keyCode: Int,
+        val toggle: Boolean,
+        val xDp: Float?,
+        val yDp: Float?,
+        val widthDp: Float,
+        val heightDp: Float
+    )
     data class DrawerRuntimeConfig(
         val label: String,
         val xDp: Float?,
@@ -120,10 +128,22 @@ object OEngineMojoControlMapImporter {
             require(mapped.size == 1 && mapped.single() in allowedKeys) {
                 "Mojo drawer button uses an unsupported action or key."
             }
+            val buttonWidth = item.optDouble("width", width.toDouble()).toFloat()
+            val buttonHeight = item.optDouble("height", height.toDouble()).toFloat()
+            require(buttonWidth.isFinite() && buttonHeight.isFinite() &&
+                buttonWidth in 24f..240f && buttonHeight in 24f..240f) {
+                "Mojo drawer button dimensions are outside supported bounds."
+            }
+            fun buttonPosition(field: String): Float? =
+                item.optString(field, "").toFloatOrNull()?.takeIf { it.isFinite() && it >= 0f }
             DrawerButtonConfig(
                 label = item.optString("name", "KEY").trim().take(12).ifBlank { "KEY" },
                 keyCode = mapped.single(),
-                toggle = item.optBoolean("isToggle", false)
+                toggle = item.optBoolean("isToggle", false),
+                xDp = buttonPosition("dynamicX"),
+                yDp = buttonPosition("dynamicY"),
+                widthDp = buttonWidth,
+                heightDp = buttonHeight
             )
         }
         return DrawerRuntimeConfig(
