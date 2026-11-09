@@ -7,17 +7,17 @@ import java.util.zip.ZipInputStream
 import android.view.KeyEvent
 
 /**
- * Imports the portable, fixed-position subset of MojoLauncher V9 control maps.
- *
- * Mojo stores control maps in a LayoutBitmaps container; callers must extract the
- * JSON payload first. Dynamic expression positions, special mouse/keyboard actions,
- * drawers and joysticks are rejected rather than silently flattened or discarded.
+ * Imports the portable, fixed-position subset of MojoLauncher control maps.
+ * Complex controls are counted in ImportResult so callers can warn users that
+ * drawers and joysticks have not yet been converted to O Engine controls.
  */
 object OEngineMojoControlMapImporter {
     data class ImportResult(
         val controls: List<OEngineTouchControl>,
         val sourceVersion: Int,
-        val skippedHiddenControls: Int
+        val skippedHiddenControls: Int,
+        val unsupportedDrawers: Int,
+        val unsupportedJoysticks: Int
     )
 
     /**
@@ -84,8 +84,10 @@ object OEngineMojoControlMapImporter {
             val y = numericPosition(item, "dynamicY", index)
             val keys = item.optJSONArray("keycodes")
                 ?: throw IllegalArgumentException("Mojo button $index has no keycodes.")
+            // Mojo serializes its four-slot key array with -1 as the unused sentinel.
+            // Android's KEYCODE_UNKNOWN is 0; neither value represents a pressed key.
             val mappedKeys = (0 until keys.length()).map { i -> keys.optInt(i, Int.MIN_VALUE) }
-                .filter { it != KeyEvent.KEYCODE_UNKNOWN }
+                .filter { it != -1 && it != KeyEvent.KEYCODE_UNKNOWN }
             require(mappedKeys.size == 1 && mappedKeys.single() >= 0) {
                 "Mojo button $index uses a special action or a multi-key chord that O Engine cannot represent yet."
             }
@@ -116,7 +118,13 @@ object OEngineMojoControlMapImporter {
             )
         }
         require(result.isNotEmpty()) { "Mojo control map contains no importable game buttons." }
-        return ImportResult(result, version, hidden)
+        return ImportResult(
+            controls = result,
+            sourceVersion = version,
+            skippedHiddenControls = hidden,
+            unsupportedDrawers = root.optJSONArray("mDrawerDataList")?.length() ?: 0,
+            unsupportedJoysticks = root.optJSONArray("mJoystickDataList")?.length() ?: 0
+        )
     }
 
     private fun numericPosition(item: JSONObject, field: String, index: Int): Float {
