@@ -112,7 +112,7 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
             assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
             assertTrue(result.blockers.any { it.contains("org.lwjgl.librarypath/System.loadLibrary") })
-            assertTrue(result.blockers.any { it.contains("ABI-matched") })
+            assertTrue(result.blockers.any { it.contains("neither supported Mojo native filename") })
             assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
             assertFalse(result.blockers.any { it.contains("org.lwjgl.opengl.libname interception") })
         } finally { root.deleteRecursively() }
@@ -196,7 +196,7 @@ class OEngineLwjglNativeResolverTest {
 
             assertTrue(result.legacyNativeLibraryConfigured)
             assertEquals(nativeLibrary.canonicalFile, result.legacyNativeLibraryPath)
-            assertTrue(result.warnings.any { it.contains("JNI library and Android GLFW dependency are both staged") })
+            assertTrue(result.warnings.any { it.contains("Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are staged") })
             assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
         } finally { root.deleteRecursively() }
     }
