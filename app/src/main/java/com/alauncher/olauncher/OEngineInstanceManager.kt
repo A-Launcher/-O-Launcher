@@ -53,6 +53,54 @@ object OEngineInstanceManager {
         return instance
     }
 
+
+    /** Rename a managed instance without touching its game files or metadata-owned contents. */
+    fun rename(context: Context, id: String, displayName: String): OEngineInstance {
+        require(id != DEFAULT_ID) { "The Default instance cannot be renamed." }
+        val clean = sanitizeDisplayName(displayName)
+        require(clean.isNotBlank()) { "Enter a valid instance name." }
+        val current = list(context).firstOrNull { it.id == id }
+            ?: throw IllegalArgumentException("Unknown O Launcher instance.")
+        val instancesRoot = File(File(context.filesDir, "minecraft"), "instances").canonicalFile
+        val source = File(instancesRoot, id).canonicalFile
+        require(source.parentFile == instancesRoot && source.isDirectory) { "Instance directory is invalid." }
+        val newId = instanceIdFor(clean)
+        val destination = File(instancesRoot, newId)
+        require(newId == id || !destination.exists()) { "An instance with this name already exists." }
+        val metadata = File(source, "instance.properties")
+        val existing = if (metadata.isFile) metadata.readLines().filterNot { it.startsWith("name=") } else emptyList()
+        val temp = File(source, "instance.properties.tmp")
+        temp.writeText((listOf("name=$clean") + existing).joinToString("\\n", postfix="\\n"))
+        if (!temp.renameTo(metadata)) {
+            temp.delete()
+            throw IllegalStateException("Could not update instance metadata.")
+        }
+        val renamed = if (newId == id) source else {
+            if (!source.renameTo(destination)) throw IllegalStateException("Could not rename instance directory.")
+            destination
+        }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (activeId(context) == id) prefs.edit().putString(ACTIVE_KEY, newId).apply()
+        val updated = list(context).firstOrNull { it.id == newId }
+            ?: throw IllegalStateException("Renamed instance could not be reloaded.")
+        return updated
+    }
+
+    /** Delete only a managed instance directory. Default is deliberately protected. */
+    fun delete(context: Context, id: String) {
+        require(id != DEFAULT_ID) { "The Default instance cannot be deleted." }
+        val instancesRoot = File(File(context.filesDir, "minecraft"), "instances").canonicalFile
+        val target = File(instancesRoot, id).canonicalFile
+        require(target.parentFile == instancesRoot && target.isDirectory) { "Instance directory is invalid." }
+        val known = list(context).any { it.id == id }
+        require(known) { "Unknown O Launcher instance." }
+        if (activeId(context) == id) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(ACTIVE_KEY, DEFAULT_ID).apply()
+        }
+        if (!target.deleteRecursively()) throw IllegalStateException("Could not completely delete the instance.")
+    }
+
     fun create(context: Context, displayName: String, sharedGameFolder: Boolean = false): OEngineInstance {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
