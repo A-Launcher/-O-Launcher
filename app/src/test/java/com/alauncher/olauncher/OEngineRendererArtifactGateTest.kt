@@ -92,6 +92,26 @@ class OEngineRendererArtifactGateTest {
     }
 
     @Test
+    fun rejectsExecutableElfEvenWhenMachineMatchesDeclaredAbi() {
+        val root = Files.createTempDirectory("oengine-renderer-elf-type").toFile()
+        try {
+            val library = File(root, "libltw.so")
+            writeElf(library, elfClass = 2, machine = 183, elfType = 2) // ET_EXEC, not ET_DYN
+
+            val result = OEngineRendererArtifactGate.inspect(
+                artifact(library, abi = "arm64-v8a"),
+                rendererRoot = root,
+                supportedAbis = listOf("arm64-v8a")
+            )
+
+            assertFalse(result.readyForAdapter)
+            assertTrue(result.blockers.any { it.contains("ELF shared-library") })
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun detectsAbiFromElfPayloadInsteadOfSupportedAbiOrder() {
         val root = Files.createTempDirectory("oengine-renderer-detect-abi").toFile()
         try {
@@ -136,7 +156,7 @@ class OEngineRendererArtifactGateTest {
         upstreamRevision = OEngineGraphicsStack.LTW_TARGET_COMMIT
     )
 
-    private fun writeElf(file: File, elfClass: Int, machine: Int) {
+    private fun writeElf(file: File, elfClass: Int, machine: Int, elfType: Int = 3) {
         val header = ByteArray(128)
         header[0] = 0x7f
         header[1] = 0x45
@@ -144,6 +164,8 @@ class OEngineRendererArtifactGateTest {
         header[3] = 0x46
         header[4] = elfClass.toByte()
         header[5] = 1 // little endian
+        header[16] = (elfType and 0xff).toByte()
+        header[17] = ((elfType ushr 8) and 0xff).toByte()
         header[18] = (machine and 0xff).toByte()
         header[19] = ((machine ushr 8) and 0xff).toByte()
         file.writeBytes(header)
