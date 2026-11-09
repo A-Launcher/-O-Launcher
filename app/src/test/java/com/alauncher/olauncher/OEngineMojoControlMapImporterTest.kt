@@ -211,10 +211,14 @@ class OEngineMojoControlMapImporterTest {
         } catch (_: IllegalArgumentException) { }
 
         val dynamic = """{"orientation":"FREE","properties":{"dynamicX":"${right}","dynamicY":"2"},
-            "buttonProperties":[{"name":"Jump","keycodes":[62,-1]}]}"""
+            "buttonProperties":[{"name":"Jump","keycodes":[62,-1],"dynamicX":"55","dynamicY":"66","width":44,"height":46}]}"""
         val decoded = OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(dynamic)
         assertNull(decoded.xDp)
         assertEquals("FREE", decoded.orientation)
+        assertEquals(55f, decoded.buttons.single().xDp!!)
+        assertEquals(66f, decoded.buttons.single().yDp!!)
+        assertEquals(44f, decoded.buttons.single().widthDp)
+        assertEquals(46f, decoded.buttons.single().heightDp)
     }
 
     @Test fun rejectsMalformedOrOversizedMojoDrawerButtonLists() {
