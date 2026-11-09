@@ -627,10 +627,11 @@ private fun OEngineMojoDrawer(
     val toggled = androidx.compose.runtime.remember(config) {
         androidx.compose.runtime.mutableStateMapOf<Int, Boolean>()
     }
+    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(config) {
         onDispose {
             toggled.forEach { (index, pressed) ->
-                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
+                if (pressed) config.buttons.getOrNull(index)?.let { latestOnKey(it.keyCode, false) }
             }
         }
     }
@@ -651,12 +652,23 @@ private fun OEngineMojoDrawer(
                 .clickable { onExpandedChange(!expanded) },
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
-            androidx.compose.material3.Text(
-                if (expanded) "×" else "☰",
-                color = androidx.compose.ui.graphics.Color.White,
-                fontSize = 20.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-            )
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+            ) {
+                androidx.compose.material3.Text(
+                    if (expanded) "×" else "☰",
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                androidx.compose.material3.Text(
+                    config.label,
+                    color = androidx.compose.ui.graphics.Color.White,
+                    fontSize = 9.sp,
+                    maxLines = 1
+                )
+            }
         }
     }
     val buttons: @androidx.compose.runtime.Composable () -> Unit = {
