@@ -2598,6 +2598,12 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
     DisposableEffect(gameProcessClient) {
         onDispose { gameProcessClient?.close() }
     }
+    DisposableEffect(gameInputForwarder) {
+        val inputDeviceMonitor = OEngineAndroidInputDeviceMonitor(context) {
+            gameInputForwarder.releaseDevice(OEngineInputDevice.GAMEPAD)
+        }
+        onDispose { inputDeviceMonitor.close() }
+    }
     var installedRuntimeStatus by remember { mutableStateOf("Java runtime is not extracted or registered.") }
     var runtimeBytes by remember { mutableStateOf(0L) }
     var runtimeTotal by remember { mutableStateOf(0L) }
