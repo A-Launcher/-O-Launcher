@@ -36,6 +36,37 @@ class OEngineNativeArchiveInspectorTest {
     }
 
     @Test(expected = IllegalStateException::class)
+    fun rejectsOversizedSharedObjects() {
+        val root = Files.createTempDirectory("oengine-native-oversized").toFile()
+        try {
+            val archive = File(root, "oversized.jar")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("libhuge.so"))
+                val block = ByteArray(1024 * 1024)
+                repeat(65) { zip.write(block) }
+                zip.closeEntry()
+            }
+            OEngineNativeArchiveInspector.extractLinuxNativeArchive(archive, File(root, "inspection"))
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun rejectsDuplicateSharedObjectPaths() {
+        val root = Files.createTempDirectory("oengine-native-duplicate").toFile()
+        try {
+            val archive = File(root, "duplicate.jar")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                repeat(2) {
+                    zip.putNextEntry(ZipEntry("libsame.so"))
+                    zip.write(byteArrayOf(1, 2, 3))
+                    zip.closeEntry()
+                }
+            }
+            OEngineNativeArchiveInspector.extractLinuxNativeArchive(archive, File(root, "inspection"))
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test(expected = IllegalStateException::class)
     fun rejectsZipSlipEntries() {
         val root = Files.createTempDirectory("oengine-native-zip-slip").toFile()
         try {
