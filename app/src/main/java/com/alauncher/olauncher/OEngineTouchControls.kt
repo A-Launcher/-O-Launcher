@@ -243,10 +243,18 @@ fun OEngineTouchControlsOverlay(
         ) { androidx.compose.material3.Text(if (editing) "DONE" else "EDIT CONTROLS") }
 
         if (!editing) {
+            val joystickPosition = if (mojoJoystickConfig?.xDp != null && mojoJoystickConfig.yDp != null) {
+                androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopStart)
+                    .offset(x = mojoJoystickConfig.xDp.dp, y = mojoJoystickConfig.yDp.dp)
+            } else {
+                androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+                    .padding(start = 24.dp, bottom = 28.dp)
+            }
             OEngineTouchJoystick(
-                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
-                    .padding(start = 24.dp, bottom = 28.dp),
+                modifier = joystickPosition,
                 fixedCenter = mojoJoystickConfig?.absolute == true,
+                widthDp = mojoJoystickConfig?.widthDp ?: 150f,
+                heightDp = mojoJoystickConfig?.heightDp ?: 150f,
                 onKey = onKey
             )
             if (mojoJoystickConfig?.forwardLock == true) {
@@ -463,6 +471,8 @@ fun OEngineTouchControlsOverlay(
 private fun OEngineTouchJoystick(
     modifier: androidx.compose.ui.Modifier,
     fixedCenter: Boolean = false,
+    widthDp: Float = 150f,
+    heightDp: Float = 150f,
     onKey: (Int, Boolean) -> Unit
 ) {
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
@@ -491,11 +501,11 @@ private fun OEngineTouchJoystick(
     }
 
     androidx.compose.foundation.layout.Box(
-        modifier = modifier.size(150.dp)
+        modifier = modifier.size(widthDp.dp, heightDp.dp)
             .background(androidx.compose.ui.graphics.Color(0x55303030), CircleShape)
             .border(2.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), CircleShape)
             .pointerInput(Unit) {
-                val maxTravel = size.width * .32f
+                val maxTravel = minOf(size.width, size.height) * .32f
                 val threshold = maxTravel * .35f
                 detectDragGestures(
                     onDragStart = { point ->
@@ -532,7 +542,7 @@ private fun OEngineTouchJoystick(
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         androidx.compose.foundation.layout.Box(
-            modifier = androidx.compose.ui.Modifier.size(64.dp).offset {
+            modifier = androidx.compose.ui.Modifier.size(minOf(widthDp, heightDp).dp * .43f).offset {
                 androidx.compose.ui.unit.IntOffset(knobX.toInt(), knobY.toInt())
             }.background(androidx.compose.ui.graphics.Color(0xCCB9A58B), CircleShape)
                 .border(2.dp, androidx.compose.ui.graphics.Color(0xCCFFFFFF), CircleShape)
