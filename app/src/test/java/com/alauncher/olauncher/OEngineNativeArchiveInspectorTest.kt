@@ -56,8 +56,8 @@ class OEngineNativeArchiveInspectorTest {
         try {
             val archive = File(root, "duplicate.jar")
             ZipOutputStream(archive.outputStream()).use { zip ->
-                repeat(2) {
-                    zip.putNextEntry(ZipEntry("libsame.so"))
+                repeat(2) { index ->
+                    zip.putNextEntry(ZipEntry(if (index == 0) "libsame.so" else "./libsame.so"))
                     zip.write(byteArrayOf(1, 2, 3))
                     zip.closeEntry()
                 }
