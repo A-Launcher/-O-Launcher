@@ -32,15 +32,18 @@ class OEngineMojoControlMapImporterTest {
         } catch (_: IllegalArgumentException) { }
     }
 
-    @Test fun rejectsLayoutsWithDrawersOrJoysticksToAvoidDataLoss() {
-        val drawer = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[1],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[{}],"mJoystickDataList":[]}"""
-        val joystick = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[1],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[],"mJoystickDataList":[{}]}"""
-        listOf(drawer, joystick).forEach { json ->
-            try {
-                OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
-                fail("Unsupported compound controls must be rejected.")
-            } catch (_: IllegalArgumentException) { }
-        }
+    @Test fun importsButtonListEvenWhenMojoLayoutAlsoContainsCompoundControls() {
+        val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29,-1],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[{}],"mJoystickDataList":[{}]}"""
+        val imported = OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
+        assertEquals(1, imported.controls.size)
+    }
+
+    @Test fun rejectsMultiKeyChordsRatherThanDroppingPartOfTheAction() {
+        val json = """{"version":9,"mControlDataList":[{"name":"Chord","keycodes":[29,30,-1],"dynamicX":"1","dynamicY":"1"}]}"""
+        try {
+            OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
+            fail("Multi-key chords must not be reduced to a single key.")
+        } catch (_: IllegalArgumentException) { }
     }
 
     @Test fun rejectsMojoSpecialButtonsWithoutPretendingTheyAreKeyEvents() {
