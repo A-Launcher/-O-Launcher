@@ -180,9 +180,12 @@ class OEngineLwjglNativeResolverTest {
                 "org/lwjgl/opengl/GLFWDisplay.class" to byteArrayOf(1),
                 "org/lwjgl/opengl/GLFWContextImplementation.class" to byteArrayOf(1),
                 "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
-            val nativeName = if (android.os.Build.SUPPORTED_ABIS?.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
             val nativeDirectory = File(root, "versions/test/natives").apply { mkdirs() }
-            val nativeLibrary = File(nativeDirectory, nativeName).apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            // The resolver must find the actual installed filename without assuming
+            // the first device-supported ABI is the process ABI.
+            val nativeLibrary = File(nativeDirectory, "liblwjgl64.so").apply {
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
             val glfw = File(root, "android-glfw/libglfw.so").apply {
                 parentFile?.mkdirs()
                 writeBytes(byteArrayOf(1, 2, 3))
