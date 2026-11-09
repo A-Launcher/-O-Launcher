@@ -588,7 +588,10 @@ android_source.write_text(android_text, encoding="utf-8")
 
 required = [
     "oengine_get_ltw_share_info",
-    "window->context.egl.handle = (EGLContext) oengine_ltw_share.context;",
+    "OEngineLtwCreateContextFn create_context",
+    "window->context.egl.handle = create_context(",
+    "(EGLContext) window->context.egl.handle",
+    "OEngineLtwDestroyContextFn destroy_context",
     "window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;",
     "O Engine LTW EGL: failed to make shared context current",
     "O Engine LTW EGL: frame presentation failed",
