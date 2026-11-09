@@ -94,11 +94,11 @@ object OEngineInstanceManager {
         require(target.parentFile == instancesRoot && target.isDirectory) { "Instance directory is invalid." }
         val known = list(context).any { it.id == id }
         require(known) { "Unknown O Launcher instance." }
+        if (!target.deleteRecursively()) throw IllegalStateException("Could not completely delete the instance.")
         if (activeId(context) == id) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(ACTIVE_KEY, DEFAULT_ID).apply()
         }
-        if (!target.deleteRecursively()) throw IllegalStateException("Could not completely delete the instance.")
     }
 
     fun create(context: Context, displayName: String, sharedGameFolder: Boolean = false): OEngineInstance {
@@ -108,9 +108,14 @@ object OEngineInstanceManager {
         val parent = File(File(context.filesDir, "minecraft/instances"), id)
         require(!parent.exists()) { "An instance with this name already exists." }
         if (!parent.mkdirs()) throw IllegalStateException("Could not create the instance directory.")
-        val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
-        if (!game.exists() && !game.mkdirs()) throw IllegalStateException("Could not create the instance game directory.")
-        File(parent, "instance.properties").writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
-        return OEngineInstance(id, clean, game)
+        try {
+            val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
+            if (!game.exists() && !game.mkdirs()) throw IllegalStateException("Could not create the instance game directory.")
+            File(parent, "instance.properties").writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
+            return OEngineInstance(id, clean, game)
+        } catch (failure: Exception) {
+            parent.deleteRecursively()
+            throw failure
+        }
     }
 }
