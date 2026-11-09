@@ -91,6 +91,42 @@ class OEngineRendererArtifactGateTest {
         }
     }
 
+    @Test
+    fun detectsAbiFromElfPayloadInsteadOfSupportedAbiOrder() {
+        val root = Files.createTempDirectory("oengine-renderer-detect-abi").toFile()
+        try {
+            val library = File(root, "libGL4ES.so")
+            writeElf(library, elfClass = 2, machine = 183)
+
+            assertTrue(
+                OEngineRendererArtifactGate.detectAbi(
+                    library,
+                    supportedAbis = listOf("x86_64", "arm64-v8a")
+                ) == "arm64-v8a"
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun rejectsUnknownElfWhenDetectingAbi() {
+        val root = Files.createTempDirectory("oengine-renderer-detect-unknown").toFile()
+        try {
+            val library = File(root, "libGL4ES.so")
+            writeElf(library, elfClass = 2, machine = 999)
+
+            assertTrue(
+                OEngineRendererArtifactGate.detectAbi(
+                    library,
+                    supportedAbis = listOf("arm64-v8a", "x86_64")
+                ) == null
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun artifact(file: File, abi: String) = OEngineNativeRendererArtifact(
         provider = OEngineGraphicsStack.RendererProvider.LTW,
         version = "test",
