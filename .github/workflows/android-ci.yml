@@ -358,7 +358,8 @@ jobs:
               --nm "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
             python3 native/tools/audit_mojo_lwjgl2_dependencies.py "$native" \
               --readelf "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
-              --allow-extra libglfw.so --allow-extra libgl4es_114.so
+              --allow-extra libglfw.so --allow-extra libgl4es_114.so \
+      --allow-extra libjawt.so
           done
 
       - name: Run engine JVM unit tests
