@@ -128,6 +128,7 @@ class OEngineGl4esLaunchPlanTest {
         bytes[3] = 0x46
         bytes[4] = 2
         bytes[5] = 1
+        bytes[16] = 3 // ET_DYN shared object; renderer gate rejects ET_NONE/ET_EXEC.
         bytes[18] = 183.toByte()
         library.writeBytes(bytes)
         return OEngineNativeRendererArtifact(
