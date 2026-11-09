@@ -85,3 +85,10 @@ This is only the Java-classpath half of the compatibility adapter. The ABI-speci
 The dependency installer now also selects the exact Mojo native JAR for the device ABI, verifies the pinned archive size and SHA-256, extracts only the expected `liblwjgl.so` / `liblwjgl64.so` entry with a 32 MiB extraction cap, and checks the extracted ELF ABI before placing it in `versions/<version>/natives`. The per-version native directory is included in HotSpot's `java.library.path`, `org.lwjgl.librarypath`, and JNA search path alongside the shared Android GLFW directory.
 
 This does **not** remove the LWJGL 2 launch blocker in `OEngineLwjglNativeResolver`: the actual Android JNI load contract and GL4ES/OpenGL bridge still need to be validated and connected. The native artifact is staged groundwork, not proof of a working legacy renderer.
+
+
+## Mojo LWJGL2 port compatibility gate
+
+The pinned upstream Mojo port identifies itself as a minimal LWJGL 2-to-GLFW 3 port. Its published status reports basic window events, multiple contexts, mouse/keyboard input and Unicode input; custom cursors and controller support are not complete, and AWT support is explicitly not planned. The upstream README reports local testing with Minecraft 1.12.2, Forge 1.12.2 and Minecraft 1.2.5.
+
+O Engine's LWJGL resolver now checks for the three core port classes (`GLFWDisplay`, `GLFWContextImplementation`, `GLFWPeerInfo`) in addition to the LWJGL2 `Sys` native-load contract. A stock LWJGL2 JAR cannot accidentally pass as the Android GLFW fork. This check is a structural gate only: it does not establish that every Minecraft/Forge version's AWT usage is compatible or that Android's native GLFW bridge is wired to the fork's JNI entry points. The launch remains blocked until those native and lifecycle contracts are verified.
