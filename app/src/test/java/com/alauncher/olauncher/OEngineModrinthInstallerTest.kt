@@ -49,6 +49,24 @@ class OEngineModrinthInstallerTest {
   assertEquals(listOf("good.jar"),OEngineModrinthInstaller.parseVersions(body).single().files.map { it.filename })
  }
 
+ @Test fun archiveDownloadRejectsInsecureUrlsBeforeConnecting() {
+  val file=OEngineModrinthInstaller.VersionFile("pack.mrpack","http://example.invalid/pack.mrpack",1,
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","",true)
+  val destination=File.createTempFile("oengine-pack",".part")
+  try {
+   try { OEngineModrinthInstaller.downloadVerifiedFile(file,destination); fail("HTTP download URL accepted") }
+   catch(_:IllegalArgumentException) {}
+  } finally { destination.delete() }
+ }
+ @Test fun archiveDownloadRejectsOversizedFilesBeforeConnecting() {
+  val file=OEngineModrinthInstaller.VersionFile("pack.mrpack","https://example.invalid/pack.mrpack",512L*1024L*1024L+1,
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","",true)
+  val destination=File.createTempFile("oengine-pack",".part")
+  try {
+   try { OEngineModrinthInstaller.downloadVerifiedFile(file,destination); fail("Oversized archive accepted") }
+   catch(_:IllegalArgumentException) {}
+  } finally { destination.delete() }
+ }
  @Test fun versionFiltersAreEncodedAsJsonArrays() {
   assertEquals("game_versions=%5B%221.20.1%22%5D&loaders=%5B%22fabric%22%5D",
    OEngineModrinthInstaller.buildVersionQuery("1.20.1","FABRIC"))
