@@ -627,63 +627,66 @@ private fun OEngineMojoDrawer(
     val toggled = androidx.compose.runtime.remember(config) {
         androidx.compose.runtime.mutableStateMapOf<Int, Boolean>()
     }
-    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(config) {
         onDispose {
             toggled.forEach { (index, pressed) ->
-                if (pressed) config.buttons.getOrNull(index)?.let { latestOnKey(it.keyCode, false) }
+                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
             }
-            toggled.clear()
         }
     }
     androidx.compose.runtime.LaunchedEffect(expanded) {
         if (!expanded) {
             toggled.forEach { (index, pressed) ->
-                if (pressed) config.buttons.getOrNull(index)?.let { latestOnKey(it.keyCode, false) }
+                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
             }
             toggled.clear()
         }
     }
-    androidx.compose.foundation.layout.Column(
-        modifier = modifier,
-        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)
-    ) {
-        androidx.compose.material3.TextButton(
-            onClick = { onExpandedChange(!expanded) },
-            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                containerColor = androidx.compose.ui.graphics.Color(0xCC252525),
-                contentColor = androidx.compose.ui.graphics.Color.White
+    val anchor: @androidx.compose.runtime.Composable () -> Unit = {
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier
+                .size(config.widthDp.dp, config.heightDp.dp)
+                .background(androidx.compose.ui.graphics.Color(0xCC252525), RoundedCornerShape(8.dp))
+                .border(1.dp, androidx.compose.ui.graphics.Color(0xAAFFFFFF), RoundedCornerShape(8.dp))
+                .clickable { onExpandedChange(!expanded) },
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.material3.Text(
+                if (expanded) "×" else "☰",
+                color = androidx.compose.ui.graphics.Color.White,
+                fontSize = 20.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
             )
-        ) { androidx.compose.material3.Text(if (expanded) "× ${config.label}" else "☰ ${config.label}") }
-        if (expanded) {
-            val horizontal = config.orientation == "LEFT" || config.orientation == "RIGHT"
-            val panelModifier = androidx.compose.ui.Modifier
-                .width(config.widthDp.dp)
-                .height(config.heightDp.dp)
-                .background(androidx.compose.ui.graphics.Color(0xCC171717), RoundedCornerShape(10.dp))
-                .border(1.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), RoundedCornerShape(10.dp))
-                .padding(6.dp)
-            if (horizontal) {
-                androidx.compose.foundation.layout.Row(
-                    modifier = panelModifier,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp)
-                ) {
-                    config.buttons.forEachIndexed { index, button ->
-                        OEngineMojoDrawerButton(button, index, toggled, onKey)
-                    }
-                }
-            } else {
-                androidx.compose.foundation.layout.Column(
-                    modifier = panelModifier,
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(5.dp)
-                ) {
-                    config.buttons.forEachIndexed { index, button ->
-                        OEngineMojoDrawerButton(button, index, toggled, onKey)
-                    }
-                }
-            }
         }
+    }
+    val buttons: @androidx.compose.runtime.Composable () -> Unit = {
+        config.buttons.forEachIndexed { index, button ->
+            OEngineMojoDrawerButton(button, index, config.widthDp, config.heightDp, toggled, onKey)
+        }
+    }
+    if (!expanded) {
+        androidx.compose.foundation.layout.Box(modifier = modifier) { anchor() }
+    } else when (config.orientation) {
+        "LEFT" -> androidx.compose.foundation.layout.Row(
+            modifier = modifier,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) { buttons(); anchor() }
+        "RIGHT" -> androidx.compose.foundation.layout.Row(
+            modifier = modifier,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) { anchor(); buttons() }
+        "UP" -> androidx.compose.foundation.layout.Column(
+            modifier = modifier,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        ) { buttons(); anchor() }
+        else -> androidx.compose.foundation.layout.Column(
+            modifier = modifier,
+            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        ) { anchor(); buttons() }
     }
 }
 
@@ -691,13 +694,15 @@ private fun OEngineMojoDrawer(
 private fun OEngineMojoDrawerButton(
     button: OEngineMojoControlMapImporter.DrawerButtonConfig,
     index: Int,
+    widthDp: Float,
+    heightDp: Float,
     toggled: androidx.compose.runtime.MutableMap<Int, Boolean>,
     onKey: (Int, Boolean) -> Unit
 ) {
     val pressed = toggled[index] == true
     androidx.compose.foundation.layout.Box(
         modifier = androidx.compose.ui.Modifier
-            .sizeIn(minWidth = 48.dp, minHeight = 42.dp)
+            .size(widthDp.dp, heightDp.dp)
             .background(
                 if (pressed) androidx.compose.ui.graphics.Color(0xFF80612F)
                 else androidx.compose.ui.graphics.Color(0x99505050),
@@ -718,14 +723,15 @@ private fun OEngineMojoDrawerButton(
                     )
                 }
             )
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         androidx.compose.material3.Text(
             button.label,
             color = androidx.compose.ui.graphics.Color.White,
             fontSize = 11.sp,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            maxLines = 1
         )
     }
 }
