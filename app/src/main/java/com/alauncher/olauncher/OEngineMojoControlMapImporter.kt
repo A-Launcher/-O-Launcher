@@ -1,7 +1,6 @@
 package com.alauncher.olauncher
 
 import org.json.JSONObject
-import org.json.JSONArray
 import android.view.KeyEvent
 
 /**
@@ -27,10 +26,10 @@ object OEngineMojoControlMapImporter {
         val root = JSONObject(json)
         val version = root.optInt("version", -1)
         require(version in 0..9) { "Unsupported Mojo control-map version." }
-        require(root.optJSONArray("mDrawerDataList")?.length() ?: 0 == 0) {
+        require((root.optJSONArray("mDrawerDataList")?.length() ?: 0) == 0) {
             "This Mojo map contains drawers; import it in Mojo or export a simple-button layout first."
         }
-        require(root.optJSONArray("mJoystickDataList")?.length() ?: 0 == 0) {
+        require((root.optJSONArray("mJoystickDataList")?.length() ?: 0) == 0) {
             "This Mojo map contains joysticks; this importer cannot preserve them yet."
         }
 
