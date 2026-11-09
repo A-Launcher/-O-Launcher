@@ -280,7 +280,7 @@ object OEngineLwjglNativeResolver {
                 } else if (!androidGlfwLibraryConfigured) {
                     blockers += "LWJGL 2 native library is staged, but its required Android GLFW dependency is not staged at an absolute libglfw.so path."
                 } else {
-                    warnings += "Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are both staged; org.lwjgl.librarypath must point at the verified native directory before HotSpot starts."
+                    warnings += "Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are staged; O Engine supplies their directories through java.library.path and org.lwjgl.librarypath. Actual System.loadLibrary resolution remains device-unverified."
                 }
                 blockers += "The GL4ES/OpenGL context and swap bridge is not yet active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
