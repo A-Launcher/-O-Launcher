@@ -2003,7 +2003,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
         error = null
         scope.launch {
             try {
-                val nextOffset = if (reset) 0 else offset + 20
+                val nextOffset = if (reset) 0 else offset
                 val page = OEngineModrinthCatalog.search(
                     query = search,
                     type = typeOverride,
@@ -2011,8 +2011,8 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                     offset = nextOffset,
                     limit = 20
                 )
-                offset = nextOffset
-                projects = if (reset) page.hits else projects + page.hits
+                offset = if (page.hits.isEmpty()) page.totalHits else nextOffset + page.hits.size
+                projects = if (reset) page.hits.distinctBy { it.id } else (projects + page.hits).distinctBy { it.id }
                 totalHits = page.totalHits
             } catch (failure: Exception) {
                 error = failure.message ?: "Could not load community projects."
@@ -2130,7 +2130,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                     }
                 }
             }
-            if (projects.size < totalHits) {
+            if (offset < totalHits) {
                 Button(onClick = { loadProjects(reset = false) }, enabled = !loading, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)) {
                     Text(if (loading) "LOADING…" else "LOAD MORE PROJECTS")
                 }
