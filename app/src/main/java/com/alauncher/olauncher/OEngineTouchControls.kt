@@ -673,12 +673,29 @@ private fun OEngineMojoDrawer(
     }
     val buttons: @androidx.compose.runtime.Composable () -> Unit = {
         config.buttons.forEachIndexed { index, button ->
-            OEngineMojoDrawerButton(button, index, config.widthDp, config.heightDp, toggled, onKey)
+            OEngineMojoDrawerButton(button, config.widthDp, config.heightDp, toggled, onKey)
         }
     }
     if (!expanded) {
         androidx.compose.foundation.layout.Box(modifier = modifier) { anchor() }
     } else when (config.orientation) {
+        "FREE" -> androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+            androidx.compose.foundation.layout.Box(
+                modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+            ) { anchor() }
+            config.buttons.forEachIndexed { index, button ->
+                val x = button.xDp ?: (config.widthDp + 8f)
+                val y = button.yDp ?: (index * (config.heightDp + 6f))
+                OEngineMojoDrawerButton(
+                    button = button,
+                    parentWidthDp = config.widthDp,
+                    parentHeightDp = config.heightDp,
+                    toggled = toggled,
+                    onKey = onKey,
+                    modifier = androidx.compose.ui.Modifier.offset(x = x.dp, y = y.dp)
+                )
+            }
+        }
         "LEFT" -> androidx.compose.foundation.layout.Row(
             modifier = modifier,
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
@@ -706,15 +723,16 @@ private fun OEngineMojoDrawer(
 private fun OEngineMojoDrawerButton(
     button: OEngineMojoControlMapImporter.DrawerButtonConfig,
     index: Int,
-    widthDp: Float,
-    heightDp: Float,
+    parentWidthDp: Float,
+    parentHeightDp: Float,
     toggled: androidx.compose.runtime.MutableMap<Int, Boolean>,
-    onKey: (Int, Boolean) -> Unit
+    onKey: (Int, Boolean) -> Unit,
+    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier
 ) {
     val pressed = toggled[index] == true
     androidx.compose.foundation.layout.Box(
-        modifier = androidx.compose.ui.Modifier
-            .size(widthDp.dp, heightDp.dp)
+        modifier = modifier
+            .size(button.widthDp.dp, button.heightDp.dp)
             .background(
                 if (pressed) androidx.compose.ui.graphics.Color(0xFF80612F)
                 else androidx.compose.ui.graphics.Color(0x99505050),
