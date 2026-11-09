@@ -187,6 +187,7 @@ class OEngineRendererLaunchPlanTest {
         bytes[3] = 0x46
         bytes[4] = 2
         bytes[5] = 1
+        bytes[16] = 3 // ET_DYN: renderer artifacts must be shared objects.
         bytes[18] = 183.toByte()
         library.writeBytes(bytes)
         return OEngineNativeRendererArtifact(
