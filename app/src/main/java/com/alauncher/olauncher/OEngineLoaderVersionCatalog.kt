@@ -18,6 +18,32 @@ object OEngineLoaderVersionCatalog {
         val source: String
     )
 
+    /** Numeric-aware ordering: 47.10.0 must sort after 47.9.0, not before it. */
+    internal fun compareVersionsDescending(left: String, right: String): Int {
+        fun parts(value: String): List<Pair<Int, String>> =
+            Regex("\\d+|[A-Za-z]+").findAll(value).map { token ->
+                val raw = token.value
+                raw.toIntOrNull()?.let { it to "" } ?: (0 to raw.lowercase())
+            }.toList()
+        val a = parts(left)
+        val b = parts(right)
+        for (index in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrNull(index) ?: (0 to "")
+            val y = b.getOrNull(index) ?: (0 to "")
+            val number = y.first.compareTo(x.first)
+            if (number != 0) return number
+            val text = y.second.compareTo(x.second)
+            if (text != 0) return text
+        }
+        return right.compareTo(left)
+    }
+
+    private fun newestFirst(values: List<LoaderVersion>): List<LoaderVersion> =
+        values.sortedWith(
+            compareByDescending<LoaderVersion> { it.stable }
+                .thenComparator { a, b -> compareVersionsDescending(a.version, b.version) }
+        )
+
     suspend fun fetch(
         loader: OEngineModLoader,
         minecraftVersion: String
@@ -59,7 +85,7 @@ object OEngineLoaderVersionCatalog {
                     null, "Fabric Meta"
                 ))
             }
-        }.distinctBy { it.version }
+        }.distinctBy { it.version }.let(::newestFirst)
     }
 
     fun parseQuilt(game: String, body: String): List<LoaderVersion> {
@@ -75,7 +101,7 @@ object OEngineLoaderVersionCatalog {
                     null, "Quilt Meta"
                 ))
             }
-        }.distinctBy { it.version }
+        }.distinctBy { it.version }.let(::newestFirst)
     }
 
     /** Full Forge version list, matching MojoLauncher's ForgelikeUtils Maven metadata flow. */
@@ -97,7 +123,7 @@ object OEngineLoaderVersionCatalog {
                 "https://maven.minecraftforge.net/net/minecraftforge/forge/$game-$version/forge-$game-$version-installer.jar",
                 "Forge Maven"
             )
-        }.sortedWith(compareByDescending<LoaderVersion> { it.stable }.thenByDescending { it.version })
+        }.let(::newestFirst)
     }
 
     fun parseForge(game: String, body: String): List<LoaderVersion> {
@@ -118,7 +144,7 @@ object OEngineLoaderVersionCatalog {
                 "Forge promotions"
             ))
         }
-        return values.sortedWith(compareByDescending<LoaderVersion> { it.stable }.thenByDescending { it.version })
+        return newestFirst(values)
     }
 
     fun parseNeoForge(game: String, body: String): List<LoaderVersion> {
