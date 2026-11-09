@@ -32,6 +32,8 @@ data class OEngineLwjglResolution(
     val glfwJavaClassPresent: Boolean,
     val androidGlfwLibraryConfigured: Boolean,
     val mojoGlfwDisplayClassPresent: Boolean,
+    val legacyNativeLibraryConfigured: Boolean,
+    val legacyNativeLibraryPath: File?,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -132,7 +134,11 @@ object OEngineLwjglNativeResolver {
         }
     }
 
-    fun resolve(classpath: List<File>, androidGlfwLibrary: File? = null): OEngineLwjglResolution {
+    fun resolve(
+        classpath: List<File>,
+        androidGlfwLibrary: File? = null,
+        legacyNativeLibraryDirectories: List<File> = emptyList()
+    ): OEngineLwjglResolution {
         val blockers = mutableListOf<String>()
         val warnings = mutableListOf<String>()
         val modules = classpath.mapNotNull { file ->
@@ -190,6 +196,11 @@ object OEngineLwjglNativeResolver {
         // LWJGL 3.3.3's generated GLFW class resolves C function addresses from the
         // configured shared library. This is a C ABI contract, not a GLFW JNI-export
         // contract; the ART-side Mojo JNI shim is a separate Android lifecycle API.
+        val legacyNativeName = if (android.os.Build.SUPPORTED_ABIS.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
+        val legacyNativeLibrary = legacyNativeLibraryDirectories.asSequence()
+            .mapNotNull { directory -> runCatching { File(directory, legacyNativeName).canonicalFile }.getOrNull() }
+            .firstOrNull { it.isFile && it.length() > 0L }
+        val legacyNativeLibraryConfigured = legacyNativeLibrary != null
         val glfwLibrary = androidGlfwLibrary?.canonicalFile
         val androidGlfwLibraryConfigured =
             glfwLibrary != null && glfwLibrary.name == "libglfw.so" && glfwLibrary.isFile && glfwLibrary.length() > 0L
@@ -264,7 +275,14 @@ object OEngineLwjglNativeResolver {
 
         when (surface) {
             OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
-                blockers += "LWJGL 2 loads its core JNI library through org.lwjgl.librarypath/System.loadLibrary. O Engine stages the pinned Mojo Android LWJGL2 native artifact, but must still prove that the matching liblwjgl JNI library loads with the staged GLFW dependency and that the GL4ES/OpenGL context and swap bridge is active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
+                if (!legacyNativeLibraryConfigured) {
+                    blockers += "LWJGL 2 uses org.lwjgl.librarypath/System.loadLibrary, but the ABI-matched $legacyNativeName is missing from the configured native directories."
+                } else if (!androidGlfwLibraryConfigured) {
+                    blockers += "LWJGL 2 native library is staged, but its required Android GLFW dependency is not staged at an absolute libglfw.so path."
+                } else {
+                    warnings += "Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are both staged; org.lwjgl.librarypath must point at the verified native directory before HotSpot starts."
+                }
+                blockers += "The GL4ES/OpenGL context and swap bridge is not yet active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
@@ -290,6 +308,8 @@ object OEngineLwjglNativeResolver {
             glfwJavaClassPresent = glfwJavaClassPresent,
             androidGlfwLibraryConfigured = androidGlfwLibraryConfigured,
             mojoGlfwDisplayClassPresent = mojoGlfwDisplayClassPresent,
+            legacyNativeLibraryConfigured = legacyNativeLibraryConfigured,
+            legacyNativeLibraryPath = legacyNativeLibrary,
             blockers = blockers.distinct(),
             warnings = warnings.distinct()
         )
