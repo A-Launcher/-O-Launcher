@@ -678,6 +678,26 @@ private fun OEngineMojoDrawer(
     }
     if (!expanded) {
         androidx.compose.foundation.layout.Box(modifier = modifier) { anchor() }
+    } else if (config.buttons.all { it.xDp != null && it.yDp != null }) {
+        // Mojo stores button coordinates independently of drawer orientation.
+        // Honor those coordinates whenever the source supplies a complete set.
+        androidx.compose.foundation.layout.Box(modifier) {
+            anchor()
+            config.buttons.forEachIndexed { index, button ->
+                OEngineMojoDrawerButton(
+                    button = button,
+                    index = index,
+                    parentWidthDp = config.widthDp,
+                    parentHeightDp = config.heightDp,
+                    toggled = toggled,
+                    onKey = onKey,
+                    modifier = androidx.compose.ui.Modifier.offset(
+                        x = button.xDp!!.dp,
+                        y = button.yDp!!.dp
+                    )
+                )
+            }
+        }
     } else when (config.orientation) {
         "FREE" -> androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
             androidx.compose.foundation.layout.Box(
