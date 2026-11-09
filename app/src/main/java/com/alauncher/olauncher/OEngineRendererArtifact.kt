@@ -107,6 +107,12 @@ object OEngineRendererArtifactGate {
         }
     }.getOrNull()
 
+    /** Detect the ABI from the actual ELF payload, not the device's ABI preference order. */
+    fun detectAbi(file: File, supportedAbis: List<String> = Build.SUPPORTED_ABIS.toList()): String? {
+        val identity = readElfIdentity(file) ?: return null
+        return supportedAbis.firstOrNull { expectedElfIdentity(it) == identity }
+    }
+
     private fun expectedElfIdentity(abi: String): ElfIdentity? = when (abi) {
         "armeabi-v7a" -> ElfIdentity(32, 40) // EM_ARM
         "arm64-v8a" -> ElfIdentity(64, 183) // EM_AARCH64
