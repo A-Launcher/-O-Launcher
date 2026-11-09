@@ -241,8 +241,13 @@ object OEngineLwjglNativeResolver {
         if (generation == OEngineLwjglGeneration.LWJGL2) {
             if (coreJar == null) {
                 blockers += "LWJGL 2 core JAR is missing or ambiguous."
-            } else if (!lwjgl2SysClassPresent || !lwjgl2SystemLoadMarkerPresent) {
-                blockers += "LWJGL 2 core JAR does not expose the expected org.lwjgl.Sys native-load contract."
+            } else {
+                if (!lwjgl2SysClassPresent || !lwjgl2SystemLoadMarkerPresent) {
+                    blockers += "LWJGL 2 core JAR does not expose the expected org.lwjgl.Sys native-load contract."
+                }
+                if (!mojoGlfwDisplayClassPresent) {
+                    blockers += "LWJGL 2 core JAR is not the pinned Mojo GLFW port: GLFWDisplay, GLFWContextImplementation, or GLFWPeerInfo is missing."
+                }
             }
         }
 
