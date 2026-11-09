@@ -32,16 +32,35 @@ object OEngineMojoControlMapImporter {
 
     data class JoystickRuntimeConfig(
         val forwardLock: Boolean,
-        val absolute: Boolean
+        val absolute: Boolean,
+        val xDp: Float?,
+        val yDp: Float?,
+        val widthDp: Float,
+        val heightDp: Float
     )
 
-    /** Decode the two joystick behavior flags defined by Mojo's ControlJoystickData. */
+    /** Decode Mojo joystick behavior and fixed numeric geometry.
+     * Dynamic expressions remain preserved but are not guessed or evaluated. */
     fun decodeJoystickRuntimeConfig(json: String): JoystickRuntimeConfig {
         require(json.length <= 65_536) { "Mojo joystick definition is too large." }
         val item = JSONObject(json)
+        fun fixedPosition(field: String): Float? {
+            val raw = item.optString(field, "")
+            if (raw.isBlank()) return null
+            return raw.toFloatOrNull()?.takeIf { it.isFinite() && it >= 0f }
+        }
+        val width = item.optDouble("width", 150.0).toFloat()
+        val height = item.optDouble("height", 150.0).toFloat()
+        require(width.isFinite() && height.isFinite() && width in 48f..360f && height in 48f..360f) {
+            "Mojo joystick dimensions are outside supported bounds."
+        }
         return JoystickRuntimeConfig(
             forwardLock = item.optBoolean("forwardLock", false),
-            absolute = item.optBoolean("absolute", false)
+            absolute = item.optBoolean("absolute", false),
+            xDp = fixedPosition("dynamicX"),
+            yDp = fixedPosition("dynamicY"),
+            widthDp = width,
+            heightDp = height
         )
     }
 
