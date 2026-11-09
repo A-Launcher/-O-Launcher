@@ -20,6 +20,8 @@ object OEngineInstanceManager {
         sanitizeDisplayName(displayName).lowercase()
             .replace(Regex("[^a-z0-9]+"), "-").trim('-').ifBlank { "instance" }
 
+    internal fun isReservedInstanceId(id: String): Boolean = id == DEFAULT_ID
+
     internal fun gameRootFor(base: File, instanceDirectory: File, sharedGameFolder: Boolean): File =
         if (sharedGameFolder) base else File(instanceDirectory, "game")
 
@@ -65,7 +67,7 @@ object OEngineInstanceManager {
 
     /** Rename a managed instance without touching its game files or metadata-owned contents. */
     fun rename(context: Context, id: String, displayName: String): OEngineInstance {
-        require(id != DEFAULT_ID) { "The Default instance cannot be renamed." }
+        require(!isReservedInstanceId(id)) { "The Default instance cannot be renamed." }
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         require(list(context).any { it.id == id }) { "Unknown O Launcher instance." }
@@ -73,7 +75,7 @@ object OEngineInstanceManager {
         val source = File(instancesRoot, id).canonicalFile
         require(isManagedInstanceDirectory(instancesRoot, source)) { "Instance directory is invalid." }
         val newId = instanceIdFor(clean)
-        require(newId != DEFAULT_ID) { "That name is reserved for the Default instance." }
+        require(!isReservedInstanceId(newId)) { "That name is reserved for the Default instance." }
         val destination = File(instancesRoot, newId)
         require(newId == id || !destination.exists()) { "An instance with this name already exists." }
         val metadata = File(source, "instance.properties")
