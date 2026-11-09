@@ -4060,6 +4060,8 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                         OEngineInstanceManager.delete(context, target.id)
                         instances = OEngineInstanceManager.list(context)
                         activeInstance = OEngineInstanceManager.active(context)
+                        activeGameRoot = activeInstance.root
+                        refreshInstalledContent()
                         deletingInstance = null
                         launchPlanStatus = "Deleted instance: ${target.name}."
                     }.onFailure { launchPlanStatus = it.message ?: "Could not delete instance." }
