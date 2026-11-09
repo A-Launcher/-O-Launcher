@@ -258,6 +258,18 @@ pub struct OEngineNativeInputCallbacks {
     )>,
 }
 
+/// Reject impossible device/action pairs at the JNI boundary before they can
+/// pollute the shared native queue or reach a GLFW callback.
+fn is_valid_native_input_pair(device: i32, action: i32) -> bool {
+    match device {
+        0 => matches!(action, 0 | 1 | 3),       // TOUCH: DOWN / UP / MOVE
+        1 => matches!(action, 0 | 1 | 2),       // KEYBOARD: DOWN / UP / REPEAT
+        2 => matches!(action, 0 | 1 | 3 | 4),   // MOUSE: DOWN / UP / MOVE / SCROLL
+        3 => matches!(action, 0 | 1 | 2 | 3),   // GAMEPAD: buttons and axes
+        _ => false,
+    }
+}
+
 fn glfw_action_from_oengine(action: i32) -> Option<i32> {
     match action {
         0 => Some(1), // O Engine DOWN -> GLFW_PRESS
@@ -446,7 +458,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
     let mut parsed = Vec::with_capacity(count);
     for index in 0..count {
-        if !(0..=3).contains(&d[index]) || !(0..=4).contains(&a[index]) ||
+        if !is_valid_native_input_pair(d[index], a[index]) ||
             !x[index].is_finite() || !y[index].is_finite() || !v[index].is_finite() ||
             m[index] < 0 || !(0..=0x10FFFF).contains(&cp[index]) ||
             (0xD800..=0xDFFF).contains(&cp[index]) {
@@ -1753,6 +1765,29 @@ mod native_input_dispatch_tests {
         assert_eq!(queue.pressed.len(), INPUT_QUEUE_CAPACITY);
         assert!(queue.reset_required);
         assert!(!queue.pressed.iter().any(|event| event.code == 9001));
+    }
+
+    #[test]
+    fn native_input_validation_rejects_impossible_device_action_pairs() {
+        for device in 0..=3 {
+            for action in 0..=4 {
+                let expected = match device {
+                    0 => matches!(action, 0 | 1 | 3),
+                    1 => matches!(action, 0 | 1 | 2),
+                    2 => matches!(action, 0 | 1 | 3 | 4),
+                    3 => matches!(action, 0 | 1 | 2 | 3),
+                    _ => false,
+                };
+                assert_eq!(
+                    is_valid_native_input_pair(device, action),
+                    expected,
+                    "device={device}, action={action}"
+                );
+            }
+        }
+        assert!(!is_valid_native_input_pair(4, 0));
+        assert!(!is_valid_native_input_pair(1, 4));
+        assert!(!is_valid_native_input_pair(0, 2));
     }
 
     #[test]
