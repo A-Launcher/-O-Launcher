@@ -634,6 +634,14 @@ private fun OEngineMojoDrawer(
             }
         }
     }
+    androidx.compose.runtime.LaunchedEffect(expanded) {
+        if (!expanded) {
+            toggled.forEach { (index, pressed) ->
+                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
+            }
+            toggled.clear()
+        }
+    }
     androidx.compose.foundation.layout.Column(
         modifier = modifier,
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
