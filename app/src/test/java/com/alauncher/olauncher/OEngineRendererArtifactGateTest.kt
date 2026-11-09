@@ -130,6 +130,24 @@ class OEngineRendererArtifactGateTest {
     }
 
     @Test
+    fun rejectsExecutableElfWhenDetectingAbi() {
+        val root = Files.createTempDirectory("oengine-renderer-detect-executable").toFile()
+        try {
+            val library = File(root, "libGL4ES.so")
+            writeElf(library, elfClass = 2, machine = 183, elfType = 2)
+
+            assertTrue(
+                OEngineRendererArtifactGate.detectAbi(
+                    library,
+                    supportedAbis = listOf("arm64-v8a")
+                ) == null
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun rejectsUnknownElfWhenDetectingAbi() {
         val root = Files.createTempDirectory("oengine-renderer-detect-unknown").toFile()
         try {
