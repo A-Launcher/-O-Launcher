@@ -29,7 +29,10 @@ object OEngineModrinthPackImporter {
         require(!Regex("^[A-Za-z]:").containsMatchIn(normalized))
         val parts = normalized.split('/')
         require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Unsafe archive path." }
-        require(parts.all { it.matches(Regex("[A-Za-z0-9._ ()+\\-]+")) }) { "Unsupported characters in archive path." }
+        require(parts.all { part ->
+            !part.endsWith('.') && !part.endsWith(' ') &&
+                part.none { ch -> ch.isISOControl() || ch in "<>:\"|?*" }
+        }) { "Unsupported characters in archive path." }
         return parts.joinToString("/")
     }
 
