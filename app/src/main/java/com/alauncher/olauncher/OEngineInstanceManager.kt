@@ -82,19 +82,26 @@ object OEngineInstanceManager {
         val existing = if (metadata.isFile) metadata.readLines().filterNot { it.startsWith("name=") } else emptyList()
         val temp = File(source, "instance.properties.tmp")
         temp.writeText((listOf("name=$clean") + existing).joinToString("\n", postfix="\n"))
-        if (!temp.renameTo(metadata)) {
-            temp.delete()
-            throw IllegalStateException("Could not update instance metadata.")
-        }
         val renamed = if (newId == id) source else {
-            if (!source.renameTo(destination)) throw IllegalStateException("Could not rename instance directory.")
+            if (!source.renameTo(destination)) {
+                temp.delete()
+                throw IllegalStateException("Could not rename instance directory.")
+            }
             destination
+        }
+        val renamedTemp = File(renamed, "instance.properties.tmp")
+        val renamedMetadata = File(renamed, "instance.properties")
+        if (!renamedTemp.renameTo(renamedMetadata)) {
+            renamedTemp.delete()
+            if (renamed != source && !renamed.renameTo(source)) {
+                throw IllegalStateException("Metadata update failed and instance directory rollback failed.")
+            }
+            throw IllegalStateException("Could not update instance metadata.")
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (activeId(context) == id) prefs.edit().putString(ACTIVE_KEY, newId).apply()
-        val updated = list(context).firstOrNull { it.id == newId }
+        return list(context).firstOrNull { it.id == newId }
             ?: throw IllegalStateException("Renamed instance could not be reloaded.")
-        return updated
     }
 
     /** Delete only a managed instance directory. Default is deliberately protected. */
