@@ -24,6 +24,58 @@ object OEngineMojoControlMapImporter {
         val unsupportedJoysticks: Int get() = preservedJoystickJson.size
     }
 
+    data class PreservedCompoundControls(
+        val drawers: List<String>,
+        val joysticks: List<String>
+    )
+
+    private const val PREFS = "o_engine_mojo_control_import"
+    private const val COMPOUND_KEY = "preserved_compound_v1"
+
+    /** Save executable simple buttons through the normal layout store and keep
+     * unsupported Mojo definitions alongside them for a future lossless upgrade. */
+    fun saveImport(context: android.content.Context, result: ImportResult) {
+        val compound = encodePreservedCompoundControls(
+            PreservedCompoundControls(result.preservedDrawerJson, result.preservedJoystickJson)
+        )
+        OEngineTouchControls.save(context, result.controls)
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            .edit().putString(COMPOUND_KEY, compound).apply()
+    }
+
+    fun loadPreservedCompoundControls(context: android.content.Context): PreservedCompoundControls {
+        val raw = context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            .getString(COMPOUND_KEY, null) ?: return PreservedCompoundControls(emptyList(), emptyList())
+        return decodePreservedCompoundControls(raw)
+    }
+
+    fun encodePreservedCompoundControls(value: PreservedCompoundControls): String {
+        require(value.drawers.size <= 48 && value.joysticks.size <= 48)
+        val root = JSONObject().put("format", "oengine-mojo-compound-preserved").put("version", 1)
+        root.put("drawers", JSONArray().apply { value.drawers.forEach { put(JSONObject(it).toString()) } })
+        root.put("joysticks", JSONArray().apply { value.joysticks.forEach { put(JSONObject(it).toString()) } })
+        val encoded = root.toString()
+        require(encoded.length <= 1_048_576) { "Preserved Mojo compound controls are too large." }
+        return encoded
+    }
+
+    fun decodePreservedCompoundControls(json: String): PreservedCompoundControls {
+        require(json.length <= 1_048_576) { "Preserved Mojo compound controls are too large." }
+        val root = JSONObject(json)
+        require(root.optString("format") == "oengine-mojo-compound-preserved" && root.optInt("version") == 1) {
+            "Unsupported preserved Mojo compound-control format."
+        }
+        fun read(field: String): List<String> {
+            val array = root.getJSONArray(field)
+            require(array.length() <= 48) { "Too many preserved Mojo $field." }
+            return (0 until array.length()).map { index ->
+                val raw = array.getString(index)
+                JSONObject(raw).toString()
+            }
+        }
+        return PreservedCompoundControls(read("drawers"), read("joysticks"))
+    }
+
     /**
      * Accepts Mojo's raw JSON format or its LayoutBitmaps ZIP container.
      * Bitmap assets are intentionally not discarded: maps referencing bitmap
