@@ -226,7 +226,7 @@ destroy_surface_replacement = '''    if (window->context.egl.surface)
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
         const GLFWbool is_ltw_surface = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.handle == (EGLContext) oengine_ltw_share.context;
+            window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface;
         if (!is_ltw_surface)
 #endif
             eglDestroySurface(_glfw.egl.display, window->context.egl.surface);
@@ -592,7 +592,6 @@ required = [
     "oengine_get_ltw_share_info",
     "OEngineLtwCreateContextFn create_context",
     "window->context.egl.handle = create_context(",
-    "(EGLContext) window->context.egl.handle",
     "OEngineLtwDestroyContextFn destroy_context",
     "window->context.egl.surface = (EGLSurface) oengine_ltw_share.window_surface;",
     "O Engine LTW EGL: failed to make shared context current",
@@ -607,6 +606,14 @@ required = [
 for item in required:
     if item not in text:
         raise SystemExit("LTW shared EGL integration invariant missing: " + item)
+
+android_required = [
+    "(EGLContext) window->context.egl.handle",
+    "window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface",
+]
+for item in android_required:
+    if item not in android_text:
+        raise SystemExit("LTW Android surface integration invariant missing: " + item)
 
 source.write_text(text, encoding="utf-8")
 print("Patched Mojo GLFW to borrow O Engine LTW EGL context, surface, make-current and swap path.")
