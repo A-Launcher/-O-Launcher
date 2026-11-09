@@ -4040,7 +4040,12 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                         val oldProfile = profilePreferences.getString("instance_profile.${target.id}", target.name) ?: target.name
                         profilePreferences.edit().remove("instance_profile.${target.id}")
                             .putString("instance_profile.${renamed.id}", oldProfile).apply()
-                        if (activeInstance.id == target.id) activeInstance = renamed
+                        if (activeInstance.id == target.id) {
+                            activeInstance = renamed
+                            activeGameRoot = renamed.root
+                            refreshInstalledContent()
+                            preparedLaunchPlan = null
+                        }
                         launchPlanStatus = "Renamed instance to ${renamed.name}."
                         renamingInstance = null
                     }.onFailure { launchPlanStatus = it.message ?: "Could not rename instance." }
