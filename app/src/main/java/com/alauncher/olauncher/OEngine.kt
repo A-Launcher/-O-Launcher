@@ -111,9 +111,7 @@ object OLauncherEngine {
                 availableProcessors = Runtime.getRuntime().availableProcessors(),
                 rendererLibraryAlias = rendererLibraryAlias,
                 androidGlfwLibrary = androidGlfwLibrary,
-                additionalNativeLibraryDirectories = listOfNotNull(
-                    nativeDirectory.takeIf { androidGlfwLibrary != null }
-                )
+                additionalNativeLibraryDirectories = listOf(nativeDirectory)
             )
         }
         jvmBootstrapPlan?.blockers?.let(blockers::addAll)
