@@ -16,6 +16,12 @@ class OEngineInstanceIdTest {
         assertEquals("instance", OEngineInstanceManager.instanceIdFor("🔥"))
     }
 
+    @Test fun defaultInstanceIdentityIsReserved() {
+        assertTrue(OEngineInstanceManager.isReservedInstanceId("default"))
+        assertFalse(OEngineInstanceManager.isReservedInstanceId("default-2"))
+        assertTrue(OEngineInstanceManager.isReservedInstanceId(OEngineInstanceManager.instanceIdFor("Default")))
+    }
+
     @Test fun sharedInstancesResolveToTheDefaultMinecraftRoot() {
         val base = File("/data/user/0/example/files/minecraft")
         val instance = File(base, "instances/shared-world")
