@@ -62,3 +62,8 @@ The Android runtime prerequisites have advanced beyond the earlier historical ch
 - Mojo's Surface condition mutexes are statically initialized for callbacks before `glfwInit` and after `glfwTerminate`. The Surface manager reserves `surfaceInUse` under the same mutex as the destroy waiter, consumes resize notifications atomically, and wakes waiters after a successful switch to pbuffer.
 
 These checks prove more of the JNI/library bootstrap, not a displayed Minecraft frame. The remaining decisive runtime steps are `glfwInit`, `glfwCreateWindow`, making the LTW context current through GLFW, creating LWJGL GL capabilities, drawing/swapping a frame, and validating Surface recreation on a physical Android device. The earlier bullet list under "Explicit remaining work" is a historical snapshot and should be read together with this checkpoint.
+
+
+## Per-window GLFW context ownership correction
+
+The GLFW adapter must create a distinct per-window EGL context through LTW's wrapped `eglCreateContext`, sharing resources with the LTW root context. It binds that per-window context through LTW's wrapped `eglMakeCurrent` and destroys it through LTW's wrapped `eglDestroyContext`. The LTW-owned display and window/pbuffer surfaces remain borrowed; GLFW must not terminate the display or destroy those surfaces. Reusing the root context directly as GLFW's window context is incorrect because GLFW requires distinct per-window context handles and performs its own current-context bookkeeping.
