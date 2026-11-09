@@ -71,6 +71,23 @@ class OEngineMojoControlMapImporterTest {
         assertEquals(KeyEvent.KEYCODE_W, imported.controls.single().keyCode)
     }
 
+    @Test fun rejectsMojoZipWhenAnAssetAppearsBeforeLayoutJson() {
+        val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29],"dynamicX":"1","dynamicY":"1"}]}"""
+        val output = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(output).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("assets/first.png"))
+            zip.write(byteArrayOf(1, 2, 3))
+            zip.closeEntry()
+            zip.putNextEntry(java.util.zip.ZipEntry("layout.json"))
+            zip.write(json.toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+        }
+        try {
+            OEngineMojoControlMapImporter.importBytes(output.toByteArray(), 1000f, 800f)
+            fail("Mojo ZIP assets must not precede layout.json.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsMojoZipWithoutLayoutJson() {
         val output = java.io.ByteArrayOutputStream()
         java.util.zip.ZipOutputStream(output).use { zip ->
