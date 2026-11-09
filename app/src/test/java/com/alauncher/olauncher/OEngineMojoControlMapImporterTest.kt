@@ -178,4 +178,46 @@ class OEngineMojoControlMapImporterTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun decodesSafeMojoDrawerButtonsAndParentGeometry() {
+        val decoded = OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(
+            """{"orientation":"RIGHT","properties":{"name":"Tools","dynamicX":"40","dynamicY":"80","width":64,"height":48},
+            "buttonProperties":[
+                {"name":"Inventory","keycodes":[E_KEY,-1],"isToggle":false},
+                {"name":"Jump","keycodes":[62,-1],"isToggle":true}
+            ]}""".replace("E_KEY", KeyEvent.KEYCODE_E.toString())
+        )
+        assertEquals("Tools", decoded.label)
+        assertEquals("RIGHT", decoded.orientation)
+        assertEquals(40f, decoded.xDp!!)
+        assertEquals(80f, decoded.yDp!!)
+        assertEquals(64f, decoded.widthDp)
+        assertEquals(48f, decoded.heightDp)
+        assertEquals(2, decoded.buttons.size)
+        assertEquals(KeyEvent.KEYCODE_E, decoded.buttons[0].keyCode)
+        assertTrue(decoded.buttons[1].toggle)
+    }
+
+    @Test fun rejectsMojoDrawerSpecialActionsAndDynamicPositionsAreNotEvaluated() {
+        val special = """{"orientation":"LEFT","properties":{"dynamicX":"1","dynamicY":"2"},
+            "buttonProperties":[{"name":"Mouse","keycodes":[-5,-1]}]}"""
+        try {
+            OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(special)
+            fail("Special Mojo actions must not be dispatched as keyboard keys.")
+        } catch (_: IllegalArgumentException) { }
+
+        val dynamic = """{"orientation":"FREE","properties":{"dynamicX":"${right}","dynamicY":"2"},
+            "buttonProperties":[{"name":"Jump","keycodes":[62,-1]}]}"""
+        val decoded = OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(dynamic)
+        assertNull(decoded.xDp)
+        assertEquals("FREE", decoded.orientation)
+    }
+
+    @Test fun rejectsMalformedOrOversizedMojoDrawerButtonLists() {
+        val malformed = """{"properties":{},"buttonProperties":[null]}"""
+        try {
+            OEngineMojoControlMapImporter.decodeDrawerRuntimeConfig(malformed)
+            fail("Malformed drawer children must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
