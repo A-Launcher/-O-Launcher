@@ -627,17 +627,19 @@ private fun OEngineMojoDrawer(
     val toggled = androidx.compose.runtime.remember(config) {
         androidx.compose.runtime.mutableStateMapOf<Int, Boolean>()
     }
+    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(config) {
         onDispose {
             toggled.forEach { (index, pressed) ->
-                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
+                if (pressed) config.buttons.getOrNull(index)?.let { latestOnKey(it.keyCode, false) }
             }
+            toggled.clear()
         }
     }
     androidx.compose.runtime.LaunchedEffect(expanded) {
         if (!expanded) {
             toggled.forEach { (index, pressed) ->
-                if (pressed) config.buttons.getOrNull(index)?.let { onKey(it.keyCode, false) }
+                if (pressed) config.buttons.getOrNull(index)?.let { latestOnKey(it.keyCode, false) }
             }
             toggled.clear()
         }
