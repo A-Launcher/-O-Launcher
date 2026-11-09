@@ -89,6 +89,50 @@ class OEngineModrinthPackImporterTest {
         } finally { temp.deleteRecursively() }
     }
 
+    @Test fun rejectsSymlinkedOverrideParent() {
+        val temp = Files.createTempDirectory("mrpack-parent-symlink").toFile()
+        try {
+            val archive = File(temp, "test.mrpack")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("modrinth.index.json"))
+                zip.write("""{"formatVersion":1,"dependencies":{"minecraft":"1.20.1"},"files":[]}""".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("overrides/config/escape.txt"))
+                zip.write("must-not-write".toByteArray())
+                zip.closeEntry()
+            }
+            val game = File(temp, "game")
+            assertTrue(game.mkdirs())
+            val outside = File(temp, "outside").apply { mkdirs() }
+            Files.createSymbolicLink(File(game, "config").toPath(), outside.toPath())
+            runCatching { OEngineModrinthPackImporter.importPack(archive, game) }
+                .onSuccess { throw AssertionError("Symlinked override parent was accepted.") }
+            assertFalse(File(outside, "escape.txt").exists())
+        } finally { temp.deleteRecursively() }
+    }
+
+    @Test fun preservesUserFileAtLegacyBackupNameWhenReplacingOverride() {
+        val temp = Files.createTempDirectory("mrpack-backup-collision").toFile()
+        try {
+            val archive = File(temp, "test.mrpack")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("modrinth.index.json"))
+                zip.write("""{"formatVersion":1,"dependencies":{"minecraft":"1.20.1"},"files":[]}""".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("overrides/config/example.txt"))
+                zip.write("new-content".toByteArray())
+                zip.closeEntry()
+            }
+            val game = File(temp, "game")
+            val config = File(game, "config").apply { mkdirs() }
+            File(config, "example.txt").writeText("old-content")
+            val userBackup = File(config, "example.txt.oengine-backup").apply { writeText("user-data") }
+            OEngineModrinthPackImporter.importPack(archive, game)
+            assertEquals("new-content", File(config, "example.txt").readText())
+            assertEquals("user-data", userBackup.readText())
+        } finally { temp.deleteRecursively() }
+    }
+
     @Test fun rejectsCaseInsensitiveCollisionsAcrossOverrideRoots() {
         val temp = Files.createTempDirectory("mrpack-override-collision").toFile()
         try {
