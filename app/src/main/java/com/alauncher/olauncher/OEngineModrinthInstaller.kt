@@ -179,6 +179,10 @@ object OEngineModrinthInstaller {
   primary.requiredDependencies.forEach { resolve(it,gameVersion,loader,1) }
   return DependencyInstallResult(primary,installed,unresolved)
  }
+ internal fun downloadVerifiedFile(file:VersionFile,destination:File,onProgress:(Long,Long)->Unit={_,_->}) {
+  require(file.size in 1..(512L*1024L*1024L)) { "File exceeds 512 MiB or has invalid size." }
+  download(file,destination,onProgress)
+ }
  private fun download(file:VersionFile,destination:File,onProgress:(Long,Long)->Unit) {
   val c=openHttpsGet(file.url, 15000, 60000)
   var count=0L
