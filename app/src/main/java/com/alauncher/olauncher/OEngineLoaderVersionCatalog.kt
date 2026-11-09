@@ -157,14 +157,14 @@ object OEngineLoaderVersionCatalog {
             .filter { it.startsWith(prefix) }
             .distinct()
             .toList()
-        return versions.asReversed().map {
+        return versions.map {
             LoaderVersion(
                 OEngineModLoader.NEOFORGE, game, it, true,
                 "https://maven.neoforged.net/releases/net/neoforged/neoforge/" + it +
                     "/neoforge-" + it + "-installer.jar",
                 "NeoForge Maven"
             )
-        }
+        }.let(::newestFirst)
     }
 
     /** OptiFine distributes version-specific installers through its official downloads page. */
