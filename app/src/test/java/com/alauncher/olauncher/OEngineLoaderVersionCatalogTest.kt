@@ -4,6 +4,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OEngineLoaderVersionCatalogTest {
+    @Test fun loaderVersionsUseNumericOrderingInsteadOfLexicographicOrdering() {
+        val forge = OEngineLoaderVersionCatalog.parseForgeMaven(
+            "1.20.1",
+            "<metadata><versioning><versions>" +
+                "<version>1.20.1-47.9.0</version>" +
+                "<version>1.20.1-47.10.0</version>" +
+                "<version>1.20.1-47.2.0</version>" +
+                "</versions></versioning></metadata>",
+            """{"promos":{"1.20.1-recommended":"47.2.0"}}"""
+        )
+        assertEquals(listOf("47.2.0", "47.10.0", "47.9.0"), forge.map { it.version })
+    }
+
+    @Test fun fabricCatalogPlacesStableVersionsBeforeNewerUnstableVersions() {
+        val versions = OEngineLoaderVersionCatalog.parseFabric(
+            "1.21.1",
+            """[{"loader":{"version":"0.16.0","stable":false}},{"loader":{"version":"0.15.11","stable":true}},{"loader":{"version":"0.15.9","stable":true}}]"""
+        )
+        assertEquals(listOf("0.15.11", "0.15.9", "0.16.0"), versions.map { it.version })
+    }
+
     @Test fun fabricAndQuiltMetadataAreParsedWithoutMixingLoaderTypes() {
         val fabric = OEngineLoaderVersionCatalog.parseFabric(
             "1.20.1",
