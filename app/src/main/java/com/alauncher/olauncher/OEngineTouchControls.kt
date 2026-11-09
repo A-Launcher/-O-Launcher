@@ -506,7 +506,7 @@ private fun OEngineTouchJoystick(
         modifier = modifier.size(widthDp.dp, heightDp.dp)
             .background(androidx.compose.ui.graphics.Color(0x55303030), CircleShape)
             .border(2.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), CircleShape)
-            .pointerInput(Unit) {
+            .pointerInput(fixedCenter, widthDp, heightDp) {
                 val maxTravel = minOf(size.width, size.height) * .32f
                 val threshold = maxTravel * .35f
                 detectDragGestures(
@@ -541,7 +541,7 @@ private fun OEngineTouchJoystick(
                     },
                     onDragCancel = {
                         activeKeys.forEach { onKey(it, false) }
-                        activeKeys = emptySet(); knobX = 0f; knobY = 0f
+                        activeKeys = emptySet(); knobX = 0f; knobY = 0f; inputX = 0f; inputY = 0f
                     }
                 )
             },
