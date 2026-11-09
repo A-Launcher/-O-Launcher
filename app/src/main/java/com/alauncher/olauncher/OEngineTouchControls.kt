@@ -203,6 +203,9 @@ fun OEngineTouchControlsOverlay(
         androidx.compose.runtime.mutableStateListOf<OEngineTouchControl>().apply { addAll(initialControls) }
     }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val mojoJoystickConfig = androidx.compose.runtime.remember(context) {
+        runCatching { OEngineMojoControlMapImporter.loadJoystickRuntimeConfigs(context).firstOrNull() }.getOrNull()
+    }
     var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var selectedId by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("jump") }
     var presetIndex by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -245,6 +248,13 @@ fun OEngineTouchControlsOverlay(
                     .padding(start = 24.dp, bottom = 28.dp),
                 onKey = onKey
             )
+            if (mojoJoystickConfig?.forwardLock == true) {
+                OEngineMojoForwardLockButton(
+                    modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
+                        .padding(start = 75.dp, bottom = 190.dp),
+                    onKey = onKey
+                )
+            }
         }
 
         if (editing) {
@@ -514,6 +524,38 @@ private fun OEngineTouchJoystick(
                 androidx.compose.ui.unit.IntOffset(knobX.toInt(), knobY.toInt())
             }.background(androidx.compose.ui.graphics.Color(0xCCB9A58B), CircleShape)
                 .border(2.dp, androidx.compose.ui.graphics.Color(0xCCFFFFFF), CircleShape)
+        )
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun OEngineMojoForwardLockButton(
+    modifier: androidx.compose.ui.Modifier,
+    onKey: (Int, Boolean) -> Unit
+) {
+    var locked by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
+    DisposableEffect(Unit) {
+        onDispose {
+            if (locked) latestOnKey(KeyEvent.KEYCODE_CTRL_LEFT, false)
+        }
+    }
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier.size(52.dp)
+            .clip(CircleShape)
+            .background(if (locked) androidx.compose.ui.graphics.Color(0xCCB18A43) else androidx.compose.ui.graphics.Color(0x66505050))
+            .border(1.dp, androidx.compose.ui.graphics.Color(0xAAFFFFFF), CircleShape)
+            .clickable {
+                locked = !locked
+                onKey(KeyEvent.KEYCODE_CTRL_LEFT, locked)
+            },
+        contentAlignment = androidx.compose.ui.Alignment.Center
+    ) {
+        androidx.compose.material3.Text(
+            "W LOCK",
+            color = androidx.compose.ui.graphics.Color.White,
+            fontSize = 9.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
         )
     }
 }
