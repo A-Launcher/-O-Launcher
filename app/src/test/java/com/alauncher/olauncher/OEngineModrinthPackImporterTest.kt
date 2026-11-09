@@ -16,6 +16,12 @@ class OEngineModrinthPackImporterTest {
                 .onSuccess { throw AssertionError("Accepted unsafe path: $path") }
         }
         assertEquals("mods/example.jar", OEngineModrinthPackImporter.safeRelativePath("mods/example.jar"))
+        assertEquals("资源包/音效/背景 музыка.ogg", OEngineModrinthPackImporter.safeRelativePath("资源包/音效/背景 музыка.ogg"))
+        assertEquals("packs/🎨-textures.zip", OEngineModrinthPackImporter.safeRelativePath("packs/🎨-textures.zip"))
+        listOf("mods/trailing./bad.jar", "mods/trailing /bad.jar", "mods/bad:name.jar", "mods/bad\\u0001name.jar").forEach { path ->
+            runCatching { OEngineModrinthPackImporter.safeRelativePath(path) }
+                .onSuccess { throw AssertionError("Accepted unsupported filename: $path") }
+        }
     }
 
     @Test fun importsClientOverridesIntoInstance() {
