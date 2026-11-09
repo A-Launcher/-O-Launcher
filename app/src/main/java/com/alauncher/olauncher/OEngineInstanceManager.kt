@@ -2,6 +2,7 @@ package com.alauncher.olauncher
 
 import android.content.Context
 import java.io.File
+import java.nio.file.Files
 
 data class OEngineInstance(val id: String, val name: String, val root: File)
 
@@ -22,10 +23,18 @@ object OEngineInstanceManager {
     internal fun gameRootFor(base: File, instanceDirectory: File, sharedGameFolder: Boolean): File =
         if (sharedGameFolder) base else File(instanceDirectory, "game")
 
+    internal fun isManagedInstanceDirectory(instancesRoot: File, candidate: File): Boolean {
+        val root = runCatching { instancesRoot.canonicalFile }.getOrNull() ?: return false
+        if (Files.isSymbolicLink(candidate.toPath())) return false
+        val directory = runCatching { candidate.canonicalFile }.getOrNull() ?: return false
+        return directory.parentFile == root && directory.isDirectory
+    }
+
     fun list(context: Context): List<OEngineInstance> {
         val base = File(context.filesDir, "minecraft")
         val result = mutableListOf(OEngineInstance(DEFAULT_ID, "Default", base))
-        File(base, "instances").listFiles()?.filter { it.isDirectory }?.forEach { directory ->
+        val instancesRoot = File(base, "instances")
+        instancesRoot.listFiles()?.filter { isManagedInstanceDirectory(instancesRoot, it) }?.forEach { directory ->
             val metadata = File(directory, "instance.properties")
             val lines = if (metadata.isFile) runCatching { metadata.readLines() }.getOrDefault(emptyList()) else emptyList()
             val name = lines.firstOrNull { it.startsWith("name=") }?.substringAfter("name=")?.take(48)
@@ -63,7 +72,7 @@ object OEngineInstanceManager {
             ?: throw IllegalArgumentException("Unknown O Launcher instance.")
         val instancesRoot = File(File(context.filesDir, "minecraft"), "instances").canonicalFile
         val source = File(instancesRoot, id).canonicalFile
-        require(source.parentFile == instancesRoot && source.isDirectory) { "Instance directory is invalid." }
+        require(isManagedInstanceDirectory(instancesRoot, source)) { "Instance directory is invalid." }
         val newId = instanceIdFor(clean)
         val destination = File(instancesRoot, newId)
         require(newId == id || !destination.exists()) { "An instance with this name already exists." }
@@ -91,7 +100,7 @@ object OEngineInstanceManager {
         require(id != DEFAULT_ID) { "The Default instance cannot be deleted." }
         val instancesRoot = File(File(context.filesDir, "minecraft"), "instances").canonicalFile
         val target = File(instancesRoot, id).canonicalFile
-        require(target.parentFile == instancesRoot && target.isDirectory) { "Instance directory is invalid." }
+        require(isManagedInstanceDirectory(instancesRoot, target)) { "Instance directory is invalid." }
         val known = list(context).any { it.id == id }
         require(known) { "Unknown O Launcher instance." }
         if (!target.deleteRecursively()) throw IllegalStateException("Could not completely delete the instance.")
