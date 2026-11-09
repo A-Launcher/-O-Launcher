@@ -64,6 +64,18 @@ class OEngineMojoControlMapImporterTest {
         assertTrue(decoded.joysticks.single().contains("deadZone"))
     }
 
+    @Test fun decodesMojoJoystickRuntimeFlagsWithSafeDefaults() {
+        val configured = OEngineMojoControlMapImporter.decodeJoystickRuntimeConfig(
+            """{"name":"Move","forwardLock":true,"absolute":true}"""
+        )
+        assertTrue(configured.forwardLock)
+        assertTrue(configured.absolute)
+
+        val defaults = OEngineMojoControlMapImporter.decodeJoystickRuntimeConfig("""{"name":"Move"}""")
+        assertFalse(defaults.forwardLock)
+        assertFalse(defaults.absolute)
+    }
+
     @Test fun rejectsUnsupportedOrMalformedPreservedCompoundStorage() {
         try {
             OEngineMojoControlMapImporter.decodePreservedCompoundControls(
