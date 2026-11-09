@@ -1928,24 +1928,7 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                 val file = version.files.firstOrNull { it.primary } ?: version.files.firstOrNull() ?: error("Modrinth did not provide a modpack archive.")
                 require(file.size in 1..(512L * 1024L * 1024L)) { "Modpack archive exceeds 512 MiB or has invalid size." }
                 withContext(Dispatchers.IO) {
-                    val connection = (URL(file.url).openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 30000; instanceFollowRedirects = false; requestMethod = "GET"; setRequestProperty("User-Agent", "O-Launcher/1.0") }
-                    try {
-                        val status = connection.responseCode
-                        require(status in 200..299) { "Modrinth archive download failed: HTTP " + status }
-                        val contentLength = connection.contentLengthLong
-                        require(contentLength < 0 || contentLength == file.size) { "Modrinth archive size did not match its metadata." }
-                        val sha1 = java.security.MessageDigest.getInstance("SHA-1")
-                        val sha512 = java.security.MessageDigest.getInstance("SHA-512")
-                        var total = 0L
-                        connection.inputStream.use { input -> staged.outputStream().buffered().use { output ->
-                            val buffer = ByteArray(65536)
-                            while (true) { val count = input.read(buffer); if (count < 0) break; total += count; require(total <= file.size && total <= 512L * 1024L * 1024L) { "Modpack archive exceeded its declared size." }; sha1.update(buffer, 0, count); sha512.update(buffer, 0, count); output.write(buffer, 0, count) }
-                        } }
-                        require(total == file.size) { "Modpack archive was incomplete." }
-                        val actual1 = sha1.digest().joinToString("") { "%02x".format(it) }
-                        val actual512 = sha512.digest().joinToString("") { "%02x".format(it) }
-                        require((file.sha1.isBlank() || actual1.equals(file.sha1, true)) && (file.sha512.isBlank() || actual512.equals(file.sha512, true))) { "Modpack archive failed hash verification." }
-                    } finally { connection.disconnect() }
+                    OEngineModrinthInstaller.downloadVerifiedFile(file, staged)
                 }
                 val base = project.title.replace(Regex("[^A-Za-z0-9 _.-]"), "").trim().take(40).ifBlank { "Modpack" }
                 var instanceName = base
