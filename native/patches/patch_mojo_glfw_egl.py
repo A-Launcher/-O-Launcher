@@ -92,7 +92,19 @@ context_anchor = '''    window->context.egl.handle = eglCreateContext(_glfw.egl.
 '''
 context_replacement = '''#if defined(_GLFW_ANDROID)
     if (oengine_use_ltw)
-        window->context.egl.handle = (EGLContext) oengine_ltw_share.context;
+        typedef EGLContext (*OEngineLtwCreateContextFn)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
+        OEngineLtwCreateContextFn create_context =
+            (OEngineLtwCreateContextFn) oengine_ltw_share.create_context;
+        if (!create_context)
+        {
+            _glfwInputError(GLFW_API_UNAVAILABLE, "O Engine LTW EGL: tracked context creation is unavailable");
+            return GLFW_FALSE;
+        }
+        window->context.egl.handle = create_context(
+            (EGLDisplay) oengine_ltw_share.display,
+            (EGLConfig) oengine_ltw_share.config,
+            (EGLContext) oengine_ltw_share.context,
+            attribs);
     else
 #endif
         window->context.egl.handle = eglCreateContext(_glfw.egl.display,
@@ -234,9 +246,18 @@ destroy_context_replacement = '''    if (window->context.egl.handle)
     {
 #if defined(_GLFW_ANDROID)
         OEngineLtwEglShareInfo oengine_ltw_share = {0};
-        const GLFWbool is_ltw_context = oengine_get_ltw_share_info(&oengine_ltw_share) &&
-            window->context.egl.handle == (EGLContext) oengine_ltw_share.context;
-        if (!is_ltw_context)
+        const GLFWbool is_ltw_context = oengine_get_ltw_share_info(&oengine_ltw_share);
+        if (is_ltw_context)
+        {
+            typedef EGLBoolean (*OEngineLtwDestroyContextFn)(EGLDisplay, EGLContext);
+            OEngineLtwDestroyContextFn destroy_context =
+                (OEngineLtwDestroyContextFn) oengine_ltw_share.destroy_context;
+            if (!destroy_context ||
+                !destroy_context((EGLDisplay) oengine_ltw_share.display,
+                                 window->context.egl.handle))
+                _glfwInputError(GLFW_PLATFORM_ERROR, "O Engine LTW EGL: tracked context destruction failed");
+        }
+        else
 #endif
             eglDestroyContext(_glfw.egl.display, window->context.egl.handle);
         window->context.egl.handle = EGL_NO_CONTEXT;
@@ -459,7 +480,8 @@ EGLSurface _glfwManageEglSurfaceAndroid(_GLFWwindow* window) {
     typedef EGLBoolean (*OEngineAndroidMakeCurrentFn)(EGLDisplay, EGLSurface, EGLSurface, EGLContext);
     OEngineAndroidMakeCurrentFn make_current =
         (OEngineAndroidMakeCurrentFn) share.make_current;
-    if (!make_current((EGLDisplay) share.display, target, target, (EGLContext) share.context))
+    if (!make_current((EGLDisplay) share.display, target, target,
+                      (EGLContext) window->context.egl.handle))
     {
         if (wantedMode == GLFW_ANDROID_WINDOW_MODE_SURFACE) {
             pthread_mutex_lock(&nw_egl_mutex);
