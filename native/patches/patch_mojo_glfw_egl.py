@@ -609,7 +609,9 @@ for item in required:
 
 android_required = [
     "(EGLContext) window->context.egl.handle",
-    "window->context.egl.surface == (EGLSurface) oengine_ltw_share.window_surface",
+    "? (EGLSurface) share.window_surface",
+    "? (EGLSurface) share.pbuffer",
+    "window->context.egl.surface = target;",
 ]
 for item in android_required:
     if item not in android_text:
