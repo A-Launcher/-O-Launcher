@@ -30,6 +30,25 @@ object OEngineMojoControlMapImporter {
         val joysticks: List<String>
     )
 
+    data class JoystickRuntimeConfig(
+        val forwardLock: Boolean,
+        val absolute: Boolean
+    )
+
+    /** Decode the two joystick behavior flags defined by Mojo's ControlJoystickData. */
+    fun decodeJoystickRuntimeConfig(json: String): JoystickRuntimeConfig {
+        require(json.length <= 65_536) { "Mojo joystick definition is too large." }
+        val item = JSONObject(json)
+        return JoystickRuntimeConfig(
+            forwardLock = item.optBoolean("forwardLock", false),
+            absolute = item.optBoolean("absolute", false)
+        )
+    }
+
+    fun loadJoystickRuntimeConfigs(context: android.content.Context): List<JoystickRuntimeConfig> =
+        loadPreservedCompoundControls(context).joysticks.map(::decodeJoystickRuntimeConfig)
+
+
     private const val PREFS = "o_engine_mojo_control_import"
     private const val COMPOUND_KEY = "preserved_compound_v1"
 
