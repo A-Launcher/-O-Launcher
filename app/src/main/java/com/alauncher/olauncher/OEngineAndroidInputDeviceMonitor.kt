@@ -27,7 +27,7 @@ class OEngineAndroidInputDeviceMonitor(
         }
 
         override fun onInputDeviceChanged(deviceId: Int) {
-            refresh(deviceId)
+            if (refresh(deviceId)) onGamepadDisconnected()
         }
 
         override fun onInputDeviceRemoved(deviceId: Int) {
@@ -40,13 +40,13 @@ class OEngineAndroidInputDeviceMonitor(
         inputManager.registerInputDeviceListener(listener, handler)
     }
 
-    private fun refresh(deviceId: Int) {
+    /** Returns true when a previously tracked gamepad stops advertising gamepad sources. */
+    private fun refresh(deviceId: Int): Boolean {
+        val wasGamepad = knownGamepads.contains(deviceId)
         val device = InputDevice.getDevice(deviceId)
-        if (device != null && isGamepadSources(device.sources)) {
-            knownGamepads.add(deviceId)
-        } else {
-            knownGamepads.remove(deviceId)
-        }
+        val isGamepad = device != null && isGamepadSources(device.sources)
+        if (isGamepad) knownGamepads.add(deviceId) else knownGamepads.remove(deviceId)
+        return wasGamepad && !isGamepad
     }
 
     override fun close() {
