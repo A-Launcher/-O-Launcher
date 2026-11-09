@@ -92,6 +92,7 @@ context_anchor = '''    window->context.egl.handle = eglCreateContext(_glfw.egl.
 '''
 context_replacement = '''#if defined(_GLFW_ANDROID)
     if (oengine_use_ltw)
+    {
         typedef EGLContext (*OEngineLtwCreateContextFn)(EGLDisplay, EGLConfig, EGLContext, const EGLint*);
         OEngineLtwCreateContextFn create_context =
             (OEngineLtwCreateContextFn) oengine_ltw_share.create_context;
@@ -105,6 +106,7 @@ context_replacement = '''#if defined(_GLFW_ANDROID)
             (EGLConfig) oengine_ltw_share.config,
             (EGLContext) oengine_ltw_share.context,
             attribs);
+    }
     else
 #endif
         window->context.egl.handle = eglCreateContext(_glfw.egl.display,
