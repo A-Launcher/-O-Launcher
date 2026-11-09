@@ -77,7 +77,7 @@ O Engine now pins the MojoLauncher LWJGL 2-on-GLFW fork separately from the LWJG
 
 The dependency installer now recognizes the legacy `org.lwjgl.lwjgl:lwjgl:*` coordinate and downloads the pinned Mojo Java archive into the corresponding `2.9.4-mojo` library path. Launch classpath construction resolves that same path, so the upstream desktop LWJGL 2 JAR is not accidentally added for Android. Modern `org.lwjgl:lwjgl:3.x` libraries are unaffected.
 
-This is only the Java-classpath half of the compatibility adapter. The ABI-specific native archive is not yet installed into the active game native directory, and the GL4ES plan remains blocked until the LWJGL 2 native loading and EGL/swap lifecycle are verified. Do not infer that a legacy game launches from the presence of the pinned Java JAR.
+This is only the Java-classpath half of the compatibility adapter. The ABI-specific native archive is now staged into the active per-version game native directory with checksum and ELF validation. The GL4ES plan remains blocked until the LWJGL 2 JNI loading and EGL/swap lifecycle are verified. Do not infer that a legacy game launches from the presence of the pinned Java JAR.
 
 
 ## O Engine integration update: per-version LWJGL 2 native payload
@@ -92,3 +92,23 @@ This does **not** remove the LWJGL 2 launch blocker in `OEngineLwjglNativeResolv
 The pinned upstream Mojo port identifies itself as a minimal LWJGL 2-to-GLFW 3 port. Its published status reports basic window events, multiple contexts, mouse/keyboard input and Unicode input; custom cursors and controller support are not complete, and AWT support is explicitly not planned. The upstream README reports local testing with Minecraft 1.12.2, Forge 1.12.2 and Minecraft 1.2.5.
 
 O Engine's LWJGL resolver now checks for the three core port classes (`GLFWDisplay`, `GLFWContextImplementation`, `GLFWPeerInfo`) in addition to the LWJGL2 `Sys` native-load contract. A stock LWJGL2 JAR cannot accidentally pass as the Android GLFW fork. This check is a structural gate only: it does not establish that every Minecraft/Forge version's AWT usage is compatible or that Android's native GLFW bridge is wired to the fork's JNI entry points. The launch remains blocked until those native and lifecycle contracts are verified.
+
+## Pinned Mojo LWJGL2 JNI entry-point audit
+
+The pinned lwjgl2-glfw source at bf01b1b05c417b55cffc04d85dbc3a9cfa3b93df was inspected directly in both Java declarations and C implementations. The native library must export these exact JNI symbol families:
+
+- Java_org_lwjgl_opengl_GLFWDisplay_*: sInit, nInit, nGetVideoModes, nGoFullscreen, nReshape, nAttachWindow, nDetachWindow, nSetTitle, nPollEvents, nEnableGrab, and four direct-buffer accessors.
+- Java_org_lwjgl_opengl_GLFWContextImplementation_*: nCreateContext, nSwapBuffers, nMakeCurrent, nIsCurrent, nSetSwapInterval, and nDestroy.
+- Java_org_lwjgl_opengl_GLFWPeerInfo_createHandle.
+
+The Java implementation makes the lifecycle dependency explicit: GLFWDisplay.createWindow obtains the primary ContextGL handle, converts it to the native GLFW window pointer, then calls nAttachWindow. The C implementation stores that pointer as attachedWindow and installs GLFW callbacks. Context creation, make-current, swap and destroy are separate JNI calls implemented by GLFWContextImplementation.
+
+### Consequences for O Engine
+
+1. Finding the three Java classes in a JAR is not sufficient to prove JNI compatibility. The packaged ABI library must export the exact JNI symbols above, and each required symbol must resolve against the Java declaration.
+2. The upstream C code expects a valid GLFW window pointer from the context implementation. O Engine must supply a compatible handle from its chosen GLFW/EGL owner; an Android Surface or ANativeWindow pointer is not interchangeable with a GLFWwindow*.
+3. nSwapBuffers calls glfwSwapBuffers on the supplied GLFW window. It cannot be assumed to present O Engine's LTW-owned EGL surface unless the context/window ownership is deliberately shared.
+4. GLFWDisplay contains AWT Frame/Canvas code paths, while upstream explicitly says AWT support is not planned. A Minecraft version that depends on the parent-Canvas route may fail even if the native JNI exports resolve.
+5. The native library also relies on GLFW C functions and platform state. JNI export checks alone do not prove the linked GLFW implementation is Android-compatible or that input callbacks are fed from O Engine's Android event queue.
+
+**Verification status:** source declarations and native function bodies are confirmed; O Engine has not yet verified the packaged native archive's JNI export table against this complete symbol set, nor exercised attach/context/swap on a device. Keep the LWJGL2 launch blocker until both checks and a real rendered-frame test pass.
