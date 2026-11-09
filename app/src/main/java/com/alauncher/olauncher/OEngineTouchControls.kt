@@ -673,7 +673,7 @@ private fun OEngineMojoDrawer(
     }
     val buttons: @androidx.compose.runtime.Composable () -> Unit = {
         config.buttons.forEachIndexed { index, button ->
-            OEngineMojoDrawerButton(button, config.widthDp, config.heightDp, toggled, onKey)
+            OEngineMojoDrawerButton(button, index, config.widthDp, config.heightDp, toggled, onKey)
         }
     }
     if (!expanded) {
@@ -688,6 +688,7 @@ private fun OEngineMojoDrawer(
                 val y = button.yDp ?: (index * (config.heightDp + 6f))
                 OEngineMojoDrawerButton(
                     button = button,
+                    index = index,
                     parentWidthDp = config.widthDp,
                     parentHeightDp = config.heightDp,
                     toggled = toggled,
