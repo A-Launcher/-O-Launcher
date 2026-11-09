@@ -610,7 +610,7 @@ for item in required:
 android_required = [
     "(EGLContext) window->context.egl.handle",
     "? (EGLSurface) share.window_surface",
-    "? (EGLSurface) share.pbuffer",
+    ": (EGLSurface) share.pbuffer",
     "window->context.egl.surface = target;",
 ]
 for item in android_required:
