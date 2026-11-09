@@ -1,6 +1,9 @@
 package com.alauncher.olauncher
 
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
 import android.view.KeyEvent
 
 /**
@@ -17,6 +20,43 @@ object OEngineMojoControlMapImporter {
         val skippedHiddenControls: Int
     )
 
+    /**
+     * Accepts Mojo's raw JSON format or its LayoutBitmaps ZIP container.
+     * Bitmap assets are intentionally not discarded: maps referencing bitmap
+     * controls are rejected until O Engine can render those assets.
+     */
+    fun importBytes(bytes: ByteArray, viewportWidthPx: Float, viewportHeightPx: Float, density: Float = 1f): ImportResult {
+        require(bytes.isNotEmpty() && bytes.size <= 25 * 1024 * 1024) { "Mojo control map file size is invalid." }
+        val json = if (bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                var layout: ByteArray? = null
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory) continue
+                    if (entry.name == "layout.json") {
+                        val out = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        var total = 0
+                        while (true) {
+                            val count = zip.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            require(total <= 1_048_576) { "Mojo layout.json is too large." }
+                            out.write(buffer, 0, count)
+                        }
+                        layout = out.toByteArray()
+                        break
+                    }
+                }
+                requireNotNull(layout) { "Mojo ZIP control map does not contain layout.json." }
+                    .toString(Charsets.UTF_8)
+            }
+        } else {
+            bytes.toString(Charsets.UTF_8)
+        }
+        return importJson(json, viewportWidthPx, viewportHeightPx, density)
+    }
+
     fun importJson(json: String, viewportWidthPx: Float, viewportHeightPx: Float, density: Float = 1f): ImportResult {
         require(json.length <= 1_048_576) { "Mojo control map JSON is too large." }
         require(viewportWidthPx.isFinite() && viewportWidthPx > 0f)
@@ -26,12 +66,6 @@ object OEngineMojoControlMapImporter {
         val root = JSONObject(json)
         val version = root.optInt("version", -1)
         require(version in 0..9) { "Unsupported Mojo control-map version." }
-        require((root.optJSONArray("mDrawerDataList")?.length() ?: 0) == 0) {
-            "This Mojo map contains drawers; import it in Mojo or export a simple-button layout first."
-        }
-        require((root.optJSONArray("mJoystickDataList")?.length() ?: 0) == 0) {
-            "This Mojo map contains joysticks; this importer cannot preserve them yet."
-        }
 
         val source = root.optJSONArray("mControlDataList")
             ?: throw IllegalArgumentException("Mojo control map has no button list.")
@@ -50,11 +84,12 @@ object OEngineMojoControlMapImporter {
             val y = numericPosition(item, "dynamicY", index)
             val keys = item.optJSONArray("keycodes")
                 ?: throw IllegalArgumentException("Mojo button $index has no keycodes.")
-            val keyCode = (0 until keys.length()).mapNotNull { i ->
-                keys.optInt(i, Int.MIN_VALUE).takeIf { it >= 0 && it != KeyEvent.KEYCODE_UNKNOWN }
-            }.firstOrNull() ?: throw IllegalArgumentException(
-                "Mojo button $index uses a special action or has no physical key mapping."
-            )
+            val mappedKeys = (0 until keys.length()).map { i -> keys.optInt(i, Int.MIN_VALUE) }
+                .filter { it != KeyEvent.KEYCODE_UNKNOWN }
+            require(mappedKeys.size == 1 && mappedKeys.single() >= 0) {
+                "Mojo button $index uses a special action or a multi-key chord that O Engine cannot represent yet."
+            }
+            val keyCode = mappedKeys.single()
             val widthDp = item.optDouble("width", 50.0).toFloat()
             val heightDp = item.optDouble("height", 50.0).toFloat()
             require(widthDp.isFinite() && heightDp.isFinite() && widthDp > 0f && heightDp > 0f) {
@@ -64,6 +99,9 @@ object OEngineMojoControlMapImporter {
             val normalizedHeight = (heightDp * density / viewportHeightPx).coerceIn(.06f, .35f)
             val normalizedX = (x / viewportWidthPx).coerceIn(0f, 1f - normalizedWidth)
             val normalizedY = (y / viewportHeightPx).coerceIn(0f, 1f - normalizedHeight)
+            require(item.optString("bitmapTag").isBlank() || item.optString("bitmapTag") == "null") {
+                "Mojo button $index uses a bitmap asset that O Engine cannot render yet."
+            }
             val label = item.optString("name", "KEY").trim().take(12).ifBlank { "KEY" }
             val id = "mojo_$index"
             result += OEngineTouchControl(
