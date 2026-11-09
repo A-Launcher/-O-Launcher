@@ -76,6 +76,24 @@ class OEngineMojoControlMapImporterTest {
         assertFalse(defaults.absolute)
     }
 
+    @Test fun readsFixedMojoJoystickPositionAndSizeButDoesNotGuessDynamicExpressions() {
+        val fixed = OEngineMojoControlMapImporter.decodeJoystickRuntimeConfig(
+            """{"dynamicX":"42","dynamicY":"128","width":180,"height":160,"absolute":true}"""
+        )
+        assertEquals(42f, fixed.xDp!!)
+        assertEquals(128f, fixed.yDp!!)
+        assertEquals(180f, fixed.widthDp)
+        assertEquals(160f, fixed.heightDp)
+
+        val dynamic = OEngineMojoControlMapImporter.decodeJoystickRuntimeConfig(
+            """{"dynamicX":"${screen_width} - 180","dynamicY":"${bottom} - 20"}"""
+        )
+        assertNull(dynamic.xDp)
+        assertNull(dynamic.yDp)
+        assertEquals(150f, dynamic.widthDp)
+        assertEquals(150f, dynamic.heightDp)
+    }
+
     @Test fun rejectsUnsupportedOrMalformedPreservedCompoundStorage() {
         try {
             OEngineMojoControlMapImporter.decodePreservedCompoundControls(
