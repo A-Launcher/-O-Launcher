@@ -2614,6 +2614,9 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
     var newLoaderVersion by remember { mutableStateOf<String?>(null) }
     var activeInstance by remember { mutableStateOf(OEngineInstanceManager.active(context)) }
     var instances by remember { mutableStateOf(OEngineInstanceManager.list(context)) }
+    var renamingInstance by remember { mutableStateOf<OEngineInstance?>(null) }
+    var renameInstanceDraft by remember { mutableStateOf("") }
+    var deletingInstance by remember { mutableStateOf<OEngineInstance?>(null) }
 
     val optiFineInstallerPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -2790,6 +2793,18 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                                         launchPlanStatus = "Selected instance: ${item.name} · profile: ${instanceProfile}"
                                     })
                                 }
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                renamingInstance = activeInstance
+                                renameInstanceDraft = activeInstance.name
+                            }, enabled = activeInstance.id != "default", modifier = Modifier.weight(1f)) {
+                                Text("RENAME")
+                            }
+                            OutlinedButton(onClick = { deletingInstance = activeInstance },
+                                enabled = activeInstance.id != "default", modifier = Modifier.weight(1f)) {
+                                Text("DELETE")
                             }
                         }
                         Button(onClick = {
@@ -4003,6 +4018,60 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
         }
     }
 
+
+
+    renamingInstance?.let { target ->
+        AlertDialog(
+            onDismissRequest = { renamingInstance = null },
+            title = { Text("Rename instance") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = renameInstanceDraft,
+                    onValueChange = { renameInstanceDraft = it },
+                    singleLine = true,
+                    label = { Text("Instance name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        val renamed = OEngineInstanceManager.rename(context, target.id, renameInstanceDraft)
+                        instances = OEngineInstanceManager.list(context)
+                        if (activeInstance.id == target.id) {
+                            activeInstance = renamed
+                            val oldProfile = profilePreferences.getString("instance_profile.${target.id}", target.name) ?: target.name
+                            profilePreferences.edit().remove("instance_profile.${target.id}")
+                                .putString("instance_profile.${renamed.id}", oldProfile).apply()
+                        }
+                        launchPlanStatus = "Renamed instance to ${renamed.name}."
+                        renamingInstance = null
+                    }.onFailure { launchPlanStatus = it.message ?: "Could not rename instance." }
+                }) { Text("RENAME") }
+            },
+            dismissButton = { TextButton(onClick = { renamingInstance = null }) { Text("CANCEL") } }
+        )
+    }
+    deletingInstance?.let { target ->
+        AlertDialog(
+            onDismissRequest = { deletingInstance = null },
+            title = { Text("Delete ${target.name}?") },
+            text = { Text("This permanently deletes this instance and all files inside it. The Default instance is protected.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        OEngineInstanceManager.delete(context, target.id)
+                        instances = OEngineInstanceManager.list(context)
+                        activeInstance = OEngineInstanceManager.active(context)
+                        activeGameRoot = activeInstance.root
+                        refreshInstalledContent()
+                        deletingInstance = null
+                        launchPlanStatus = "Deleted instance: ${target.name}."
+                    }.onFailure { launchPlanStatus = it.message ?: "Could not delete instance." }
+                }) { Text("DELETE") }
+            },
+            dismissButton = { TextButton(onClick = { deletingInstance = null }) { Text("CANCEL") } }
+        )
+    }
 
     if (showNewInstanceWizard) {
         NewInstanceWizard(
