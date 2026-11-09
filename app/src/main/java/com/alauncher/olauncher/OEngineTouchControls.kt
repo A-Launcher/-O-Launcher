@@ -549,7 +549,7 @@ private fun OEngineMojoForwardLockButton(
     val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(Unit) {
         onDispose {
-            if (locked) latestOnKey(KeyEvent.KEYCODE_CTRL_LEFT, false)
+            if (locked) latestOnKey(KeyEvent.KEYCODE_W, false)
         }
     }
     androidx.compose.foundation.layout.Box(
@@ -559,7 +559,7 @@ private fun OEngineMojoForwardLockButton(
             .border(1.dp, androidx.compose.ui.graphics.Color(0xAAFFFFFF), CircleShape)
             .clickable {
                 locked = !locked
-                onKey(KeyEvent.KEYCODE_CTRL_LEFT, locked)
+                onKey(KeyEvent.KEYCODE_W, locked)
             },
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
