@@ -61,6 +61,16 @@ class OEngineLoaderVersionCatalogTest {
         assertTrue(versions.all { it.loader == OEngineModLoader.NEOFORGE })
     }
 
+    @Test fun neoForgeVersionsUseNumericOrdering() {
+        val versions = OEngineLoaderVersionCatalog.parseNeoForge(
+            "1.21.1",
+            "<metadata><versioning><versions>" +
+                "<version>21.1.9</version><version>21.1.10</version><version>21.1.2</version>" +
+                "</versions></versioning></metadata>"
+        )
+        assertEquals(listOf("21.1.10", "21.1.9", "21.1.2"), versions.map { it.version })
+    }
+
     @Test fun optifineIsNotPresentedAsAnAutomaticallyResolvedInstaller() {
         assertNotNull(OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.OPTIFINE))
         assertNull(OEngineLoaderVersionCatalog.manualInstallerSource(OEngineModLoader.FABRIC))
