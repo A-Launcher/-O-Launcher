@@ -73,6 +73,7 @@ object OEngineInstanceManager {
         val source = File(instancesRoot, id).canonicalFile
         require(isManagedInstanceDirectory(instancesRoot, source)) { "Instance directory is invalid." }
         val newId = instanceIdFor(clean)
+        require(newId != DEFAULT_ID) { "That name is reserved for the Default instance." }
         val destination = File(instancesRoot, newId)
         require(newId == id || !destination.exists()) { "An instance with this name already exists." }
         val metadata = File(source, "instance.properties")
@@ -113,6 +114,8 @@ object OEngineInstanceManager {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val id = instanceIdFor(clean)
+        require(id != DEFAULT_ID) { "That name is reserved for the Default instance." }
+        require(list(context).none { it.id == id }) { "An instance with this name already exists." }
         val parent = File(File(context.filesDir, "minecraft/instances"), id)
         require(!parent.exists()) { "An instance with this name already exists." }
         if (!parent.mkdirs()) throw IllegalStateException("Could not create the instance directory.")
