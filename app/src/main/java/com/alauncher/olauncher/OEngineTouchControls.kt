@@ -477,6 +477,8 @@ private fun OEngineTouchJoystick(
 ) {
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var knobY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var inputX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var inputY by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var activeKeys by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(setOf<Int>()) }
     // DisposableEffect(Unit) is installed only once. Keep the latest pressed-key
     // set so closing the game surface during a joystick gesture cannot strand keys.
@@ -513,25 +515,29 @@ private fun OEngineTouchJoystick(
                         val startY = (point.y - size.height / 2f).coerceIn(-maxTravel, maxTravel)
                         // Mojo absolute=true keeps the visual knob centered while
                         // using the touch position as the initial movement vector.
+                        inputX = startX
+                        inputY = startY
                         knobX = if (fixedCenter) 0f else startX
                         knobY = if (fixedCenter) 0f else startY
-                        updateKeys(startX, startY, threshold)
+                        updateKeys(inputX, inputY, threshold)
                     },
                     onDrag = { change, amount ->
                         change.consume()
                         if (fixedCenter) {
-                            val currentX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
-                            val currentY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
-                            updateKeys(currentX, currentY, threshold)
+                            inputX = (inputX + amount.x).coerceIn(-maxTravel, maxTravel)
+                            inputY = (inputY + amount.y).coerceIn(-maxTravel, maxTravel)
+                            updateKeys(inputX, inputY, threshold)
                         } else {
                             knobX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
                             knobY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
-                            updateKeys(knobX, knobY, threshold)
+                            inputX = knobX
+                            inputY = knobY
+                            updateKeys(inputX, inputY, threshold)
                         }
                     },
                     onDragEnd = {
                         activeKeys.forEach { onKey(it, false) }
-                        activeKeys = emptySet(); knobX = 0f; knobY = 0f
+                        activeKeys = emptySet(); knobX = 0f; knobY = 0f; inputX = 0f; inputY = 0f
                     },
                     onDragCancel = {
                         activeKeys.forEach { onKey(it, false) }
