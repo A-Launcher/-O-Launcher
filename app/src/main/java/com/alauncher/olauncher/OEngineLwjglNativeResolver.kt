@@ -196,10 +196,14 @@ object OEngineLwjglNativeResolver {
         // LWJGL 3.3.3's generated GLFW class resolves C function addresses from the
         // configured shared library. This is a C ABI contract, not a GLFW JNI-export
         // contract; the ART-side Mojo JNI shim is a separate Android lifecycle API.
-        val legacyNativeName = if (android.os.Build.SUPPORTED_ABIS?.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
+        // Resolve the actual installed archive filename instead of guessing from
+        // SUPPORTED_ABIS (which may include ABIs other than the running process ABI).
+        val legacyNativeCandidates = listOf("liblwjgl64.so", "liblwjgl.so")
         val legacyNativeLibrary = legacyNativeLibraryDirectories.asSequence()
-            .mapNotNull { directory -> runCatching { File(directory, legacyNativeName).canonicalFile }.getOrNull() }
+            .flatMap { directory -> legacyNativeCandidates.asSequence().map { File(directory, it) } }
+            .mapNotNull { file -> runCatching { file.canonicalFile }.getOrNull() }
             .firstOrNull { it.isFile && it.length() > 0L }
+        val legacyNativeName = legacyNativeLibrary?.name ?: legacyNativeCandidates.joinToString(" or ")
         val legacyNativeLibraryConfigured = legacyNativeLibrary != null
         val glfwLibrary = androidGlfwLibrary?.canonicalFile
         val androidGlfwLibraryConfigured =
@@ -274,15 +278,16 @@ object OEngineLwjglNativeResolver {
         }
 
         when (surface) {
-            OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD ->
+            OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD -> {
                 if (!legacyNativeLibraryConfigured) {
-                    blockers += "LWJGL 2 uses org.lwjgl.librarypath/System.loadLibrary, but the ABI-matched $legacyNativeName is missing from the configured native directories."
+                    blockers += "LWJGL 2 uses org.lwjgl.librarypath/System.loadLibrary, but neither supported Mojo native filename ($legacyNativeName) is present in the configured native directories."
                 } else if (!androidGlfwLibraryConfigured) {
                     blockers += "LWJGL 2 native library is staged, but its required Android GLFW dependency is not staged at an absolute libglfw.so path."
                 } else {
                     warnings += "Pinned Mojo LWJGL2 JNI library and Android GLFW dependency are staged; O Engine supplies their directories through java.library.path and org.lwjgl.librarypath. Actual System.loadLibrary resolution remains device-unverified."
                 }
                 blockers += "The GL4ES/OpenGL context and swap bridge is not yet active. The LWJGL 3 org.lwjgl.opengl.libname/ndlopen route cannot replace the LWJGL 2 loader contract."
+            }
             OEngineLwjglLoaderSurface.UPSTREAM_LWJGL3_LINUX -> {
                 if (!dynamicLoaderPresent || !ndlopenSignaturePresent) {
                     blockers += "LWJGL 3 native-loader interception requires DynamicLinkLoader.ndlopen(long,int)."
