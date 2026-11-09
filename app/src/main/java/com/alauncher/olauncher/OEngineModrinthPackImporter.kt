@@ -127,8 +127,19 @@ object OEngineModrinthPackImporter {
     }
 
     private fun safeDestination(root: File, relative: String): File {
-        val destination = File(root, relative).canonicalFile
-        require(destination.toPath().startsWith(root.toPath()) && destination != root) { "Archive path escapes the instance." }
+        val rootPath = root.toPath().toAbsolutePath().normalize()
+        val destinationPath = File(root, relative).toPath().toAbsolutePath().normalize()
+        require(destinationPath.startsWith(rootPath) && destinationPath != rootPath) {
+            "Archive path escapes the instance."
+        }
+        var current = rootPath
+        for (part in rootPath.relativize(destinationPath)) {
+            current = current.resolve(part)
+            require(!java.nio.file.Files.isSymbolicLink(current)) {
+                "Modpack paths cannot traverse or replace symbolic links."
+            }
+        }
+        val destination = destinationPath.toFile()
         require(!destination.isDirectory) { "A modpack file cannot replace an instance directory." }
         return destination
     }
@@ -150,9 +161,19 @@ object OEngineModrinthPackImporter {
     /** Re-resolve after parent creation so a symlinked parent cannot redirect extraction outside the instance. */
     private fun verifySafeDestination(root: File, destination: File) {
         val canonicalRoot = root.canonicalFile.toPath()
-        val canonicalParent = destination.parentFile?.canonicalFile?.toPath()
-            ?: error("Modpack destination has no parent directory.")
-        require(canonicalParent.startsWith(canonicalRoot)) { "Modpack destination parent escapes the instance." }
+        val parent = destination.parentFile ?: error("Modpack destination has no parent directory.")
+        var current = canonicalRoot
+        val parentPath = parent.toPath().toAbsolutePath().normalize()
+        require(parentPath.startsWith(canonicalRoot)) { "Modpack destination parent escapes the instance." }
+        for (part in canonicalRoot.relativize(parentPath)) {
+            current = current.resolve(part)
+            require(!java.nio.file.Files.isSymbolicLink(current)) {
+                "Modpack destination cannot traverse a symbolic link."
+            }
+        }
+        require(!java.nio.file.Files.isSymbolicLink(destination.toPath())) {
+            "Modpack destination cannot replace a symbolic link."
+        }
         require(!destination.isDirectory) { "A modpack file cannot replace an instance directory." }
     }
 
@@ -269,17 +290,21 @@ object OEngineModrinthPackImporter {
     }
 
     private fun moveIntoPlace(temp: File, destination: File) {
-        val backup = File(destination.parentFile, destination.name + ".oengine-backup")
-        backup.delete()
-        if (destination.exists() && !destination.renameTo(backup)) {
+        // Never delete a predictable backup filename: it may be a user's own file.
+        val backup = if (destination.exists()) {
+            File.createTempFile(".oengine-backup-", ".bak", destination.parentFile).also {
+                require(it.delete()) { "Could not prepare a safe replacement backup." }
+            }
+        } else null
+        if (backup != null && !destination.renameTo(backup)) {
             temp.delete()
             error("Could not safely replace ${destination.name}.")
         }
         if (!temp.renameTo(destination)) {
-            if (backup.exists()) backup.renameTo(destination)
+            if (backup != null && backup.exists()) backup.renameTo(destination)
             temp.delete()
             error("Could not move verified file into place.")
         }
-        backup.delete()
+        backup?.delete()
     }
 }
