@@ -49,6 +49,36 @@ class OEngineMojoControlMapImporterTest {
         assertTrue(imported.preservedJoystickJson.single().contains("absolute"))
     }
 
+    @Test fun roundTripsPreservedCompoundControlsForDurableStorage() {
+        val original = OEngineMojoControlMapImporter.PreservedCompoundControls(
+            drawers = listOf("""{"orientation":"RIGHT","buttonProperties":[{"name":"Open","keycodes":[30,-1]}]}"""),
+            joysticks = listOf("""{"name":"Move","forwardLock":true,"deadZone":0.2}""")
+        )
+        val encoded = OEngineMojoControlMapImporter.encodePreservedCompoundControls(original)
+        val decoded = OEngineMojoControlMapImporter.decodePreservedCompoundControls(encoded)
+        assertEquals(1, decoded.drawers.size)
+        assertTrue(decoded.drawers.single().contains("buttonProperties"))
+        assertTrue(decoded.drawers.single().contains("Open"))
+        assertEquals(1, decoded.joysticks.size)
+        assertTrue(decoded.joysticks.single().contains("forwardLock"))
+        assertTrue(decoded.joysticks.single().contains("deadZone"))
+    }
+
+    @Test fun rejectsUnsupportedOrMalformedPreservedCompoundStorage() {
+        try {
+            OEngineMojoControlMapImporter.decodePreservedCompoundControls(
+                """{"format":"other","version":1,"drawers":[],"joysticks":[]}"""
+            )
+            fail("Unknown compound-control storage formats must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+        try {
+            OEngineMojoControlMapImporter.decodePreservedCompoundControls(
+                """{"format":"oengine-mojo-compound-preserved","version":1,"drawers":["not-json"],"joysticks":[]}"""
+            )
+            fail("Malformed preserved definitions must be rejected.")
+        } catch (_: Exception) { }
+    }
+
     @Test fun rejectsMalformedCompoundControlEntriesInsteadOfSilentlyDroppingThem() {
         val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[null]}"""
         try {
