@@ -246,6 +246,7 @@ fun OEngineTouchControlsOverlay(
             OEngineTouchJoystick(
                 modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomStart)
                     .padding(start = 24.dp, bottom = 28.dp),
+                fixedCenter = mojoJoystickConfig?.absolute == true,
                 onKey = onKey
             )
             if (mojoJoystickConfig?.forwardLock == true) {
@@ -461,6 +462,7 @@ fun OEngineTouchControlsOverlay(
 @androidx.compose.runtime.Composable
 private fun OEngineTouchJoystick(
     modifier: androidx.compose.ui.Modifier,
+    fixedCenter: Boolean = false,
     onKey: (Int, Boolean) -> Unit
 ) {
     var knobX by androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
@@ -497,15 +499,25 @@ private fun OEngineTouchJoystick(
                 val threshold = maxTravel * .35f
                 detectDragGestures(
                     onDragStart = { point ->
-                        knobX = (point.x - size.width / 2f).coerceIn(-maxTravel, maxTravel)
-                        knobY = (point.y - size.height / 2f).coerceIn(-maxTravel, maxTravel)
-                        updateKeys(knobX, knobY, threshold)
+                        val startX = (point.x - size.width / 2f).coerceIn(-maxTravel, maxTravel)
+                        val startY = (point.y - size.height / 2f).coerceIn(-maxTravel, maxTravel)
+                        // Mojo absolute=true keeps the visual knob centered while
+                        // using the touch position as the initial movement vector.
+                        knobX = if (fixedCenter) 0f else startX
+                        knobY = if (fixedCenter) 0f else startY
+                        updateKeys(startX, startY, threshold)
                     },
                     onDrag = { change, amount ->
                         change.consume()
-                        knobX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
-                        knobY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
-                        updateKeys(knobX, knobY, threshold)
+                        if (fixedCenter) {
+                            val currentX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
+                            val currentY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
+                            updateKeys(currentX, currentY, threshold)
+                        } else {
+                            knobX = (knobX + amount.x).coerceIn(-maxTravel, maxTravel)
+                            knobY = (knobY + amount.y).coerceIn(-maxTravel, maxTravel)
+                            updateKeys(knobX, knobY, threshold)
+                        }
                     },
                     onDragEnd = {
                         activeKeys.forEach { onKey(it, false) }
