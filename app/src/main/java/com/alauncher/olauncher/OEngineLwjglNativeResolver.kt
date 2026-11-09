@@ -31,6 +31,7 @@ data class OEngineLwjglResolution(
     val glfwModulePresent: Boolean,
     val glfwJavaClassPresent: Boolean,
     val androidGlfwLibraryConfigured: Boolean,
+    val mojoGlfwDisplayClassPresent: Boolean,
     val blockers: List<String>,
     val warnings: List<String>
 ) {
@@ -53,6 +54,9 @@ object OEngineLwjglNativeResolver {
     const val DYNAMIC_LINK_LOADER_CLASS_NAME = "org.lwjgl.system.linux.DynamicLinkLoader"
     private const val DYNAMIC_LOADER_CLASS = "org/lwjgl/system/linux/DynamicLinkLoader.class"
     private const val LWJGL2_SYS_CLASS = "org/lwjgl/Sys.class"
+    private const val MOJO_GLFW_DISPLAY_CLASS = "org/lwjgl/opengl/GLFWDisplay.class"
+    private const val MOJO_GLFW_CONTEXT_CLASS = "org/lwjgl/opengl/GLFWContextImplementation.class"
+    private const val MOJO_GLFW_PEER_CLASS = "org/lwjgl/opengl/GLFWPeerInfo.class"
     private const val LWJGL3_GLFW_CLASS = "org/lwjgl/glfw/GLFW.class"
 
 
@@ -204,6 +208,7 @@ object OEngineLwjglNativeResolver {
         var ndlopenSignaturePresent = false
         var lwjgl2SysClassPresent = false
         var lwjgl2SystemLoadMarkerPresent = false
+        var mojoGlfwDisplayClassPresent = false
         if (coreJar != null && coreJar.isFile) {
             try {
                 JarFile(coreJar).use { jar ->
@@ -213,6 +218,9 @@ object OEngineLwjglNativeResolver {
                         val bytes = jar.getInputStream(entry).use { it.readBytes() }
                         ndlopenSignaturePresent = hasStaticNativeNdlopen(bytes)
                     }
+                    mojoGlfwDisplayClassPresent = listOf(
+                        MOJO_GLFW_DISPLAY_CLASS, MOJO_GLFW_CONTEXT_CLASS, MOJO_GLFW_PEER_CLASS
+                    ).all { jar.getJarEntry(it) != null }
                     val sysEntry = jar.getJarEntry(LWJGL2_SYS_CLASS)
                     lwjgl2SysClassPresent = sysEntry != null
                     if (sysEntry != null) {
