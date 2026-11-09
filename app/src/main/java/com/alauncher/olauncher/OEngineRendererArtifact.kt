@@ -96,6 +96,9 @@ object OEngineRendererArtifactGate {
             val elfClass = input.readUnsignedByte()
             val dataEncoding = input.readUnsignedByte()
             if (dataEncoding != 1) return null // Android supported ABIs use little-endian ELF.
+            input.seek(16L)
+            val elfType = input.readUnsignedByte() or (input.readUnsignedByte() shl 8)
+            if (elfType != 3) return null // ET_DYN is required for a shared object.
             input.seek(18L)
             val machine = input.readUnsignedByte() or (input.readUnsignedByte() shl 8)
             val bits = when (elfClass) {
