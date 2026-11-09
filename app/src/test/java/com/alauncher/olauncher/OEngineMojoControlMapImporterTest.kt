@@ -55,4 +55,33 @@ class OEngineMojoControlMapImporterTest {
             fail("Mojo special actions need a real action bridge.")
         } catch (_: IllegalArgumentException) { }
     }
+    @Test fun importsMojoLayoutBitmapsZipContainer() {
+        val json = """{"version":9,"mControlDataList":[{"name":"Forward","keycodes":[ W_KEYCODE_PLACEHOLDER , -1],"dynamicX":"10","dynamicY":"20","width":50,"height":50}],"mDrawerDataList":[],"mJoystickDataList":[]}""".replace("W_KEYCODE_PLACEHOLDER", "51")
+        val output = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(output).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("layout.json"))
+            zip.write(json.toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+            zip.putNextEntry(java.util.zip.ZipEntry("assets/unused.png"))
+            zip.write(byteArrayOf(1, 2, 3))
+            zip.closeEntry()
+        }
+        val imported = OEngineMojoControlMapImporter.importBytes(output.toByteArray(), 1000f, 800f)
+        assertEquals(1, imported.controls.size)
+        assertEquals(KeyEvent.KEYCODE_W, imported.controls.single().keyCode)
+    }
+
+    @Test fun rejectsMojoZipWithoutLayoutJson() {
+        val output = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(output).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("assets/unused.png"))
+            zip.write(byteArrayOf(1, 2, 3))
+            zip.closeEntry()
+        }
+        try {
+            OEngineMojoControlMapImporter.importBytes(output.toByteArray(), 1000f, 800f)
+            fail("A Mojo ZIP without layout.json must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
 }
