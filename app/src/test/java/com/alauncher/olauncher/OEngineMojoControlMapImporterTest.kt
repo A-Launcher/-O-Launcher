@@ -32,12 +32,29 @@ class OEngineMojoControlMapImporterTest {
         } catch (_: IllegalArgumentException) { }
     }
 
-    @Test fun importsButtonListEvenWhenMojoLayoutAlsoContainsCompoundControls() {
-        val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29,-1],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[{}],"mJoystickDataList":[{}]}"""
+    @Test fun preservesNestedMojoDrawerAndJoystickDefinitionsWithoutClaimingTheyAreExecutable() {
+        val json = """{"version":9,
+            "mControlDataList":[{"name":"A","keycodes":[29,-1],"dynamicX":"1","dynamicY":"1"}],
+            "mDrawerDataList":[{"orientation":"RIGHT","properties":{"name":"Tools"},"buttonProperties":[{"name":"One","keycodes":[30,-1]}]}],
+            "mJoystickDataList":[{"name":"Move","forwardLock":true,"absolute":false,"dynamicX":"12","dynamicY":"34"}]}"""
         val imported = OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
         assertEquals(1, imported.controls.size)
         assertEquals(1, imported.unsupportedDrawers)
         assertEquals(1, imported.unsupportedJoysticks)
+        assertEquals(1, imported.preservedDrawerJson.size)
+        assertTrue(imported.preservedDrawerJson.single().contains("buttonProperties"))
+        assertTrue(imported.preservedDrawerJson.single().contains("RIGHT"))
+        assertEquals(1, imported.preservedJoystickJson.size)
+        assertTrue(imported.preservedJoystickJson.single().contains("forwardLock"))
+        assertTrue(imported.preservedJoystickJson.single().contains("absolute"))
+    }
+
+    @Test fun rejectsMalformedCompoundControlEntriesInsteadOfSilentlyDroppingThem() {
+        val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[null]}"""
+        try {
+            OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
+            fail("Malformed compound controls must not be silently discarded.")
+        } catch (_: IllegalArgumentException) { }
     }
 
     @Test fun rejectsMultiKeyChordsRatherThanDroppingPartOfTheAction() {
