@@ -112,7 +112,7 @@ class OEngineLwjglNativeResolverTest {
             assertEquals(OEngineLwjglGeneration.LWJGL2, result.generation)
             assertEquals(OEngineLwjglLoaderSurface.LEGACY_LWJGL2_SYSTEM_LOAD, result.loaderSurface)
             assertTrue(result.blockers.any { it.contains("org.lwjgl.librarypath/System.loadLibrary") })
-            assertTrue(result.blockers.any { it.contains("matching liblwjgl JNI library loads") })
+            assertTrue(result.blockers.any { it.contains("ABI-matched") })
             assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
             assertFalse(result.blockers.any { it.contains("org.lwjgl.opengl.libname interception") })
         } finally { root.deleteRecursively() }
@@ -130,7 +130,7 @@ class OEngineLwjglNativeResolverTest {
                 "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
             val result = OEngineLwjglNativeResolver.resolve(listOf(core))
             assertTrue(result.mojoGlfwDisplayClassPresent)
-            assertTrue(result.blockers.any { it.contains("matching liblwjgl JNI library loads") })
+            assertTrue(result.blockers.any { it.contains("ABI-matched") })
         } finally { root.deleteRecursively() }
     }
 
@@ -168,6 +168,33 @@ class OEngineLwjglNativeResolverTest {
             val resolution = OEngineLwjglNativeResolver.resolve(listOf(core))
             assertFalse(resolution.ndlopenSignaturePresent)
             assertTrue(resolution.blockers.any { it.contains("ndlopen(long,int)") })
+        } finally { root.deleteRecursively() }
+    }
+ 
+    @Test
+    fun recognizesStagedMojoLwjgl2NativeLibraryAndGlfwDependency() {
+        val root = Files.createTempDirectory("oengine-mojo-lwjgl2-native").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray(),
+                "org/lwjgl/opengl/GLFWDisplay.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWContextImplementation.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
+            val nativeName = if (android.os.Build.SUPPORTED_ABIS.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
+            val nativeDirectory = File(root, "versions/test/natives").apply { mkdirs() }
+            val nativeLibrary = File(nativeDirectory, nativeName).apply { writeBytes(byteArrayOf(1, 2, 3)) }
+            val glfw = File(root, "android-glfw/libglfw.so").apply {
+                parentFile?.mkdirs()
+                writeBytes(byteArrayOf(1, 2, 3))
+            }
+            val result = OEngineLwjglNativeResolver.resolve(
+                listOf(core), glfw, listOf(nativeDirectory)
+            )
+
+            assertTrue(result.legacyNativeLibraryConfigured)
+            assertEquals(nativeLibrary.canonicalFile, result.legacyNativeLibraryPath)
+            assertTrue(result.warnings.any { it.contains("JNI library and Android GLFW dependency are both staged") })
+            assertTrue(result.blockers.any { it.contains("GL4ES/OpenGL context and swap bridge") })
         } finally { root.deleteRecursively() }
     }
 
