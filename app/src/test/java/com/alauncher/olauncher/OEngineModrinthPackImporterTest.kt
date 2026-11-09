@@ -50,6 +50,25 @@ class OEngineModrinthPackImporterTest {
         } finally { temp.deleteRecursively() }
     }
 
+    @Test fun importsUnicodeOverrideFilenames() {
+        val temp = Files.createTempDirectory("mrpack-unicode").toFile()
+        try {
+            val archive = File(temp, "unicode.mrpack")
+            ZipOutputStream(archive.outputStream()).use { zip ->
+                zip.putNextEntry(ZipEntry("modrinth.index.json"))
+                zip.write("""{"formatVersion":1,"dependencies":{"minecraft":"1.20.1"},"files":[]}""".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("overrides/config/资源包/背景 музыка.txt"))
+                zip.write("unicode-content".toByteArray())
+                zip.closeEntry()
+            }
+            val game = File(temp, "game")
+            val result = OEngineModrinthPackImporter.importPack(archive, game)
+            assertEquals(1, result.copiedOverrideFiles)
+            assertEquals("unicode-content", File(game, "config/资源包/背景 музыка.txt").readText())
+        } finally { temp.deleteRecursively() }
+    }
+
     @Test fun invalidArchiveDoesNotCreateFilesOutsideInstance() {
         val temp = Files.createTempDirectory("mrpack-invalid").toFile()
         try {
