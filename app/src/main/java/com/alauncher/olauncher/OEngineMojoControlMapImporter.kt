@@ -64,6 +64,82 @@ object OEngineMojoControlMapImporter {
         )
     }
 
+    data class DrawerButtonConfig(val label: String, val keyCode: Int, val toggle: Boolean)
+    data class DrawerRuntimeConfig(
+        val label: String,
+        val xDp: Float?,
+        val yDp: Float?,
+        val widthDp: Float,
+        val heightDp: Float,
+        val orientation: String,
+        val buttons: List<DrawerButtonConfig>
+    )
+
+    /**
+     * Decode the safe physical-key subset of Mojo drawers. FREE orientation and
+     * dynamic expressions are retained in storage but are not guessed here.
+     */
+    fun decodeDrawerRuntimeConfig(json: String): DrawerRuntimeConfig {
+        require(json.length <= 65_536) { "Mojo drawer definition is too large." }
+        val drawer = JSONObject(json)
+        val properties = drawer.optJSONObject("properties")
+            ?: throw IllegalArgumentException("Mojo drawer has no parent properties.")
+        val orientation = drawer.optString("orientation", "LEFT").uppercase()
+        require(orientation in setOf("LEFT", "RIGHT", "UP", "DOWN", "FREE")) {
+            "Mojo drawer orientation is invalid."
+        }
+        val width = properties.optDouble("width", 50.0).toFloat()
+        val height = properties.optDouble("height", 50.0).toFloat()
+        require(width.isFinite() && height.isFinite() && width in 24f..240f && height in 24f..240f) {
+            "Mojo drawer dimensions are outside supported bounds."
+        }
+        fun fixedPosition(field: String): Float? {
+            val raw = properties.optString(field, "")
+            return raw.toFloatOrNull()?.takeIf { it.isFinite() && it >= 0f }
+        }
+        val source = drawer.optJSONArray("buttonProperties") ?: JSONArray()
+        require(source.length() in 1..24) { "Mojo drawer must contain 1–24 buttons." }
+        val allowedKeys = setOf(
+            KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
+            KeyEvent.KEYCODE_SPACE, KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_CTRL_LEFT,
+            KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_Q, KeyEvent.KEYCODE_F, KeyEvent.KEYCODE_C,
+            KeyEvent.KEYCODE_1, KeyEvent.KEYCODE_2, KeyEvent.KEYCODE_3, KeyEvent.KEYCODE_4,
+            KeyEvent.KEYCODE_5, KeyEvent.KEYCODE_6, KeyEvent.KEYCODE_7, KeyEvent.KEYCODE_8,
+            KeyEvent.KEYCODE_9
+        )
+        val buttons = (0 until source.length()).map { index ->
+            val item = source.optJSONObject(index)
+                ?: throw IllegalArgumentException("Malformed Mojo drawer button at index $index.")
+            require(item.optString("bitmapTag").isBlank() || item.optString("bitmapTag") == "null") {
+                "Mojo drawer button uses an unsupported bitmap."
+            }
+            val keys = item.optJSONArray("keycodes")
+                ?: throw IllegalArgumentException("Mojo drawer button has no keycodes.")
+            val mapped = (0 until keys.length()).map { keys.optInt(it, Int.MIN_VALUE) }
+                .filter { it != -1 && it != KeyEvent.KEYCODE_UNKNOWN }
+            require(mapped.size == 1 && mapped.single() in allowedKeys) {
+                "Mojo drawer button uses an unsupported action or key."
+            }
+            DrawerButtonConfig(
+                label = item.optString("name", "KEY").trim().take(12).ifBlank { "KEY" },
+                keyCode = mapped.single(),
+                toggle = item.optBoolean("isToggle", false)
+            )
+        }
+        return DrawerRuntimeConfig(
+            label = properties.optString("name", "Drawer").trim().take(12).ifBlank { "Drawer" },
+            xDp = fixedPosition("dynamicX"),
+            yDp = fixedPosition("dynamicY"),
+            widthDp = width,
+            heightDp = height,
+            orientation = orientation,
+            buttons = buttons
+        )
+    }
+
+    fun loadDrawerRuntimeConfigs(context: android.content.Context): List<DrawerRuntimeConfig> =
+        loadPreservedCompoundControls(context).drawers.map(::decodeDrawerRuntimeConfig)
+
     fun loadJoystickRuntimeConfigs(context: android.content.Context): List<JoystickRuntimeConfig> =
         loadPreservedCompoundControls(context).joysticks.map(::decodeJoystickRuntimeConfig)
 
