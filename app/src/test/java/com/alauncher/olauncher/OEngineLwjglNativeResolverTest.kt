@@ -120,6 +120,21 @@ class OEngineLwjglNativeResolverTest {
 
 
     @Test
+    fun recognizesPinnedMojoLwjgl2GlfwPortClasses() {
+        val root = Files.createTempDirectory("oengine-mojo-lwjgl2").toFile()
+        try {
+            val core = jar(root, "org/lwjgl/lwjgl/2.9.4-mojo/lwjgl-2.9.4-mojo.jar",
+                "org/lwjgl/Sys.class" to "org.lwjgl.librarypath loadLibrary java/lang/System".toByteArray(),
+                "org/lwjgl/opengl/GLFWDisplay.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWContextImplementation.class" to byteArrayOf(1),
+                "org/lwjgl/opengl/GLFWPeerInfo.class" to byteArrayOf(1))
+            val result = OEngineLwjglNativeResolver.resolve(listOf(core))
+            assertTrue(result.mojoGlfwDisplayClassPresent)
+            assertTrue(result.blockers.any { it.contains("matching liblwjgl JNI library loads") })
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test
     fun blocksLwjgl2WhenSysNativeLoadContractCannotBeVerified() {
         val root = Files.createTempDirectory("oengine-lwjgl2-no-sys-contract").toFile()
         try {
