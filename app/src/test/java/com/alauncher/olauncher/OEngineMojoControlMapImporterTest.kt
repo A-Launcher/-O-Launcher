@@ -36,6 +36,8 @@ class OEngineMojoControlMapImporterTest {
         val json = """{"version":9,"mControlDataList":[{"name":"A","keycodes":[29,-1],"dynamicX":"1","dynamicY":"1"}],"mDrawerDataList":[{}],"mJoystickDataList":[{}]}"""
         val imported = OEngineMojoControlMapImporter.importJson(json, 1000f, 800f)
         assertEquals(1, imported.controls.size)
+        assertEquals(1, imported.unsupportedDrawers)
+        assertEquals(1, imported.unsupportedJoysticks)
     }
 
     @Test fun rejectsMultiKeyChordsRatherThanDroppingPartOfTheAction() {
