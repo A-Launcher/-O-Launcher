@@ -196,7 +196,7 @@ object OEngineLwjglNativeResolver {
         // LWJGL 3.3.3's generated GLFW class resolves C function addresses from the
         // configured shared library. This is a C ABI contract, not a GLFW JNI-export
         // contract; the ART-side Mojo JNI shim is a separate Android lifecycle API.
-        val legacyNativeName = if (android.os.Build.SUPPORTED_ABIS.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
+        val legacyNativeName = if (android.os.Build.SUPPORTED_ABIS?.firstOrNull() in setOf("arm64-v8a", "x86_64")) "liblwjgl64.so" else "liblwjgl.so"
         val legacyNativeLibrary = legacyNativeLibraryDirectories.asSequence()
             .mapNotNull { directory -> runCatching { File(directory, legacyNativeName).canonicalFile }.getOrNull() }
             .firstOrNull { it.isFile && it.length() > 0L }
