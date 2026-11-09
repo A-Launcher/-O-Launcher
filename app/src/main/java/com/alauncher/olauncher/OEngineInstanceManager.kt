@@ -68,8 +68,7 @@ object OEngineInstanceManager {
         require(id != DEFAULT_ID) { "The Default instance cannot be renamed." }
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
-        val current = list(context).firstOrNull { it.id == id }
-            ?: throw IllegalArgumentException("Unknown O Launcher instance.")
+        require(list(context).any { it.id == id }) { "Unknown O Launcher instance." }
         val instancesRoot = File(File(context.filesDir, "minecraft"), "instances").canonicalFile
         val source = File(instancesRoot, id).canonicalFile
         require(isManagedInstanceDirectory(instancesRoot, source)) { "Instance directory is invalid." }
