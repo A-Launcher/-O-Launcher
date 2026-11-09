@@ -657,6 +657,8 @@ private fun OEngineMojoDrawer(
         if (expanded) {
             val horizontal = config.orientation == "LEFT" || config.orientation == "RIGHT"
             val panelModifier = androidx.compose.ui.Modifier
+                .width(config.widthDp.dp)
+                .height(config.heightDp.dp)
                 .background(androidx.compose.ui.graphics.Color(0xCC171717), RoundedCornerShape(10.dp))
                 .border(1.dp, androidx.compose.ui.graphics.Color(0x88FFFFFF), RoundedCornerShape(10.dp))
                 .padding(6.dp)
