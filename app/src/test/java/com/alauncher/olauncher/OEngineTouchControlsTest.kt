@@ -126,6 +126,19 @@ class OEngineTouchControlsTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun touchControlsRejectKeysOutsideTheNativeGlfwRange() {
+        val controls = OEngineTouchControls.defaults()
+        try {
+            OEngineTouchControls.add(controls, "INVALID", 349)
+            fail("Keys outside the native GLFW range must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+        val json = OEngineTouchControls.encode(controls).replace("\"keyCode\":87", "\"keyCode\":999")
+        try {
+            OEngineTouchControls.decode(json)
+            fail("Imported layouts must reject keys the native input bridge cannot accept.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun controlDimensionsAndCoordinatesAreValidated() {
         try {
             OEngineTouchControl("bad", "BAD", KeyEvent.KEYCODE_A, 1.5f, .5f)
