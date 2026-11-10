@@ -114,9 +114,9 @@ class OEngineGameProcessClient(
         if (surfaceRequestPending.compareAndSet(true, false)) {
             timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
             OEngineSessionLog.append(appContext, "IPC_GAME_SURFACE_ABORTED",
-                "Game process disconnected before the Surface transition completed", error)
+                error.message ?: "Android Surface transition was aborted.", error)
             onGameSurface(Result.failure(IllegalStateException(
-                "Game process disconnected before the Android Surface transition completed.", error
+                error.message ?: "Android Surface transition was aborted.", error
             )))
         }
     }
@@ -587,9 +587,12 @@ class OEngineGameProcessClient(
     fun detachGameSurface(): Boolean {
         val target = if (mainInvocationAttempted.get()) surfaceMessenger else serviceMessenger
         if (closed.get() || target == null) return false
+        // A detach supersedes any outstanding attach/resize request. Resolve its
+        // callback before cancelling the timeout, otherwise the caller waits forever.
+        failPendingSurface(IllegalStateException(
+            "Android Surface attachment was cancelled because a detach was requested."
+        ))
         surfaceRequestId.incrementAndGet()
-        surfaceRequestPending.set(false)
-        timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
         return try {
             target.send(Message.obtain(null, OEngineGameProcessService.MSG_DETACH_GAME_SURFACE))
             true
