@@ -326,6 +326,8 @@ class OEngineGameProcessClient(
                 report(Result.failure(error))
                 failPendingOperations(error)
                 serviceMessenger = null
+                inputMessenger = null
+                surfaceMessenger = null
             }
         }
 
@@ -336,6 +338,8 @@ class OEngineGameProcessClient(
                 report(Result.failure(error))
                 failPendingOperations(error)
                 serviceMessenger = null
+                inputMessenger = null
+                surfaceMessenger = null
             }
             close()
         }
