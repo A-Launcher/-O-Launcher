@@ -110,7 +110,18 @@ class OEngineGameProcessClient(
         }
     }
 
+    private fun failPendingSurface(error: Throwable) {
+        if (surfaceRequestPending.compareAndSet(true, false)) {
+            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+            OEngineSessionLog.append(appContext, "IPC_GAME_SURFACE_ABORTED",
+                "Game process disconnected before the Surface transition completed", error)
+            onGameSurface(Result.failure(IllegalStateException(
+                "Game process disconnected before the Android Surface transition completed.", error
+            )))
+        }
+    }
     private fun failPendingOperations(error: Throwable) {
+        failPendingSurface(error)
         if (probeRequestPending.compareAndSet(true, false) && probeResponseDelivered.compareAndSet(false, true)) {
             OEngineSessionLog.append(appContext, "IPC_PROBE_ABORTED", "Game process disconnected during JVM linker probe", error)
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
@@ -614,8 +625,7 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
             timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
-            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
-            surfaceRequestPending.set(false)
+            failPendingSurface(IllegalStateException("The game-process client was closed before the Surface transition completed."))
             surfaceRequestId.incrementAndGet()
             serviceMessenger = null
             inputMessenger = null
