@@ -50,6 +50,15 @@ class OEngineTouchControlsTest {
         assertEquals(controls, reduced)
     }
 
+    @Test fun releasingHeldToggleUsesItsOriginalKeyBeforeRemap() {
+        val controls = OEngineTouchControls.defaults()
+        val oldKey = OEngineTouchControls.keyCodeToRelease(controls, "sneak", true)
+        val remapped = OEngineTouchControls.remap(controls, "sneak", KeyEvent.KEYCODE_F)
+        assertEquals(KeyEvent.KEYCODE_SHIFT_LEFT, oldKey)
+        assertEquals(KeyEvent.KEYCODE_F, remapped.first { it.id == "sneak" }.keyCode)
+        assertNull(OEngineTouchControls.keyCodeToRelease(remapped, "sneak", false))
+    }
+
     @Test fun remapChangesOnlyTheSelectedControlsKey() {
         val controls = OEngineTouchControls.defaults()
         val remapped = OEngineTouchControls.remap(controls, "jump", KeyEvent.KEYCODE_F)
