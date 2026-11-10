@@ -153,7 +153,7 @@ object OEngineTouchControls {
     }
 
     fun remap(controls: List<OEngineTouchControl>, id: String, keyCode: Int): List<OEngineTouchControl> {
-        require(keyCode >= 0)
+        require(keyCode in 0..348) { "Touch control key codes must be valid GLFW keyboard codes (0–348)." }
         require(controls.any { it.id == id }) { "Unknown touch control: $id" }
         return controls.map { if (it.id == id) it.copy(keyCode = keyCode) else it }
     }
