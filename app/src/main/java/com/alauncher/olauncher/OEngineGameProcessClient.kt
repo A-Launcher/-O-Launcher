@@ -352,7 +352,8 @@ class OEngineGameProcessClient(
     }
 
     fun probeJvmLibrary(runtimeHome: File, workingDirectory: File, jvmLibrary: File): Boolean {
-        if (closed.get() || serviceMessenger == null) {
+        val target = serviceMessenger
+        if (closed.get() || target == null) {
             onJvmProbe(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
             return false
         }
@@ -366,7 +367,7 @@ class OEngineGameProcessClient(
             replyTo = replyMessenger
         }
         return try {
-            serviceMessenger?.send(request)
+            target.send(request)
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(probeTimeoutRunnable)
@@ -379,7 +380,8 @@ class OEngineGameProcessClient(
     }
 
     fun createJvm(runtimeHome: File, workingDirectory: File, jvmLibrary: File, vmOptions: List<String>, javaMajor: Int): Boolean {
-        if (closed.get() || serviceMessenger == null) {
+        val target = serviceMessenger
+        if (closed.get() || target == null) {
             onJvmCreate(Result.failure(IllegalStateException("The isolated game process is not connected yet.")))
             return false
         }
@@ -395,7 +397,7 @@ class OEngineGameProcessClient(
             replyTo = replyMessenger
         }
         return try {
-            serviceMessenger?.send(request)
+            target.send(request)
             true
         } catch (error: RemoteException) {
             timeoutHandler.removeCallbacks(createTimeoutRunnable)
@@ -481,8 +483,16 @@ class OEngineGameProcessClient(
     }
 
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
-        val target = serviceMessenger ?: return false
-        if (closed.get() || !mainInvocationAttempted.compareAndSet(false, true)) return false
+        if (closed.get()) {
+            onJvmMain(Result.failure(IllegalStateException("The game-process client is already closed.")))
+            return false
+        }
+        val target = serviceMessenger
+        if (target == null) {
+            onJvmMain(Result.failure(IllegalStateException("The isolated game process is not connected.")))
+            return false
+        }
+        if (!mainInvocationAttempted.compareAndSet(false, true)) return false
         mainStartedDelivered.set(false)
         mainResponseDelivered.set(false)
         mainRequestPending.set(true)
