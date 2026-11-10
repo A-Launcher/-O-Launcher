@@ -291,6 +291,12 @@ fun OEngineTouchControlsOverlay(
                 androidx.compose.material3.TextButton(onClick = {
                     val presets = listOf("classic", "left-handed", "compact")
                     presetIndex = (presetIndex + 1) % presets.size
+                    // Presets can replace or reposition controls. Release every held
+                    // toggle before clearing its bookkeeping, or Minecraft may keep the
+                    // corresponding key down until the game process is restarted.
+                    toggled.forEach { (id, pressed) ->
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                    }
                     val updated = OEngineTouchControls.applyPreset(controls.toList(), presets[presetIndex])
                     controls.clear(); controls.addAll(updated)
                     selectedId = updated.firstOrNull { it.id == "jump" }?.id ?: updated.first().id
