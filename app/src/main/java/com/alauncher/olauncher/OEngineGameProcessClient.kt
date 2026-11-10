@@ -65,6 +65,8 @@ class OEngineGameProcessClient(
     private val timeoutHandler = Handler(Looper.getMainLooper())
     private val surfaceTimeoutRunnable = Runnable {
         if (surfaceRequestPending.compareAndSet(true, false)) {
+            // Ignore a late Binder reply for this request after reporting its timeout.
+            surfaceRequestId.incrementAndGet()
             onGameSurface(Result.failure(IllegalStateException("The game process did not attach the Android Surface within 10 seconds.")))
         }
     }
@@ -112,6 +114,8 @@ class OEngineGameProcessClient(
 
     private fun failPendingSurface(error: Throwable) {
         if (surfaceRequestPending.compareAndSet(true, false)) {
+            // Invalidate replies already in flight before notifying the superseded caller.
+            surfaceRequestId.incrementAndGet()
             timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
             OEngineSessionLog.append(appContext, "IPC_GAME_SURFACE_ABORTED",
                 error.message ?: "Android Surface transition was aborted.", error)
@@ -174,11 +178,12 @@ class OEngineGameProcessClient(
         when (message.what) {
             OEngineGameProcessService.MSG_GAME_SURFACE_RESULT -> {
                 val data = message.data
-                if (data.getLong(OEngineGameProcessService.KEY_SURFACE_REQUEST_ID) != surfaceRequestId.get()) {
+                if (data.getLong(OEngineGameProcessService.KEY_SURFACE_REQUEST_ID) != surfaceRequestId.get() ||
+                    !surfaceRequestPending.compareAndSet(true, false)) {
+                    // The reply is stale, timed out, or was superseded by another Surface request.
                     true
                 } else {
                     timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
-                    surfaceRequestPending.set(false)
                     val result = OEngineJvmLibraryProbe(
                     successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
                     status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
@@ -539,6 +544,10 @@ class OEngineGameProcessClient(
             return false
         }
         val activeTarget = requireNotNull(target)
+        // A new attach/resize supersedes any previous Surface transition.
+        failPendingSurface(IllegalStateException(
+            "Android Surface attachment was superseded by a newer Surface request."
+        ))
         val requestId = surfaceRequestId.incrementAndGet()
         surfaceRequestPending.set(true)
         timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
