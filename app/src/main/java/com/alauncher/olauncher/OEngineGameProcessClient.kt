@@ -63,12 +63,11 @@ class OEngineGameProcessClient(
     @Volatile private var inputMessenger: Messenger? = null
     @Volatile private var surfaceMessenger: Messenger? = null
     private val timeoutHandler = Handler(Looper.getMainLooper())
-    private val surfaceTimeoutRunnable = Runnable {
-        if (surfaceRequestPending.compareAndSet(true, false)) {
-            // Ignore a late Binder reply for this request after reporting its timeout.
-            surfaceRequestId.incrementAndGet()
-            onGameSurface(Result.failure(IllegalStateException("The game process did not attach the Android Surface within 10 seconds.")))
-        }
+    @Volatile private var surfaceTimeoutRunnable: Runnable? = null
+
+    private fun clearSurfaceTimeout() {
+        surfaceTimeoutRunnable?.let { timeoutHandler.removeCallbacks(it) }
+        surfaceTimeoutRunnable = null
     }
     private val mainStartTimeoutRunnable = Runnable {
         if (mainStartedDelivered.compareAndSet(false, true)) {
@@ -116,7 +115,7 @@ class OEngineGameProcessClient(
         if (surfaceRequestPending.compareAndSet(true, false)) {
             // Invalidate replies already in flight before notifying the superseded caller.
             surfaceRequestId.incrementAndGet()
-            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+            clearSurfaceTimeout()
             OEngineSessionLog.append(appContext, "IPC_GAME_SURFACE_ABORTED",
                 error.message ?: "Android Surface transition was aborted.", error)
             onGameSurface(Result.failure(IllegalStateException(
@@ -550,7 +549,19 @@ class OEngineGameProcessClient(
         ))
         val requestId = surfaceRequestId.incrementAndGet()
         surfaceRequestPending.set(true)
-        timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+        clearSurfaceTimeout()
+        val requestTimeout = Runnable {
+            if (surfaceRequestId.get() == requestId &&
+                surfaceRequestPending.compareAndSet(true, false)) {
+                // Invalidate this request so a late Binder reply cannot complete it.
+                surfaceRequestId.compareAndSet(requestId, requestId + 1L)
+                if (surfaceTimeoutRunnable === requestTimeout) surfaceTimeoutRunnable = null
+                onGameSurface(Result.failure(IllegalStateException(
+                    "The game process did not attach the Android Surface within 10 seconds."
+                )))
+            }
+        }
+        surfaceTimeoutRunnable = requestTimeout
         val request = Message.obtain(null, OEngineGameProcessService.MSG_ATTACH_GAME_SURFACE).apply {
             data.putParcelable(OEngineGameProcessService.KEY_GAME_SURFACE, surface)
             data.putInt(OEngineGameProcessService.KEY_SURFACE_WIDTH, width.coerceAtLeast(1))
@@ -560,7 +571,7 @@ class OEngineGameProcessClient(
         }
         return try {
             activeTarget.send(request)
-            timeoutHandler.postDelayed(surfaceTimeoutRunnable, 10_000L)
+            timeoutHandler.postDelayed(requestTimeout, 10_000L)
             true
         } catch (error: RemoteException) {
             surfaceRequestPending.set(false)
