@@ -182,7 +182,7 @@ class OEngineGameProcessClient(
                     // The reply is stale, timed out, or was superseded by another Surface request.
                     true
                 } else {
-                    timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+                    clearSurfaceTimeout()
                     val result = OEngineJvmLibraryProbe(
                     successful = data.getBoolean(OEngineGameProcessService.KEY_PROBE_SUCCESS),
                     status = data.getString(OEngineGameProcessService.KEY_PROBE_STATUS).orEmpty(),
@@ -575,7 +575,7 @@ class OEngineGameProcessClient(
             true
         } catch (error: RemoteException) {
             surfaceRequestPending.set(false)
-            timeoutHandler.removeCallbacks(surfaceTimeoutRunnable)
+            clearSurfaceTimeout()
             onGameSurface(Result.failure(error))
             false
         }
