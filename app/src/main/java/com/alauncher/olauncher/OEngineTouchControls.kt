@@ -143,6 +143,9 @@ object OEngineTouchControls {
         return added
     }
 
+    fun keyCodeToRelease(controls: List<OEngineTouchControl>, id: String, pressed: Boolean): Int? =
+        if (pressed) controls.firstOrNull { it.id == id }?.keyCode else null
+
     fun remove(controls: List<OEngineTouchControl>, id: String): List<OEngineTouchControl> {
         require(controls.size > 1) { "At least one touch control must remain." }
         require(controls.any { it.id == id }) { "Unknown touch control: $id" }
@@ -215,6 +218,10 @@ fun OEngineTouchControlsOverlay(
                 if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
             }
         }
+    }
+    fun releaseToggle(id: String) {
+        OEngineTouchControls.keyCodeToRelease(controls.toList(), id, toggled[id] == true)?.let { onKey(it, false) }
+        toggled.remove(id)
     }
     val keyChoices = listOf(
         KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_D,
@@ -317,13 +324,15 @@ fun OEngineTouchControlsOverlay(
                 }, enabled = controls.size < 48) { androidx.compose.material3.Text("+ ADD") }
                 androidx.compose.material3.TextButton(onClick = {
                     if (selected != null) {
-                        val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
+                        releaseToggle(selectedId)
+val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
                         val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(i - 1 + keyChoices.size) % keyChoices.size])
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
                 }) { androidx.compose.material3.Text("KEY −") }
                 androidx.compose.material3.TextButton(onClick = {
                     if (selected != null) {
+                        releaseToggle(selectedId)
                         val updated = controls.map { if (it.id == selectedId) it.copy(toggle = !it.toggle) else it }
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
@@ -334,7 +343,8 @@ fun OEngineTouchControlsOverlay(
                 )
                 androidx.compose.material3.TextButton(onClick = {
                     if (selected != null) {
-                        val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
+                        releaseToggle(selectedId)
+val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
                         val updated = OEngineTouchControls.remap(controls.toList(), selectedId, keyChoices[(i + 1) % keyChoices.size])
                         controls.clear(); controls.addAll(updated); onLayoutChanged(updated)
                     }
@@ -349,10 +359,7 @@ fun OEngineTouchControlsOverlay(
                 }) { androidx.compose.material3.Text("SIZE −") }
                 androidx.compose.material3.TextButton(onClick = {
                     if (controls.size > 1) {
-                        if (toggled[selectedId] == true) {
-                            controls.firstOrNull { it.id == selectedId }?.let { onKey(it.keyCode, false) }
-                            toggled.remove(selectedId)
-                        }
+                        releaseToggle(selectedId)
                         val updated = OEngineTouchControls.remove(controls.toList(), selectedId)
                         controls.clear(); controls.addAll(updated); selectedId = updated.first().id
                         onLayoutChanged(updated)
