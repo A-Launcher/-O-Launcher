@@ -629,7 +629,11 @@ class OEngineGameProcessClient(
             timeoutHandler.removeCallbacks(mainStartTimeoutRunnable)
             timeoutHandler.removeCallbacks(mainRunningNoticeRunnable)
             timeoutHandler.removeCallbacks(mainExecutionTimeoutRunnable)
-            failPendingSurface(IllegalStateException("The game-process client was closed before the Surface transition completed."))
+            // Closing the client is terminal for every in-flight IPC operation. Deliver
+            // failures now instead of silently removing their timeouts and stranding callers.
+            failPendingOperations(IllegalStateException(
+                "The game-process client was closed before the pending operation completed."
+            ))
             surfaceRequestId.incrementAndGet()
             serviceMessenger = null
             inputMessenger = null
