@@ -555,7 +555,7 @@ class OEngineGameProcessClient(
                 surfaceRequestPending.compareAndSet(true, false)) {
                 // Invalidate this request so a late Binder reply cannot complete it.
                 surfaceRequestId.compareAndSet(requestId, requestId + 1L)
-                if (surfaceTimeoutRunnable === requestTimeout) surfaceTimeoutRunnable = null
+                surfaceTimeoutRunnable = null
                 onGameSurface(Result.failure(IllegalStateException(
                     "The game process did not attach the Android Surface within 10 seconds."
                 )))
