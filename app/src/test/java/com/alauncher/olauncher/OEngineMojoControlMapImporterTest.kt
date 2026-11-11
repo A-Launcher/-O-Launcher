@@ -23,7 +23,7 @@ class OEngineMojoControlMapImporterTest {
 
     @Test fun rejectsMojoDynamicExpressionsInsteadOfMisplacingButtons() {
         val json = """{"version":9,"mControlDataList":[{
-            "name":"Jump","keycodes":[62],"dynamicX":"${'
+            "name":"Jump","keycodes":[62],"dynamicX":"right margin",
             "width":50,"height":50
         }],"mDrawerDataList":[],"mJoystickDataList":[]}"""
         try {
