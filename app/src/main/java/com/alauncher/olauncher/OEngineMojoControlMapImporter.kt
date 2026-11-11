@@ -1,5 +1,6 @@
 package com.alauncher.olauncher
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
