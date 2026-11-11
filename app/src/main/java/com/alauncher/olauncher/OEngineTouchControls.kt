@@ -486,8 +486,8 @@ private fun OEngineTouchJoystick(
             if (x < -threshold) add(KeyEvent.KEYCODE_A)
             if (x > threshold) add(KeyEvent.KEYCODE_D)
         }
-        (activeKeys - next).forEach { latestOnKey.value(it, false) }
-        (next - activeKeys).forEach { latestOnKey.value(it, true) }
+        (activeKeys - next).forEach { latestOnKey(it, false) }
+        (next - activeKeys).forEach { latestOnKey(it, true) }
         activeKeys = next
     }
 
@@ -511,11 +511,11 @@ private fun OEngineTouchJoystick(
                         updateKeys(knobX, knobY, threshold)
                     },
                     onDragEnd = {
-                        activeKeys.forEach { latestOnKey.value(it, false) }
+                        activeKeys.forEach { latestOnKey(it, false) }
                         activeKeys = emptySet(); knobX = 0f; knobY = 0f
                     },
                     onDragCancel = {
-                        activeKeys.forEach { latestOnKey.value(it, false) }
+                        activeKeys.forEach { latestOnKey(it, false) }
                         activeKeys = emptySet(); knobX = 0f; knobY = 0f
                     }
                 )
