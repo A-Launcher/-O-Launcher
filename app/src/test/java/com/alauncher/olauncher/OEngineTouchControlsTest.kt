@@ -132,7 +132,7 @@ class OEngineTouchControlsTest {
             OEngineTouchControls.add(controls, "INVALID", 349)
             fail("Keys outside the native GLFW range must be rejected.")
         } catch (_: IllegalArgumentException) { }
-        val json = OEngineTouchControls.encode(controls).replace("\"keyCode\":${KeyEvent.KEYCODE_W}", "\"keyCode\":999")
+        val json = OEngineTouchControls.encode(controls).replace(Regex("\\"keyCode\\":\\d+"), "\"keyCode\":999")
         try {
             OEngineTouchControls.decode(json)
             fail("Imported layouts must reject keys the native input bridge cannot accept.")
