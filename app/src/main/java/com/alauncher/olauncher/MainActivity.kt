@@ -3979,15 +3979,17 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                 )
                 OEngineTouchControlsOverlay(
                     initialControls = savedTouchControls,
-                    onKey = { code, down ->
-                        gameInputForwarder.forward(listOf(
-                            OEngineInputEvent(
-                                device = OEngineInputDevice.KEYBOARD,
-                                action = if (down) OEngineInputAction.DOWN else OEngineInputAction.UP,
-                                code = code,
-                                timestampNanos = System.nanoTime()
-                            )
-                        ))
+                    onKey = { androidCode, down ->
+                        OEngineGlfwKeyMapper.key(androidCode)?.let { glfwCode ->
+                            gameInputForwarder.forward(listOf(
+                                OEngineInputEvent(
+                                    device = OEngineInputDevice.KEYBOARD,
+                                    action = if (down) OEngineInputAction.DOWN else OEngineInputAction.UP,
+                                    code = glfwCode,
+                                    timestampNanos = System.nanoTime()
+                                )
+                            ))
+                        }
                     },
                     onLayoutChanged = { layout -> OEngineTouchControls.save(context, layout) }
                 )
