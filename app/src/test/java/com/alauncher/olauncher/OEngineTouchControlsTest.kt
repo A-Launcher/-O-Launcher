@@ -126,6 +126,17 @@ class OEngineTouchControlsTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun defaultTouchControlsMapAndroidKeysToExpectedGlfwKeys() {
+        val keys = OEngineTouchControls.defaults().associate { it.id to OEngineGlfwKeyMapper.key(it.keyCode) }
+        assertEquals(87, keys["forward"])
+        assertEquals(83, keys["back"])
+        assertEquals(65, keys["left"])
+        assertEquals(68, keys["right"])
+        assertEquals(32, keys["jump"])
+        assertEquals(340, keys["sneak"])
+        assertEquals(69, keys["inventory"])
+    }
+
     @Test fun touchControlsRejectKeysOutsideTheNativeGlfwRange() {
         val controls = OEngineTouchControls.defaults()
         try {
