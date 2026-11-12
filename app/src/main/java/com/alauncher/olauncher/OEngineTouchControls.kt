@@ -36,7 +36,7 @@ data class OEngineTouchControl(
     init {
         require(id.matches(Regex("[A-Za-z0-9_.-]{1,48}")))
         require(label.isNotBlank() && label.length <= 12)
-        require(keyCode in 0..348) { "Touch control key codes must be valid GLFW keyboard codes (0–348)." }
+        require(OEngineGlfwKeyMapper.key(keyCode) != null) { "Touch control key codes must be supported Android keyboard codes." }
         require(x.isFinite() && y.isFinite() && width.isFinite() && height.isFinite())
         require(x in 0f..1f && y in 0f..1f)
         require(width in 0.04f..0.3f && height in 0.06f..0.35f)
@@ -131,7 +131,7 @@ object OEngineTouchControls {
 
     fun add(controls: List<OEngineTouchControl>, label: String, keyCode: Int): List<OEngineTouchControl> {
         require(controls.size < 48) { "The touch layout already has 48 controls." }
-        require(keyCode in 0..348) { "Touch control key codes must be valid GLFW keyboard codes (0–348)." }
+        require(OEngineGlfwKeyMapper.key(keyCode) != null) { "Touch control key codes must be supported Android keyboard codes." }
         var suffix = controls.size + 1
         var id = "custom_$suffix"
         while (controls.any { it.id == id }) { suffix++; id = "custom_$suffix" }
@@ -153,7 +153,7 @@ object OEngineTouchControls {
     }
 
     fun remap(controls: List<OEngineTouchControl>, id: String, keyCode: Int): List<OEngineTouchControl> {
-        require(keyCode in 0..348) { "Touch control key codes must be valid GLFW keyboard codes (0–348)." }
+        require(OEngineGlfwKeyMapper.key(keyCode) != null) { "Touch control key codes must be supported Android keyboard codes." }
         require(controls.any { it.id == id }) { "Unknown touch control: $id" }
         return controls.map { if (it.id == id) it.copy(keyCode = keyCode) else it }
     }
