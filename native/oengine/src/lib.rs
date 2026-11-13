@@ -931,7 +931,55 @@ fn valid_java_main_class_name(class_name: &str) -> bool {
         && class_name.split('.').all(|part| {
             !part.is_empty()
                 && part.chars().enumerate().all(|(index, character)| {
-                    character.is_ascii_alphanumeric() || character == '_' || character == '
+                    if index == 0 {
+                        character.is_ascii_alphabetic() || character == '_' || character == char::from(36)
+                    } else {
+                        character.is_ascii_alphanumeric() || character == '_' || character == char::from(36)
+                    }
+                })
+        })
+}
+
+/// Extracts the pending HotSpot exception as a bounded plain-text stack trace.
+fn take_java_exception_stacktrace(env: &mut JNIEnv) -> String {
+    let throwable = match env.exception_occurred() {
+        Ok(value) => value,
+        Err(error) => return format!("Java exception occurred; could not retrieve it: {error}"),
+    };
+    if let Err(error) = env.exception_clear() {
+        return format!("Java exception occurred; could not clear it: {error}");
+    }
+    let writer = match env.new_object("java/io/StringWriter", "()V", &[]) {
+        Ok(value) => value,
+        Err(error) => return format!("Java exception occurred; stack trace writer failed: {error}"),
+    };
+    let printer = match env.new_object(
+        "java/io/PrintWriter", "(Ljava/io/Writer;)V", &[JValue::Object(&writer)]
+    ) {
+        Ok(value) => value,
+        Err(error) => return format!("Java exception occurred; stack trace printer failed: {error}"),
+    };
+    if let Err(error) = env.call_method(
+        &throwable, "printStackTrace", "(Ljava/io/PrintWriter;)V", &[JValue::Object(&printer)]
+    ) {
+        return format!("Java exception occurred; printStackTrace failed: {error}");
+    }
+    let output = match env.call_method(&writer, "toString", "()Ljava/lang/String;", &[]) {
+        Ok(value) => match value.l() {
+            Ok(value) => value,
+            Err(error) => return format!("Java exception occurred; stack trace conversion failed: {error}"),
+        },
+        Err(error) => return format!("Java exception occurred; stack trace extraction failed: {error}"),
+    };
+    match env.get_string(&JString::from(output)) {
+        Ok(value) => {
+            let trace: String = value.into();
+            trace.chars().take(16_384).collect()
+        }
+        Err(error) => format!("Java exception occurred; stack trace decoding failed: {error}"),
+    }
+}
+
 /// This deliberately rejects calls from other threads: the saved JNIEnv is thread-confined.
 #[no_mangle]
 pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeInvokeMain(
@@ -2483,6 +2531,7 @@ mod native_input_tests {
         assert!(valid_java_main_class_name("example.mod.Launcher$Client"));
         assert!(!valid_java_main_class_name("Main"));
         assert!(!valid_java_main_class_name("example..Main"));
+        assert!(!valid_java_main_class_name("example.2Main"));
         assert!(!valid_java_main_class_name("example.mod.Main/../../Other"));
         assert!(!valid_java_main_class_name(""));
         assert!(!valid_java_main_class_name(&format!("{}.Main", "a".repeat(510))));
