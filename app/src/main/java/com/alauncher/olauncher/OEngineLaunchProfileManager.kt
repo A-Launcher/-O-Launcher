@@ -2,6 +2,9 @@ package com.alauncher.olauncher
 
 import java.io.File
 import java.util.Properties
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /** A loader-aware profile keeps each Minecraft/loader combination isolated. */
 enum class OEngineModLoader(val id: String, val displayName: String) {
@@ -111,19 +114,27 @@ object OEngineLaunchProfileManager {
         }
         val target = File(instanceRoot, ACTIVE_FILE)
         val temporary = File(instanceRoot, ACTIVE_FILE + ".tmp")
-        temporary.writeText(profile.id)
-        if (target.exists() && !target.delete()) {
+        try {
+            temporary.writeText(profile.id)
+            try {
+                Files.move(
+                    temporary.toPath(), target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (error: Exception) {
             temporary.delete()
-            throw IllegalStateException("Could not update the active profile.")
-        }
-        if (!temporary.renameTo(target)) {
-            temporary.copyTo(target, overwrite = true)
-            temporary.delete()
+            throw IllegalStateException("Could not update the active profile.", error)
         }
         return profile
     }
 
     private fun readProfile(directory: File): OEngineLaunchProfile? = runCatching {
+        val profilesRoot = File(directory.parentFile, PROFILE_DIR).canonicalFile
+        require(directory.canonicalFile.parentFile == profilesRoot)
         val metadata = File(directory, METADATA_FILE)
         require(metadata.isFile)
         val properties = Properties().apply { metadata.inputStream().use { load(it) } }
