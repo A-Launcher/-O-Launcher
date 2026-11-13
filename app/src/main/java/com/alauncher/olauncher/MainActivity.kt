@@ -4396,7 +4396,18 @@ private fun NewInstanceWizard(
         }
     }
     if (nameDialog) AlertDialog(onDismissRequest = { nameDialog = false }, title = { Text("Instance name") },
-        text = { OutlinedTextField(value = name, onValueChange = onNameChange, singleLine = true) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("Choose a name that helps you recognize this Minecraft setup.", color = Color(0xFF72513A), fontSize = 12.sp, lineHeight = 17.sp)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    singleLine = true,
+                    label = { Text("INSTANCE NAME") },
+                    placeholder = { Text("e.g. Survival World") }
+                )
+            }
+        },
         confirmButton = { TextButton(onClick = { nameDialog = false }) { Text("DONE") } })
 }
 
