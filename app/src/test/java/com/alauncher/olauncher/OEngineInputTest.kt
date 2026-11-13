@@ -35,7 +35,7 @@ class OEngineInputTest {
         val after = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 65)
         val expanded = expandOEngineTextEvents(listOf(before, text, after))
         assertEquals(listOf(OEngineInputAction.DOWN, OEngineInputAction.TEXT, OEngineInputAction.TEXT,
-            OEngineInputAction.TEXT, OEngineInputAction.TEXT, OEngineInputAction.TEXT, OEngineInputAction.UP),
+            OEngineInputAction.TEXT, OEngineInputAction.TEXT, OEngineInputAction.UP),
             expanded.map { it.action })
         assertEquals(listOf(72, 105, 32, 0x1f30d), expanded.subList(1, 5).map { it.codepoint })
         assertTrue(expanded.subList(1, 5).all { it.modifiers == 2 && it.timestampNanos == 99L })
