@@ -1613,6 +1613,8 @@ private fun SettingsDestination(images: LauncherImages) {
     var animations by remember(context) { mutableStateOf(preferences.getBoolean("animations", true)) }
     var compactUi by remember(context) { mutableStateOf(preferences.getBoolean("compact_ui", false)) }
     var notifications by remember(context) { mutableStateOf(preferences.getBoolean("notifications", true)) }
+    var cacheStatus by remember { mutableStateOf("") }
+    var cacheRefresh by remember { mutableIntStateOf(0) }
     val sections = listOf(
         Triple("General", "App language, theme, and more.", "🖥️"),
         Triple("Minecraft", "Game settings and launch options.", "🟩"),
@@ -1689,9 +1691,9 @@ private fun SettingsDestination(images: LauncherImages) {
                 }
                 Text(selectedSection!!, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.Black)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SettingsGroup("GENERAL", "Launcher interface preferences") {
+            when (selectedSection) {
+                "General" -> {
+                    SettingsGroup("GENERAL PREFERENCES", "Core launcher behavior") {
                         SettingToggle("Smooth animations", "Use subtle transitions between screens", animations) {
                             animations = it; preferences.edit().putBoolean("animations", it).apply()
                         }
@@ -1701,7 +1703,19 @@ private fun SettingsDestination(images: LauncherImages) {
                         SettingToggle("Launcher notifications", "Updates and important launcher notices", notifications) {
                             notifications = it; preferences.edit().putBoolean("notifications", it).apply()
                         }
+                        SettingInfo("Language", "English")
                     }
+                }
+                "Minecraft" -> {
+                    val activeInstance = OEngineInstanceManager.active(context)
+                    SettingsGroup("MINECRAFT PROFILE", "The game profile currently used by the launcher") {
+                        SettingInfo("Edition", "Minecraft Java Edition")
+                        SettingInfo("Active instance", activeInstance.name)
+                        SettingInfo("Game directory", activeInstance.root.absolutePath)
+                        SettingInfo("Account type", if (context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE).getBoolean("is_offline", false)) "Offline profile" else "Microsoft profile")
+                    }
+                }
+                "Performance" -> {
                     SettingsGroup("PERFORMANCE", "Control launcher and game resource usage") {
                         SettingToggle("Performance mode", "Prefer a lighter interface on your device", performance) {
                             performance = it; preferences.edit().putBoolean("performance", it).apply()
@@ -1711,36 +1725,64 @@ private fun SettingsDestination(images: LauncherImages) {
                                 Text("Minecraft memory", color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                                 Text("$maxMemoryMb MiB", color = Color(0xFF8A542B), fontSize = 12.sp, fontWeight = FontWeight.Black)
                             }
-                            Slider(
-                                value = maxMemoryMb.toFloat(),
-                                onValueChange = { value ->
-                                    maxMemoryMb = ((value / 512f).toInt() * 512).coerceIn(512, 8192)
-                                    preferences.edit().putInt("minecraft_memory_mb", maxMemoryMb).apply()
-                                },
-                                valueRange = 512f..8192f,
-                                steps = 14
-                            )
+                            Slider(value = maxMemoryMb.toFloat(), onValueChange = { value ->
+                                maxMemoryMb = ((value / 512f).toInt() * 512).coerceIn(512, 8192)
+                                preferences.edit().putInt("minecraft_memory_mb", maxMemoryMb).apply()
+                            }, valueRange = 512f..8192f, steps = 14)
                             Text("Maximum heap size passed to Java when Minecraft starts.", color = Muted, fontSize = 10.sp)
                         }
                     }
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SettingsGroup("MINECRAFT", "Game and profile settings") {
-                        SettingInfo("Edition", "Minecraft Java Edition")
-                        SettingInfo("Active instance", OEngineInstanceManager.active(context).name)
-                        SettingInfo("Game directory", OEngineInstanceManager.active(context).root.name)
+                    SettingsGroup("DEVICE", "Performance settings are saved on this device") {
+                        SettingInfo("Memory allocation", "$maxMemoryMb MiB")
+                        SettingInfo("Performance mode", if (performance) "Enabled" else "Disabled")
                     }
+                }
+                "Downloads" -> {
+                    val cache = context.cacheDir
+                    val cacheBytes = remember(cache, cacheRefresh) { cache.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
+                    SettingsGroup("DOWNLOAD CACHE", "Temporary files used while downloading and installing content") {
+                        SettingInfo("Cache location", cache.absolutePath)
+                        SettingInfo("Cache size", android.text.format.Formatter.formatShortFileSize(context, cacheBytes))
+                        Text("Clearing the cache removes temporary downloads only. Installed game files and instances are kept.", color = Muted, fontSize = 10.sp)
+                        TextButton(onClick = {
+                            cache.listFiles()?.forEach { it.deleteRecursively() }
+                            cacheStatus = "Temporary cache cleared."
+                            cacheRefresh++
+                        }) { Text("CLEAR TEMPORARY CACHE", color = Color(0xFF9A4C32), fontWeight = FontWeight.Bold) }
+                        if (cacheStatus.isNotBlank()) Text(cacheStatus, color = Color(0xFF527A3B), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                "Launcher Appearance" -> {
+                    SettingsGroup("LAUNCHER APPEARANCE", "Choose how the interface behaves") {
+                        SettingToggle("Smooth animations", "Animate launcher transitions", animations) {
+                            animations = it; preferences.edit().putBoolean("animations", it).apply()
+                        }
+                        SettingToggle("Compact interface", "Use tighter spacing in launcher panels", compactUi) {
+                            compactUi = it; preferences.edit().putBoolean("compact_ui", it).apply()
+                        }
+                        SettingInfo("Color palette", "O Launcher cream, gold and brown")
+                    }
+                }
+                "Miscellaneous Settings" -> {
+                    SettingsGroup("MISCELLANEOUS", "Launcher notices and app information") {
+                        SettingToggle("Launcher notifications", "Show update and important launcher notices", notifications) {
+                            notifications = it; preferences.edit().putBoolean("notifications", it).apply()
+                        }
+                        SettingInfo("Application", "O Launcher Plus")
+                        SettingInfo("Platform", "Android")
+                    }
+                }
+                "Experimental Stuff" -> {
+                    SettingsGroup("EXPERIMENTAL FEATURES", "Features that are still being prepared") {
+                        Text("Experimental switches are not exposed yet. This avoids showing controls that do not have a working implementation.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                        SettingInfo("Availability", "No experimental features enabled")
+                    }
+                }
+                "Control Customization" -> {
                     SettingsGroup("CONTROL CUSTOMIZATION", "Touch and keyboard controls") {
-                        SettingInfo("Touch layout", "Editable in the game controls overlay")
+                        SettingInfo("Touch layout", "Editable in the in-game controls overlay")
                         SettingInfo("Control profiles", "Stored per device")
                         Text("Open an installation and use the controls editor while the game surface is active.", color = Muted, fontSize = 10.sp)
-                    }
-                    SettingsGroup("DOWNLOADS & CACHE", "Local storage") {
-                        SettingInfo("Launcher cache", "Managed automatically")
-                        TextButton(onClick = {
-                            val cache = context.cacheDir
-                            cache.listFiles()?.forEach { it.deleteRecursively() }
-                        }) { Text("CLEAR TEMPORARY CACHE", color = Color(0xFF9A4C32), fontWeight = FontWeight.Bold) }
                     }
                 }
             }
