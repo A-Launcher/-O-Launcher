@@ -4434,11 +4434,29 @@ private fun NewInstanceWizard(
                                 listOf("Vanilla","Fabric","Forge","NeoForge","Quilt","OptiFine").chunked(3).forEach { row ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         row.forEach { option ->
-                                            Surface(Modifier.weight(1f).height(43.dp).clickable { onLoaderChange(option) }, color = if (loader == option) gold else Color(0xFFFFF8EE),
-                                                shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
+                                            Surface(
+                                                Modifier.weight(1f).height(43.dp).clickable { onLoaderChange(option) },
+                                                color = if (loader == option) Color(0xFFFFD36B) else Color(0xFFFFF8EE),
+                                                shape = RoundedCornerShape(13.dp),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    if (loader == option) 2.5.dp else 1.dp,
+                                                    if (loader == option) Color(0xFFB97828) else Color(0xFFE8CFA6)
+                                                ),
+                                                shadowElevation = if (loader == option) 3.dp else 0.dp
+                                            ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                        if (loader == option) Text("✓", color = Color(0xFF8A542B), fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                                        if (loader == option) {
+                                                            Surface(
+                                                                Modifier.size(17.dp),
+                                                                color = Color(0xFF8B4B1F),
+                                                                shape = CircleShape
+                                                            ) {
+                                                                Box(contentAlignment = Alignment.Center) {
+                                                                    Text("✓", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                                                }
+                                                            }
+                                                        }
                                                         Text(option.uppercase(), color = brown, fontSize = 12.sp, fontWeight = FontWeight.Black)
                                                     }
                                                 }
