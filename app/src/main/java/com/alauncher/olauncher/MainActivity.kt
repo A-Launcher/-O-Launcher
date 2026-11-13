@@ -4374,6 +4374,10 @@ private fun NewInstanceWizard(
                                 WizardTitle("MEMORY (RAM)", brown)
                                 Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
                                 Slider(value = ram.toFloat(), onValueChange = { onRamChange(it.toInt()) }, valueRange = 512f..12288f, enabled = !useLauncherRam)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("512 MB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("12 GB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
                                 WizardSwitch("USE LAUNCHER DEFAULT (5000 MB)", useLauncherRam, onUseLauncherRamChange, brown)
                                 WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown)
                                 WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown)
