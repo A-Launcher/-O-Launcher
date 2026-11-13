@@ -4440,7 +4440,10 @@ fn take_java_exception_stacktrace(env: &mut JNIEnv) -> String {
         Err(error) => return format!("Java exception occurred; stack trace extraction failed: {error}"),
     };
     match env.get_string(&JString::from(output)) {
-        Ok(value) => value.into(),
+        Ok(value) => {
+            let trace: String = value.into();
+            trace.chars().take(16_384).collect()
+        }
         Err(error) => format!("Java exception occurred; stack trace decoding failed: {error}"),
     }
 }
