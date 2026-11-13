@@ -3,6 +3,7 @@ package com.alauncher.olauncher
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class OEngineLaunchProfileManagerTest {
     @Test fun keepsDifferentLoadersInSeparateProfiles() {
@@ -36,4 +37,41 @@ class OEngineLaunchProfileManagerTest {
             assertFalse(profile.gameDirectory.exists())
         } finally { root.deleteRecursively() }
     }
+    @Test fun selectingAnotherProfileReplacesActivePointerWithoutLeavingTemporaryFile() {
+        val root = Files.createTempDirectory("oengine-profile-switch").toFile()
+        try {
+            val first = OEngineLaunchProfileManager.create(root, "First", "1.20.1", OEngineModLoader.VANILLA)
+            val second = OEngineLaunchProfileManager.create(root, "Second", "1.20.1", OEngineModLoader.VANILLA)
+            OEngineLaunchProfileManager.select(root, first.id)
+            OEngineLaunchProfileManager.select(root, second.id)
+            assertEquals(second.id, OEngineLaunchProfileManager.active(root)?.id)
+            assertFalse(java.io.File(root, "active-profile.tmp").exists())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun ignoresProfileDirectoriesThatResolveOutsideProfilesRoot() {
+        val root = Files.createTempDirectory("oengine-profile-paths").toFile()
+        val outside = Files.createTempDirectory("oengine-profile-outside").toFile()
+        try {
+            val profiles = java.io.File(root, "profiles")
+            assertTrue(profiles.mkdir())
+            val externalProfile = java.io.File(outside, "external")
+            assertTrue(externalProfile.mkdir())
+            val metadata = java.io.File(externalProfile, "profile.properties")
+            metadata.writeText("id=external\\nname=External\\nminecraftVersion=1.20.1\\nloader=vanilla\\n")
+            val link = java.io.File(profiles, "linked")
+            try {
+                Files.createSymbolicLink(link.toPath(), externalProfile.toPath())
+                assertTrue(OEngineLaunchProfileManager.list(root).isEmpty())
+            } catch (_: UnsupportedOperationException) {
+                // Symbolic links are not available on every test filesystem.
+            } catch (_: java.io.IOException) {
+                // Symbolic links may be disabled by the host filesystem.
+            }
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
 }
