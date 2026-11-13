@@ -59,34 +59,18 @@ object OEngineInstanceManager {
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val current = list(context).firstOrNull { it.id == id }
             ?: throw IllegalArgumentException("Unknown O Launcher instance.")
-        val oldDirectory = File(File(context.filesDir, "minecraft/instances"), id)
-        require(oldDirectory.isDirectory && oldDirectory.canonicalFile.parentFile ==
-            File(context.filesDir, "minecraft/instances").canonicalFile) {
+        val parent = File(context.filesDir, "minecraft/instances").canonicalFile
+        val directory = File(parent, id)
+        require(directory.isDirectory && directory.canonicalFile.parentFile == parent) {
             "The instance directory is invalid."
         }
-        val newId = instanceIdFor(clean)
-        val newDirectory = File(oldDirectory.parentFile, newId)
-        require(newId == id || !newDirectory.exists()) { "An instance with this name already exists." }
-        val metadata = File(oldDirectory, "instance.properties")
+        val metadata = File(directory, "instance.properties")
         val sharesGameFolder = current.root.canonicalFile ==
             File(context.filesDir, "minecraft").canonicalFile
-        val contents = "name=$clean\\nsharedGameFolder=$sharesGameFolder\\n"
-        if (newId == id) {
-            metadata.writeText(contents)
-        } else {
-            require(oldDirectory.renameTo(newDirectory)) { "Could not rename the instance directory." }
-            try {
-                File(newDirectory, "instance.properties").writeText(contents)
-            } catch (error: Exception) {
-                newDirectory.renameTo(oldDirectory)
-                throw error
-            }
-            if (activeId(context) == id) {
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                    .putString(ACTIVE_KEY, newId).commit()
-            }
-        }
-        return list(context).first { it.id == newId }
+        metadata.writeText("name=$clean\nsharedGameFolder=$sharesGameFolder\n")
+        // Keep the stable directory ID: profiles, installer handoffs and saved settings
+        // are keyed by it and must survive a display-name change.
+        return list(context).first { it.id == id }
     }
 
     fun delete(context: Context, id: String) {
