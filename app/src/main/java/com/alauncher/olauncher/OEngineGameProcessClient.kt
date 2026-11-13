@@ -493,7 +493,7 @@ class OEngineGameProcessClient(
             return false
         }
         val argumentBytes = arguments.sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() + 4L }
-        if (arguments.size > 16_384 || arguments.any { it.length > 65_536 || '\\u0000' in it } ||
+        if (arguments.size > 16_384 || arguments.any { it.length > 65_536 || '\u0000' in it } ||
             argumentBytes > 512L * 1024L) {
             onJvmMain(Result.failure(IllegalArgumentException(
                 "Minecraft launch arguments exceed the IPC safety limit of 512 KiB."
