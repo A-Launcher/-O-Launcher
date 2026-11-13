@@ -125,6 +125,13 @@ class OEngineInputTest {
     }
 
 
+    @Test fun androidDpadOnlySourceIsClassifiedAsGamepad() {
+        assertTrue(isOEngineGamepadSource(0x00000200)) // SOURCE_DPAD
+        assertTrue(isOEngineGamepadSource(0x00000401)) // SOURCE_GAMEPAD
+        assertTrue(isOEngineGamepadSource(0x01000010)) // SOURCE_JOYSTICK
+        assertFalse(isOEngineGamepadSource(0x00000101)) // SOURCE_KEYBOARD
+    }
+
     @Test fun androidGamepadButtonsMapToMojoFourteenSlotLayout() {
         assertEquals(0, OEngineAndroidGamepadMapper.buttonIndex(96))  // A
         assertEquals(1, OEngineAndroidGamepadMapper.buttonIndex(97))  // B
