@@ -74,4 +74,21 @@ class OEngineLaunchProfileManagerTest {
         }
     }
 
+    @Test fun keepsDifferentBuildsOfTheSameLoaderInSeparateProfiles() {
+        val root = Files.createTempDirectory("oengine-loader-builds").toFile()
+        try {
+            val forgeA = OEngineLaunchProfileManager.create(
+                root, "Modded", "1.20.1", OEngineModLoader.FORGE, "47.2.0"
+            )
+            val forgeB = OEngineLaunchProfileManager.create(
+                root, "Modded", "1.20.1", OEngineModLoader.FORGE, "47.3.0"
+            )
+            assertNotEquals(forgeA.id, forgeB.id)
+            assertNotEquals(forgeA.gameDirectory, forgeB.gameDirectory)
+            assertEquals(setOf("47.2.0", "47.3.0"), OEngineLaunchProfileManager.list(root).mapNotNull { it.loaderVersion }.toSet())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
 }
