@@ -4554,10 +4554,10 @@ private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
         fun circle(x: Float, y: Float, r: Float, color: Color) {
             drawCircle(color, r * h, androidx.compose.ui.geometry.Offset(x * w, y * h))
         }
+        // Keep every scene element on crisp square pixel edges, like Minecraft textures.
         fun block(x: Float, y: Float, bw: Float, bh: Float, color: Color) {
-            drawRoundRect(color, androidx.compose.ui.geometry.Offset(x * w, y * h),
-                androidx.compose.ui.geometry.Size(bw * w, bh * h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f))
+            drawRect(color, androidx.compose.ui.geometry.Offset(x * w, y * h),
+                androidx.compose.ui.geometry.Size(bw * w, bh * h))
         }
         drawRect(
             brush = Brush.verticalGradient(
