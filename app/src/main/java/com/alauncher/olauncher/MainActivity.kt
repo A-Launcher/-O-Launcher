@@ -4335,20 +4335,26 @@ private fun NewInstanceWizard(
                                 }
                                 WizardTitle("MINECRAFT VERSION", brown)
                                 Box {
-                                    WizardBox(selectedVersion, Modifier.fillMaxWidth().height(48.dp).clickable { versionMenu = true }, brown)
+                                    Box(Modifier.fillMaxWidth()) {
+                                        WizardBox(selectedVersion, Modifier.fillMaxWidth().height(48.dp).clickable { versionMenu = true }, brown)
+                                        Text("⌄", Modifier.align(Alignment.CenterEnd).padding(end = 15.dp), color = brown, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    }
                                     DropdownMenu(versionMenu, { versionMenu = false }) { versions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onVersionChange(v); versionMenu = false }) } }
                                 }
                                 WizardTitle("LOADER VERSION", brown)
                                 Box {
-                                    WizardBox(
-                                        when {
-                                            loader == "Vanilla" -> "Not required"
-                                            loader == "OptiFine" -> "Official installer"
-                                            loadingCompatibleVersions -> "Loading compatible versions…"
-                                            else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Latest compatible"
-                                        },
-                                        Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true }, brown
-                                    )
+                                    Box(Modifier.fillMaxWidth()) {
+                                        WizardBox(
+                                            when {
+                                                loader == "Vanilla" -> "Not required"
+                                                loader == "OptiFine" -> "Official installer"
+                                                loadingCompatibleVersions -> "Loading compatible versions…"
+                                                else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Latest compatible"
+                                            },
+                                            Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true }, brown
+                                        )
+                                        if (loader != "Vanilla" && loader != "OptiFine") Text("⌄", Modifier.align(Alignment.CenterEnd).padding(end = 15.dp), color = brown, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    }
                                     DropdownMenu(loaderMenu, { loaderMenu = false }) {
                                         compatibleLoaderVersions.take(80).forEach { v ->
                                             DropdownMenuItem(text = { Text(v.version) }, onClick = { onLoaderVersionChange(v.version); loaderMenu = false })
