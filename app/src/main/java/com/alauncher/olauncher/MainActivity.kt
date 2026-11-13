@@ -4468,7 +4468,6 @@ private fun NewInstanceWizard(
                                 Box {
                                     Box(Modifier.fillMaxWidth()) {
                                         WizardBox(selectedVersion, Modifier.fillMaxWidth().height(48.dp).clickable { versionMenu = true }, brown)
-                                        Text("⌄", Modifier.align(Alignment.CenterEnd).padding(end = 15.dp), color = brown, fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     }
                                     DropdownMenu(versionMenu, { versionMenu = false }) { versions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onVersionChange(v); versionMenu = false }) } }
                                 }
@@ -4484,7 +4483,6 @@ private fun NewInstanceWizard(
                                             },
                                             Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true }, brown
                                         )
-                                        if (loader != "Vanilla" && loader != "OptiFine") Text("⌄", Modifier.align(Alignment.CenterEnd).padding(end = 15.dp), color = brown, fontSize = 20.sp, fontWeight = FontWeight.Black)
                                     }
                                     DropdownMenu(loaderMenu, { loaderMenu = false }) {
                                         compatibleLoaderVersions.take(80).forEach { v ->
