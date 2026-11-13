@@ -41,9 +41,20 @@ object OEngineLaunchProfileManager {
     private const val ACTIVE_FILE = "active-profile"
     private const val METADATA_FILE = "profile.properties"
 
+    private fun profilesRoot(instanceRoot: File, create: Boolean = false): File? {
+        val instance = instanceRoot.canonicalFile
+        val candidate = File(instanceRoot, PROFILE_DIR)
+        if (Files.isSymbolicLink(candidate.toPath())) return null
+        if (!candidate.exists() && create && !candidate.mkdirs()) return null
+        if (!candidate.exists()) return null
+        val canonical = runCatching { candidate.canonicalFile }.getOrNull() ?: return null
+        if (canonical.parentFile != instance || !canonical.isDirectory) return null
+        return canonical
+    }
+
     fun list(instanceRoot: File): List<OEngineLaunchProfile> =
-        File(instanceRoot, PROFILE_DIR).listFiles()?.asSequence()
-            ?.filter { it.isDirectory }
+        profilesRoot(instanceRoot)?.listFiles()?.asSequence()
+            ?.filter { it.isDirectory && !Files.isSymbolicLink(it.toPath()) }
             ?.mapNotNull(::readProfile)
             ?.sortedWith(compareBy<OEngineLaunchProfile> { it.name.lowercase() }.thenBy { it.id })
             ?.toList()
@@ -51,7 +62,7 @@ object OEngineLaunchProfileManager {
 
     fun active(instanceRoot: File): OEngineLaunchProfile? {
         val pointer = File(instanceRoot, ACTIVE_FILE)
-        if (!pointer.isFile) return null
+        if (Files.isSymbolicLink(pointer.toPath()) || !pointer.isFile) return null
         val id = pointer.readText().trim()
         if (id.isBlank()) return null
         return list(instanceRoot).firstOrNull { it.id == id }
@@ -93,9 +104,13 @@ object OEngineLaunchProfileManager {
             cleanMinecraft.take(48),
             loaderBuild?.take(40)
         ).joinToString("-")
-        val profileRoot = File(File(instanceRoot, PROFILE_DIR), id)
-        require(!profileRoot.exists()) { "A profile with this name, version and loader already exists." }
-        require(profileRoot.mkdirs()) { "Could not create the profile directory." }
+        val profiles = profilesRoot(instanceRoot, create = true)
+            ?: throw IllegalStateException("The profiles directory is missing or unsafe.")
+        val profileRoot = File(profiles, id)
+        require(profileRoot.canonicalFile.parentFile == profiles && !profileRoot.exists()) {
+            "A profile with this name, version and loader already exists or its path is unsafe."
+        }
+        require(profileRoot.mkdir()) { "Could not create the profile directory." }
 
         val properties = Properties().apply {
             setProperty("id", id)
@@ -126,6 +141,9 @@ object OEngineLaunchProfileManager {
         val target = File(instanceRoot, ACTIVE_FILE)
         val temporary = File(instanceRoot, ACTIVE_FILE + ".tmp")
         try {
+            require(!Files.isSymbolicLink(target.toPath()) && !Files.isSymbolicLink(temporary.toPath())) {
+                "The active profile pointer path is unsafe."
+            }
             temporary.writeText(profile.id)
             try {
                 Files.move(
@@ -144,7 +162,10 @@ object OEngineLaunchProfileManager {
     }
 
     private fun readProfile(directory: File): OEngineLaunchProfile? = runCatching {
-        val profilesRoot = File(directory.parentFile, PROFILE_DIR).canonicalFile
+        val profilesCandidate = File(directory.parentFile, PROFILE_DIR)
+        require(!Files.isSymbolicLink(profilesCandidate.toPath()))
+        val profilesRoot = profilesCandidate.canonicalFile
+        require(profilesRoot.parentFile == directory.parentFile.canonicalFile)
         require(directory.canonicalFile.parentFile == profilesRoot)
         val metadata = File(directory, METADATA_FILE)
         require(metadata.isFile)
