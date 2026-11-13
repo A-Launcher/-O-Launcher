@@ -4706,8 +4706,36 @@ private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
     }
 }
 @Composable private fun WizardSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, color: Color) {
-    Surface(color = Color(0xFFFFF8EE), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
-        Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) { Text(label, Modifier.weight(1f), color = color, fontSize = 12.sp, fontWeight = FontWeight.Black); Switch(checked, onChecked) }
+    Surface(
+        color = if (checked) Color(0xFFFFE9B9) else Color(0xFFFFF8EE),
+        shape = RoundedCornerShape(15.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            if (checked) 2.dp else 1.dp,
+            if (checked) Color(0xFFE5A12E) else Color(0xFFE8CFA6)
+        )
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label, Modifier.weight(1f), color = color,
+                fontSize = 12.sp, fontWeight = FontWeight.Black,
+                lineHeight = 16.sp
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onChecked,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFF8B4B1F),
+                    checkedTrackColor = Color(0xFFE59A18),
+                    checkedBorderColor = Color(0xFFE59A18),
+                    uncheckedThumbColor = Color(0xFFBCA58A),
+                    uncheckedTrackColor = Color(0xFFEADFCB),
+                    uncheckedBorderColor = Color(0xFFD8C2A4)
+                )
+            )
+        }
     }
 }
 
