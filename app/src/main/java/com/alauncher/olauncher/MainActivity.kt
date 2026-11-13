@@ -1020,9 +1020,17 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(item.second, fontSize = 20.sp)
+                                Surface(
+                                    color = if (selected) Color(0xFFFFF3D9) else Color(0xFFF5EDE4),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(item.second, fontSize = 18.sp)
+                                    }
+                                }
                                 Spacer(Modifier.width(10.dp))
-                                Text(item.first, color = Ink, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, maxLines = 1)
+                                Text(item.first, color = Ink, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium, maxLines = 1, modifier = Modifier.weight(1f), overflow = TextOverflow.Ellipsis)
                                 if (selected) { Spacer(Modifier.weight(1f)); Text("›", color = Ink, fontSize = 22.sp) }
                             }
                         }
