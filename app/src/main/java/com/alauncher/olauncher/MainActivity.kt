@@ -2212,7 +2212,16 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
                         shape = RoundedCornerShape(30.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, if (selected) Color(0xFF342139) else Border)
                     ) {
-                        Text(category, Modifier.padding(horizontal = 15.dp, vertical = 9.dp), color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                        Row(
+                            Modifier.padding(horizontal = 15.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (selected) {
+                                Text("✓", color = Color(0xFFFFD17A), fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
+                            Text(category, color = if (selected) Color.White else Ink, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                        }
                     }
                 }
             }
