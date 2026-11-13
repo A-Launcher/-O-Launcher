@@ -135,8 +135,20 @@ object OEngineLaunchProfileManager {
     fun select(instanceRoot: File, profileId: String): OEngineLaunchProfile {
         val profile = list(instanceRoot).firstOrNull { it.id == profileId }
             ?: throw IllegalArgumentException("Unknown launch profile.")
-        require(profile.gameDirectory.isDirectory || profile.gameDirectory.mkdirs()) {
+        val profileRoot = profile.gameDirectory.parentFile.canonicalFile
+        val gameDirectory = profile.gameDirectory
+        require(!Files.isSymbolicLink(gameDirectory.toPath())) {
+            "The profile game directory cannot be a symbolic link."
+        }
+        require(gameDirectory.canonicalFile.parentFile == profileRoot) {
+            "The profile game directory resolves outside its profile."
+        }
+        require(gameDirectory.isDirectory || gameDirectory.mkdirs()) {
             "Could not create the profile game directory."
+        }
+        require(!Files.isSymbolicLink(gameDirectory.toPath()) &&
+            gameDirectory.canonicalFile.parentFile == profileRoot) {
+            "The profile game directory path is unsafe."
         }
         val target = File(instanceRoot, ACTIVE_FILE)
         val temporary = File(instanceRoot, ACTIVE_FILE + ".tmp")
@@ -168,7 +180,10 @@ object OEngineLaunchProfileManager {
         require(profilesRoot.parentFile == directory.parentFile.canonicalFile)
         require(directory.canonicalFile.parentFile == profilesRoot)
         val metadata = File(directory, METADATA_FILE)
-        require(metadata.isFile)
+        require(!Files.isSymbolicLink(metadata.toPath()) && metadata.isFile)
+        val gameDirectory = File(directory, "game")
+        require(!Files.isSymbolicLink(gameDirectory.toPath()))
+        require(gameDirectory.canonicalFile.parentFile == directory.canonicalFile)
         val properties = Properties().apply { metadata.inputStream().use { load(it) } }
         val id = properties.getProperty("id") ?: return null
         require(id == directory.name)
@@ -178,7 +193,10 @@ object OEngineLaunchProfileManager {
         val loader = OEngineModLoader.entries.firstOrNull { it.id == loaderId } ?: return null
         val loaderVersion = properties.getProperty("loaderVersion")?.takeIf { it.isNotBlank() }
         if (loader == OEngineModLoader.VANILLA && loaderVersion != null) return null
-        if (loader != OEngineModLoader.VANILLA && loaderVersion == null) return null
-        OEngineLaunchProfile(id, name, minecraftVersion, loader, loaderVersion, File(directory, "game"))
+        if (loader != OEngineModLoader.VANILLA && loaderVersion.isNullOrBlank()) return null
+        require(name.isNotBlank() && name.length <= 48)
+        require(minecraftVersion.matches(Regex("[A-Za-z0-9._-]{1,64}")))
+        if (loaderVersion != null) require(loaderVersion.length <= 80)
+        OEngineLaunchProfile(id, name, minecraftVersion, loader, loaderVersion, gameDirectory)
     }.getOrNull()
 }
