@@ -1126,7 +1126,44 @@ private fun LauncherFilesDestination(images: LauncherImages) {
 
                 Surface(Modifier.weight(1f).fillMaxWidth(), color = Color(0xFFFFF9F0), shape = RoundedCornerShape(22.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
                     Column(Modifier.fillMaxSize().padding(9.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(if (current == root) "HOME" else "HOME  /  ${current.relativeTo(root).path}", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 7.dp))
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 7.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(color = Color(0xFFFFE8C8), shape = RoundedCornerShape(8.dp)) {
+                                Text("📂", Modifier.padding(horizontal = 8.dp, vertical = 5.dp), fontSize = 15.sp)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    if (current == root) "LAUNCHER FILES" else current.name.uppercase(),
+                                    color = Ink,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = .7.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    if (current == root) "HOME" else "HOME  /  ${current.relativeTo(root).path}",
+                                    color = Muted,
+                                    fontSize = 9.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Surface(color = Color(0xFFFFF0DD), shape = RoundedCornerShape(10.dp)) {
+                                Text(
+                                    "${entries.size} ITEMS",
+                                    Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    color = Ink,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = .5.sp
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = Border.copy(alpha = .7f), thickness = 1.dp)
                         if (entries.isEmpty()) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(if (search.isBlank()) "This folder is empty." else "No files match your search.", color = Muted, fontSize = 13.sp)
