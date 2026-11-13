@@ -4486,7 +4486,20 @@ private fun NewInstanceWizard(
                                 WizardTitle("PERFORMANCE", brown)
                                 WizardTitle("MEMORY (RAM)", brown)
                                 Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                                Slider(value = ram.toFloat(), onValueChange = { onRamChange(it.toInt()) }, valueRange = 512f..12288f, enabled = !useLauncherRam)
+                                Slider(
+                                    value = ram.toFloat(),
+                                    onValueChange = { onRamChange(it.toInt()) },
+                                    valueRange = 512f..12288f,
+                                    enabled = !useLauncherRam,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = Color(0xFF8B4B1F),
+                                        activeTrackColor = Color(0xFFE59A18),
+                                        inactiveTrackColor = Color(0xFFE8CFA6),
+                                        disabledThumbColor = Color(0xFFBCA58A),
+                                        disabledActiveTrackColor = Color(0xFFD8B878),
+                                        disabledInactiveTrackColor = Color(0xFFEADFCB)
+                                    )
+                                )
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Text("512 MB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     Text("12 GB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
