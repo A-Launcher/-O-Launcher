@@ -901,6 +901,11 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         val filePath = runCatching { file.canonicalPath }.getOrDefault(file.absolutePath)
         return filePath == rootPath || filePath.startsWith(rootPath + File.separator)
     }
+    fun isSafeEntryName(value: String): Boolean {
+        val name = value.trim()
+        return name.isNotEmpty() && name != "." && name != ".." &&
+            name.none { it == '/' || it == '\\' || it.code < 32 || it.code == 127 }
+    }
     fun uniqueDestination(parent: File, source: File): File {
         var target = parent.resolve(source.name)
         var suffix = 1
@@ -933,30 +938,47 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        var imported = 0
+        var failed = 0
         uris.forEach { uri ->
+            var destination: File? = null
             try {
                 val name = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                     val column = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                     if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
                 } ?: "imported_file"
                 val safeName = File(name).name
+                if (!isSafeEntryName(safeName)) throw IllegalArgumentException("Unsafe file name")
                 val original = File(safeName)
-                var destination = current.resolve(safeName)
+                var candidate = safeName
                 var suffix = 1
-                while (destination.exists()) {
-                    val candidate = if (original.extension.isBlank()) {
-                        "${original.name} ($suffix)"
-                    } else {
-                        "${original.nameWithoutExtension} ($suffix).${original.extension}"
-                    }
-                    destination = current.resolve(candidate)
+                while (current.resolve(candidate).exists()) {
+                    candidate = if (original.extension.isBlank()) "${original.name} ($suffix)"
+                        else "${original.nameWithoutExtension} ($suffix).${original.extension}"
                     suffix++
                 }
+                destination = current.resolve(candidate)
+                if (!isInsideRoot(destination!!)) throw SecurityException("Import destination is outside the instance")
                 context.contentResolver.openInputStream(uri)?.use { input ->
-                    destination.outputStream().use { output -> input.copyTo(output) }
-                }
-            } catch (_: Exception) { message = "Could not import one of the selected files." }
+                    destination!!.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(65536)
+                        var total = 0L
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            require(total <= 512L * 1024L * 1024L) { "Imported file exceeds 512 MiB." }
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                } ?: throw IllegalStateException("Could not read selected file")
+                imported++
+            } catch (_: Exception) {
+                destination?.delete()
+                failed++
+            }
         }
+        message = "Imported: $imported; failed: $failed."
         refresh++
     }
     val entries = remember(current, refresh, search, sortMode, showHidden) {
@@ -1187,7 +1209,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                                     if (selectionMode) toggleSelected(file)
                                                     else if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
-                                                        editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                                        if (file.length() > 1024L * 1024L) message = "This file is larger than the 1 MiB text editor limit."
+                                                        else {
+                                                            val contents = runCatching { file.readText() }.getOrNull()
+                                                            if (contents == null) message = "Could not read ${file.name}."
+                                                            else { editingFile = file; editorText = contents }
+                                                        }
                                                     } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
                                             val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
                                             if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
@@ -1228,7 +1255,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                         if (selectionMode) toggleSelected(file)
                                         else if (file.isDirectory) navigateTo(file)
                                         else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
-                                            editingFile = file; editorText = runCatching { file.readText() }.getOrDefault("")
+                                            if (file.length() > 1024L * 1024L) message = "This file is larger than the 1 MiB text editor limit."
+                                            else {
+                                                val contents = runCatching { file.readText() }.getOrNull()
+                                                if (contents == null) message = "Could not read ${file.name}."
+                                                else { editingFile = file; editorText = contents }
+                                            }
                                         } else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg", "webp")) {
                                             val bitmap = runCatching { BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap() }.getOrNull()
                                             if (bitmap != null) { previewImage = bitmap; previewImageName = file.name }
@@ -1277,10 +1309,13 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         onDismissRequest = { showCreate = false; showNewFile = false },
         title = { Text(if (showCreate) "NEW FOLDER" else "NEW FILE") },
         text = { OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true, label = { Text("Name") }) },
-        confirmButton = { TextButton(enabled = newName.isNotBlank() && !newName.contains("/") && !newName.contains("\\"), onClick = {
+        confirmButton = { TextButton(enabled = isSafeEntryName(newName) && !current.resolve(newName.trim()).exists(), onClick = {
             val target = current.resolve(newName.trim())
-            val created = if (showCreate) target.mkdirs() else runCatching { target.createNewFile() }.getOrDefault(false)
-            if (created) refresh++ else message = "Could not create that item."
+            val created = if (isInsideRoot(target)) {
+                if (showCreate) target.mkdir() else runCatching { target.createNewFile() }.getOrDefault(false)
+            } else false
+            message = if (created) "Created ${target.name}." else "Could not create that item."
+            if (created) refresh++
             showCreate = false; showNewFile = false
         }) { Text("CREATE") } },
         dismissButton = { TextButton(onClick = { showCreate = false; showNewFile = false }) { Text("CANCEL") } }
@@ -1347,14 +1382,23 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         )
     }
     pendingDelete?.let { file ->
-        AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Delete ${file.name}?") }, text = { Text("This removes the selected item from the active instance.") },
-            confirmButton = { TextButton(onClick = { runCatching { if (file.isDirectory) file.deleteRecursively() else file.delete() }; pendingDelete = null; refresh++ }) { Text("DELETE") } },
+        AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Delete ${file.name}?") }, text = { Text("This permanently removes the selected item from the active instance.") },
+            confirmButton = { TextButton(onClick = {
+                val deleted = if (!isInsideRoot(file) || file.canonicalFile == root.canonicalFile) false
+                    else runCatching { if (file.isDirectory) file.deleteRecursively() else file.delete() }.getOrDefault(false)
+                message = if (deleted) "Deleted ${file.name}." else "Could not delete ${file.name}."
+                pendingDelete = null; refresh++
+            }) { Text("DELETE") } },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("CANCEL") } })
     }
     editingFile?.let { file ->
         AlertDialog(onDismissRequest = { editingFile = null }, title = { Text(file.name) },
             text = { OutlinedTextField(value = editorText, onValueChange = { editorText = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 360.dp), maxLines = 18) },
-            confirmButton = { TextButton(onClick = { runCatching { file.writeText(editorText) }; editingFile = null; refresh++ }) { Text("SAVE") } },
+            confirmButton = { TextButton(onClick = {
+                val saved = runCatching { if (isInsideRoot(file) && file.isFile && editorText.toByteArray(Charsets.UTF_8).size <= 1024 * 1024) { file.writeText(editorText); true } else false }.getOrDefault(false)
+                message = if (saved) "Saved ${file.name}." else "Could not save this file (maximum 1 MiB)."
+                editingFile = null; refresh++
+            }) { Text("SAVE") } },
             dismissButton = { TextButton(onClick = { editingFile = null }) { Text("CANCEL") } })
     }
 }
