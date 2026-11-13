@@ -4154,7 +4154,14 @@ private fun NewInstanceWizard(
                         }
                     } else {
                         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Surface(
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                color = Color(0xFFFFF3DF),
+                                shape = RoundedCornerShape(20.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF3BD6A))
+                            ) {
+                            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                WizardTitle("PROFILE DETAILS", brown)
                                 WizardTitle("NAME", brown)
                                 WizardBox(name.ifBlank { "Tap to enter instance name" }, Modifier.fillMaxWidth().height(45.dp).clickable { nameDialog = true }, brown)
                                 WizardTitle("LOADER", brown)
@@ -4191,7 +4198,15 @@ private fun NewInstanceWizard(
                                     }
                                 }
                             }
-                            Column(Modifier.weight(.95f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                            }
+                            Surface(
+                                modifier = Modifier.weight(.95f).fillMaxHeight(),
+                                color = Color(0xFFFFF3DF),
+                                shape = RoundedCornerShape(20.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFF3BD6A))
+                            ) {
+                            Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                                WizardTitle("PERFORMANCE", brown)
                                 WizardTitle("MEMORY (RAM)", brown)
                                 Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
                                 Slider(value = ram.toFloat(), onValueChange = { onRamChange(it.toInt()) }, valueRange = 512f..12288f, enabled = !useLauncherRam)
@@ -4199,6 +4214,7 @@ private fun NewInstanceWizard(
                                 WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown)
                                 WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown)
                                 WizardSwitch("SHARED GAME FOLDER\nUse common worlds, resource packs and options.", sharedGameFolder, onSharedGameFolderChange, brown)
+                            }
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
