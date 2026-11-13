@@ -91,4 +91,44 @@ class OEngineLaunchProfileManagerTest {
         }
     }
 
+    @Test fun refusesProfilesDirectorySymlinkedOutsideInstance() {
+        val root = Files.createTempDirectory("oengine-profile-root").toFile()
+        val outside = Files.createTempDirectory("oengine-profile-external-root").toFile()
+        try {
+            val link = java.io.File(root, "profiles")
+            try {
+                Files.createSymbolicLink(link.toPath(), outside.toPath())
+            } catch (_: UnsupportedOperationException) {
+                return
+            } catch (_: java.io.IOException) {
+                return
+            }
+            assertTrue(OEngineLaunchProfileManager.list(root).isEmpty())
+            val failure = runCatching {
+                OEngineLaunchProfileManager.create(root, "Unsafe", "1.20.1", OEngineModLoader.VANILLA)
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalStateException)
+            assertTrue(outside.listFiles().orEmpty().isEmpty())
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test fun refusesActiveProfilePointerSymlink() {
+        val root = Files.createTempDirectory("oengine-active-link").toFile()
+        val outside = Files.createTempFile("oengine-active-target", ".txt").toFile()
+        try {
+            val profile = OEngineLaunchProfileManager.create(root, "Safe", "1.20.1", OEngineModLoader.VANILLA)
+            outside.writeText(profile.id)
+            Files.createSymbolicLink(java.io.File(root, "active-profile").toPath(), outside.toPath())
+            assertNull(OEngineLaunchProfileManager.active(root))
+            assertTrue(runCatching { OEngineLaunchProfileManager.select(root, profile.id) }.isFailure)
+            assertEquals(profile.id, outside.readText())
+        } finally {
+            root.deleteRecursively()
+            outside.delete()
+        }
+    }
+
 }
