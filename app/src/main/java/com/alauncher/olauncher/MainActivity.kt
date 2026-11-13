@@ -1618,23 +1618,53 @@ private fun SettingsDestination(images: LauncherImages) {
             sections.chunked(2).forEach { pair ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     pair.forEach { item ->
+                        val scene = when (sections.indexOf(item) % 4) {
+                            0 -> images.spring
+                            1 -> images.trials
+                            2 -> images.camel
+                            else -> images.realms
+                        }
                         Surface(
                             onClick = { selectedSection = item.first },
-                            modifier = Modifier.weight(1f).height(112.dp),
+                            modifier = Modifier.weight(1f).height(82.dp),
                             color = Panel,
-                            shape = RoundedCornerShape(22.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFE5C5)),
-                            shadowElevation = 2.dp
+                            shape = RoundedCornerShape(16.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD9A0)),
+                            shadowElevation = 3.dp
                         ) {
-                            Row(Modifier.fillMaxSize().padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                                Surface(Modifier.size(58.dp), color = Color(0xFFFFE8BE), shape = RoundedCornerShape(18.dp)) {
-                                    Box(contentAlignment = Alignment.Center) { Text(item.third, fontSize = 28.sp) }
+                            Box(Modifier.fillMaxSize()) {
+                                Image(
+                                    scene,
+                                    contentDescription = null,
+                                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxWidth(.58f).fillMaxHeight(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Box(
+                                    Modifier.fillMaxSize().background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFFFFF8EE), Color(0xFFFDF0DA), Color(0x55FFF0D8))
+                                        )
+                                    )
+                                )
+                                Row(
+                                    Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Surface(
+                                        Modifier.size(48.dp),
+                                        color = Color(0xFFFFE5B4),
+                                        shape = RoundedCornerShape(14.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD08A))
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) { Text(item.third, fontSize = 24.sp) }
+                                    }
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text(item.first, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(item.second, color = Muted, fontSize = 9.sp, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Text("›", color = Color(0xFF8A542B), fontSize = 25.sp, fontWeight = FontWeight.Black)
                                 }
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Text(item.first, color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(item.second, color = Muted, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                }
-                                Text("›", color = Color(0xFF8A542B), fontSize = 27.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
