@@ -54,6 +54,29 @@ jobs:
             test -s "target/android-jni/$abi/liboengine_native.so"
             file "target/android-jni/$abi/liboengine_native.so"
           done
+      - name: Verify production JNI renderer exports
+        run: |
+          set -euo pipefail
+          symbols=(
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeCreateLtwEglSession
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeAttachLtwWindow
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDetachLtwWindow
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeQueueLtwWindow
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeProcessPendingLtwWindow
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeSwapLtwBuffers
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglInfo
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeLtwEglError
+            Java_com_alauncher_olauncher_OEngineJvmNativeBridge_nativeDestroyLtwEglSession
+          )
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            library="target/android-jni/$abi/liboengine_native.so"
+            for symbol in "${symbols[@]}"; do
+              if ! readelf -Ws "$library" | grep -Fq "$symbol"; then
+                echo "Missing production JNI export $symbol in $abi"
+                exit 1
+              fi
+            done
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: oengine-rust-android-native
