@@ -1665,12 +1665,67 @@ private fun SettingInfo(label: String, value: String) {
 private fun AboutDestination(images: LauncherImages) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         DestinationHero(images, "About O Launcher", "A home for your Minecraft Java Edition experience", "THE LAUNCHER")
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             listOf("VERSION" to "Development build", "PLATFORM" to "Android", "EDITION" to "Java Edition").forEach { item ->
-                Surface(Modifier.weight(1f), color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Surface(
+                    Modifier.weight(1f),
+                    color = Panel,
+                    shape = RoundedCornerShape(18.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Border)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.width(24.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Gold))
                         Text(item.first, color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                         Text(item.second, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        Surface(
+            Modifier.fillMaxWidth(),
+            color = Panel,
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Border)
+        ) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.width(4.dp).height(28.dp).clip(RoundedCornerShape(3.dp)).background(Gold))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("MADE FOR JAVA EDITION", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        Text("Your launcher, your worlds", color = Muted, fontSize = 11.sp)
+                    }
+                }
+                Text(
+                    "O Launcher brings your Minecraft Java Edition setup together on Android. Create and manage game instances, browse modpacks, and choose how you want to play.",
+                    color = Ink.copy(alpha = .82f),
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+
+        Surface(
+            Modifier.fillMaxWidth(),
+            color = Panel,
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Border)
+        ) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.width(4.dp).height(28.dp).clip(RoundedCornerShape(3.dp)).background(Gold))
+                    Text("LAUNCHER FEATURES", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                }
+                listOf(
+                    "INSTANCE MANAGEMENT" to "Keep separate Minecraft setups organized.",
+                    "MODPACK BROWSING" to "Discover modpacks from the in-launcher browser.",
+                    "FLEXIBLE PROFILES" to "Use an offline profile or connect a Microsoft account."
+                ).forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider(color = Border.copy(alpha = .75f), thickness = 1.dp)
+                    Column(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(item.first, color = Ink, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        Text(item.second, color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     }
                 }
             }
