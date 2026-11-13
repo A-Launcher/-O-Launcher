@@ -67,7 +67,12 @@ object OEngineInstanceManager {
         val metadata = File(directory, "instance.properties")
         val sharesGameFolder = current.root.canonicalFile ==
             File(context.filesDir, "minecraft").canonicalFile
-        metadata.writeText("name=$clean\nsharedGameFolder=$sharesGameFolder\n")
+        val temporary = File(directory, "instance.properties.tmp")
+        temporary.writeText("name=$clean\nsharedGameFolder=$sharesGameFolder\n")
+        if (!temporary.renameTo(metadata)) {
+            temporary.delete()
+            throw IllegalStateException("Could not save the new instance name.")
+        }
         // Keep the stable directory ID: profiles, installer handoffs and saved settings
         // are keyed by it and must survive a display-name change.
         return list(context).first { it.id == id }
@@ -93,12 +98,30 @@ object OEngineInstanceManager {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val id = instanceIdFor(clean)
-        val parent = File(File(context.filesDir, "minecraft/instances"), id)
-        require(!parent.exists()) { "An instance with this name already exists." }
-        if (!parent.mkdirs()) throw IllegalStateException("Could not create the instance directory.")
-        val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(parent, "game")
-        if (!game.exists() && !game.mkdirs()) throw IllegalStateException("Could not create the instance game directory.")
-        File(parent, "instance.properties").writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
-        return OEngineInstance(id, clean, game)
+        val instancesRoot = File(context.filesDir, "minecraft/instances").canonicalFile
+        if (!instancesRoot.exists() && !instancesRoot.mkdirs()) {
+            throw IllegalStateException("Could not create the instances folder.")
+        }
+        val directory = File(instancesRoot, id)
+        require(directory.canonicalFile.parentFile == instancesRoot && !directory.exists()) {
+            "An instance with this name already exists or its path is invalid."
+        }
+        if (!directory.mkdir()) throw IllegalStateException("Could not create the instance directory.")
+        try {
+            val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(directory, "game")
+            if (!game.exists() && !game.mkdirs()) {
+                throw IllegalStateException("Could not create the instance game directory.")
+            }
+            val metadata = File(directory, "instance.properties")
+            val temporary = File(directory, "instance.properties.tmp")
+            temporary.writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
+            if (!temporary.renameTo(metadata)) {
+                throw IllegalStateException("Could not save instance settings.")
+            }
+            return OEngineInstance(id, clean, game)
+        } catch (error: Exception) {
+            directory.deleteRecursively()
+            throw error
+        }
     }
 }
