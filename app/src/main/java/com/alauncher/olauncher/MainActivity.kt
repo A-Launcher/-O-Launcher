@@ -1876,6 +1876,7 @@ private fun AccountDestination(images: LauncherImages) {
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
     var hasRecoveredMicrosoftAccount by remember { mutableStateOf(MicrosoftTokenVault.load(context) != null) }
+    var hasSavedMicrosoftAccount by remember { mutableStateOf(MicrosoftTokenVault.load(context) != null) }
     var isOffline by remember { mutableStateOf(prefs.getBoolean("is_offline", false)) }
     var playerName by remember { mutableStateOf(
         if (isOffline) prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
@@ -1909,6 +1910,7 @@ private fun AccountDestination(images: LauncherImages) {
             try {
                 val account = MinecraftAuth.refreshAccount(savedRefreshToken)
                 MicrosoftTokenVault.save(context, account.refreshToken)
+                hasSavedMicrosoftAccount = true
                 prefs.edit()
                     .putString("microsoft_name", account.name)
                     .putString("microsoft_uuid", account.uuid)
@@ -2016,6 +2018,7 @@ private fun AccountDestination(images: LauncherImages) {
                                 status = "Waiting for Microsoft sign-in approval…"
                                 val account = MinecraftAuth.completeDeviceLogin(pending)
                                 MicrosoftTokenVault.save(context, account.refreshToken)
+                                hasSavedMicrosoftAccount = true
                                 playerName = account.name; playerUuid = account.uuid
                                 prefs.edit().putString("microsoft_name", account.name).putString("microsoft_uuid", account.uuid).putBoolean("is_offline", false).apply()
                                 signedIn = true; isOffline = false; hasRecoveredMicrosoftAccount = false; device = null
@@ -2028,12 +2031,19 @@ private fun AccountDestination(images: LauncherImages) {
                     }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB5E96D), contentColor = Ink), shape = RoundedCornerShape(24.dp)) {
                         Text(if (busy) "WAITING FOR MICROSOFT…" else "SIGN IN WITH MICROSOFT  →", fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
-                    if (signedIn || hasRecoveredMicrosoftAccount) {
+                    if (signedIn || hasSavedMicrosoftAccount || hasRecoveredMicrosoftAccount) {
                         OutlinedButton(onClick = {
-                            MicrosoftTokenVault.clear(context); signedIn = false; hasRecoveredMicrosoftAccount = false
+                            MicrosoftTokenVault.clear(context)
+                            signedIn = false; hasRecoveredMicrosoftAccount = false; hasSavedMicrosoftAccount = false
                             prefs.edit().remove("microsoft_name").remove("microsoft_uuid").apply()
-                            playerName = "Not signed in"; playerUuid = ""; status = "Microsoft account disconnected."
-                        }, modifier = Modifier.fillMaxWidth()) { Text("SIGN OUT") }
+                            if (isOffline) {
+                                playerName = prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
+                                playerUuid = prefs.getString("offline_uuid", "") ?: ""
+                                status = "Offline profile remains selected. Microsoft account disconnected."
+                            } else {
+                                playerName = "Not signed in"; playerUuid = ""; status = "Microsoft account disconnected."
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("DISCONNECT MICROSOFT") }
                     }
                 }
             }
