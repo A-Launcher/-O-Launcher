@@ -4429,7 +4429,7 @@ private fun NewInstanceWizard(
                             Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 WizardTitle("PROFILE DETAILS", brown)
                                 WizardTitle("NAME", brown)
-                                WizardBox(name.ifBlank { "Tap to enter instance name" }, Modifier.fillMaxWidth().height(45.dp).clickable { nameDialog = true }, brown)
+                                WizardBox(name.ifBlank { "Tap to enter instance name" }, Modifier.fillMaxWidth().height(45.dp).clickable { nameDialog = true }, brown, showArrow = false)
                                 WizardTitle("LOADER", brown)
                                 listOf("Vanilla","Fabric","Forge","NeoForge","Quilt","OptiFine").chunked(3).forEach { row ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -4481,7 +4481,9 @@ private fun NewInstanceWizard(
                                                 loadingCompatibleVersions -> "Loading compatible versions…"
                                                 else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Latest compatible"
                                             },
-                                            Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true }, brown
+                                            Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true },
+                                            brown,
+                                            showArrow = loader != "Vanilla" && loader != "OptiFine" && compatibleLoaderVersions.isNotEmpty()
                                         )
                                     }
                                     DropdownMenu(loaderMenu, { loaderMenu = false }) {
@@ -4521,8 +4523,8 @@ private fun NewInstanceWizard(
                                     Text("12 GB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                                 WizardSwitch("USE LAUNCHER DEFAULT (5000 MB)", useLauncherRam, onUseLauncherRamChange, brown)
-                                WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown)
-                                WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown)
+                                WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown, showArrow = false)
+                                WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown, showArrow = false)
                                 WizardSwitch("SHARED GAME FOLDER\nUse common worlds, resource packs and options.", sharedGameFolder, onSharedGameFolderChange, brown)
                             }
                             }
@@ -4700,9 +4702,21 @@ private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
 }
 
 @Composable private fun WizardTitle(value: String, color: Color) { Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black) }
-@Composable private fun WizardBox(value: String, modifier: Modifier, color: Color) {
-    Surface(modifier = modifier, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
-        Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) { Text(value, color = color, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Spacer(Modifier.weight(1f)); Text("▾", color = color, fontSize = 18.sp) }
+@Composable private fun WizardBox(value: String, modifier: Modifier, color: Color, showArrow: Boolean = true) {
+    Surface(
+        modifier = modifier,
+        color = Color(0xFFFFF8EE),
+        shape = RoundedCornerShape(13.dp),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFE8C58E))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(value, color = color, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.weight(1f))
+            if (showArrow) Text("▾", color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 @Composable private fun WizardSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit, color: Color) {
