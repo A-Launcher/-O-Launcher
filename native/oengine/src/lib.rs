@@ -456,7 +456,7 @@ pub unsafe extern "system" fn Java_com_alauncher_olauncher_OEngineJvmNativeBridg
     }
     let mut parsed = Vec::with_capacity(count);
     for index in 0..count {
-        if !(0..=3).contains(&d[index]) || !(0..=4).contains(&a[index]) ||
+        if !(0..=3).contains(&d[index]) || !(0..=5).contains(&a[index]) ||
             !x[index].is_finite() || !y[index].is_finite() || !v[index].is_finite() ||
             m[index] < 0 || !(0..=0x10FFFF).contains(&cp[index]) ||
             (0xD800..=0xDFFF).contains(&cp[index]) {
