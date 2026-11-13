@@ -4221,15 +4221,67 @@ private fun WizardChoiceCard(emoji: String, title: String, description: String, 
     Surface(modifier.fillMaxHeight().clickable(onClick = onClick), color = Color(0xFFFFF5E5), shape = RoundedCornerShape(22.dp),
         border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFC04A)), shadowElevation = 7.dp) {
         Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
-            Text(emoji, fontSize = 68.sp)
+            WizardAnimalArtwork(emoji, Modifier.fillMaxWidth().weight(1f))
             Text(title, color = Color(0xFF51240E), fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text(description, color = Color(0xFF51240E), fontSize = 15.sp, textAlign = TextAlign.Center)
-            Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB51B), contentColor = Color(0xFF51240E)), shape = RoundedCornerShape(24.dp)) {
-                Text("Select  ➜", fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text(description, color = Color(0xFF72513A), fontSize = 15.sp, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB51B), contentColor = Color(0xFF51240E)), shape = RoundedCornerShape(16.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)) {
+                Text("SELECT  →", fontSize = 17.sp, fontWeight = FontWeight.Black)
             }
         }
     }
 }
+@Composable
+private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
+    val fox = listOf(
+        "....OO....",
+        "...OOOO...",
+        "..OOOOOO..",
+        ".OOOCCOOO.",
+        "OOOCCCCOOO",
+        "OOCCBBCCOO",
+        "OOCCBBCCOO",
+        ".OOCCCCOO.",
+        "..OOCCOO..",
+        "...OOOO...",
+        "...O..O...",
+        "..OO..OO.."
+    )
+    val wolf = listOf(
+        "...BBBB...",
+        "..BWWWWB..",
+        ".BBWWWWBB.",
+        "BBWWWWWWBB",
+        "BBWWWWWWBB",
+        "BBWWBBWWBB",
+        ".BWWBBBBW.",
+        "..WWBBBB..",
+        "...WWWW...",
+        "..WW..WW..",
+        ".WWW..WWW.",
+        "............"
+    )
+    val rows = if (kind.contains("🦊")) fox else wolf
+    androidx.compose.foundation.Canvas(modifier = modifier.heightIn(min = 130.dp, max = 220.dp)) {
+        val cell = minOf(size.width / 12f, size.height / 12f)
+        val left = (size.width - cell * 12f) / 2f
+        val top = (size.height - cell * 12f) / 2f
+        rows.forEachIndexed { y, line ->
+            line.forEachIndexed { x, pixel ->
+                val color = when (pixel) {
+                    'O' -> Color(0xFFE87932)
+                    'C' -> Color(0xFFFFE8C9)
+                    'B' -> Color(0xFF39251F)
+                    'W' -> Color(0xFFB7A99A)
+                    else -> Color.Transparent
+                }
+                if (color != Color.Transparent) {
+                    drawRect(color, androidx.compose.ui.geometry.Offset(left + x * cell, top + y * cell), androidx.compose.ui.geometry.Size(cell + 0.7f, cell + 0.7f))
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun WizardTitle(value: String, color: Color) { Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black) }
 @Composable private fun WizardBox(value: String, modifier: Modifier, color: Color) {
     Surface(modifier = modifier, color = Color(0xFFFFF8EE), shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
