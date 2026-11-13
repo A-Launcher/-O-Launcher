@@ -81,7 +81,18 @@ object OEngineLaunchProfileManager {
 
         val idBase = cleanName.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
             .ifBlank { "profile" }
-        val id = (idBase + "-" + loader.id + "-" + cleanMinecraft).take(120)
+        val loaderBuild = cleanLoaderVersion
+            ?.lowercase()
+            ?.replace(Regex("[^a-z0-9._+-]+"), "-")
+            ?.trim('-')
+        // Keep distinct loader builds side by side; the old ID omitted loaderVersion,
+        // making two Forge/Fabric builds for the same MC version collide.
+        val id = listOfNotNull(
+            idBase.take(40),
+            loader.id,
+            cleanMinecraft.take(48),
+            loaderBuild?.take(40)
+        ).joinToString("-")
         val profileRoot = File(File(instanceRoot, PROFILE_DIR), id)
         require(!profileRoot.exists()) { "A profile with this name, version and loader already exists." }
         require(profileRoot.mkdirs()) { "Could not create the profile directory." }
