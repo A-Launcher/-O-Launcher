@@ -862,6 +862,7 @@ private fun PanelCard(
 @Composable
 private fun LauncherFilesDestination(images: LauncherImages) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val root = remember(context) { OEngineInstanceManager.active(context).root.apply { mkdirs() } }
     var current by remember(root) { mutableStateOf(root) }
     val navigationHistory = remember(root) { mutableStateListOf<File>() }
@@ -895,6 +896,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     val selectedFiles = remember(current) { mutableStateListOf<File>() }
     var clipboardFiles by remember(root) { mutableStateOf<List<File>>(emptyList()) }
     var clipboardIsMove by remember(root) { mutableStateOf(false) }
+    var pendingExportFiles by remember { mutableStateOf<List<File>>(emptyList()) }
 
     fun isInsideRoot(file: File): Boolean {
         val rootPath = runCatching { root.canonicalPath }.getOrDefault(root.absolutePath)
@@ -980,6 +982,55 @@ private fun LauncherFilesDestination(images: LauncherImages) {
         }
         message = "Imported: $imported; failed: $failed."
         refresh++
+    }
+    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) {
+            val filesToExport = pendingExportFiles.toList()
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val output = context.contentResolver.openOutputStream(uri)
+                            ?: throw IllegalStateException("Could not open export destination")
+                        var exported = 0
+                        output.use { stream ->
+                            java.util.zip.ZipOutputStream(stream.buffered()).use { zip ->
+                                val visited = mutableSetOf<String>()
+                                fun addEntry(file: File, entryName: String) {
+                                    require(isInsideRoot(file)) { "An item points outside the active instance." }
+                                    val canonical = file.canonicalPath
+                                    if (!visited.add(canonical)) return
+                                    if (file.isDirectory) {
+                                        val directoryName = entryName.trimEnd('/') + "/"
+                                        zip.putNextEntry(java.util.zip.ZipEntry(directoryName))
+                                        zip.closeEntry()
+                                        file.listFiles().orEmpty().sortedBy { it.name.lowercase() }.forEach { child ->
+                                            addEntry(child, directoryName + child.name)
+                                        }
+                                    } else if (file.isFile) {
+                                        zip.putNextEntry(java.util.zip.ZipEntry(entryName))
+                                        file.inputStream().buffered().use { input -> input.copyTo(zip) }
+                                        zip.closeEntry()
+                                        exported++
+                                    }
+                                }
+                                filesToExport.forEach { file ->
+                                    require(file.exists() && isInsideRoot(file)) { "A selected item is no longer available." }
+                                    addEntry(file, file.name)
+                                }
+                            }
+                        }
+                        exported
+                    }
+                }
+                message = result.fold(
+                    { "Export complete: ${it} file(s) added to ZIP." },
+                    { "Export failed: ${it.message ?: "could not create ZIP archive"}" }
+                )
+                pendingExportFiles = emptyList()
+            }
+        } else {
+            pendingExportFiles = emptyList()
+        }
     }
     val entries = remember(current, refresh, search, sortMode, showHidden) {
         current.listFiles()?.filter {
@@ -1101,6 +1152,12 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                             TextButton(onClick = { pendingBulkDelete = true }) {
                                 Text("DELETE ${selectedFiles.size}", color = Color(0xFFB34B3B), fontWeight = FontWeight.Bold, fontSize = 10.sp)
                             }
+                        }
+                        if (selectedFiles.isNotEmpty()) {
+                            TextButton(onClick = {
+                                pendingExportFiles = selectedFiles.toList()
+                                exportPicker.launch("olauncher-export.zip")
+                            }) { Text("EXPORT ZIP", color = Ink, fontWeight = FontWeight.Bold, fontSize = 10.sp) }
                         }
                         if (selectedFiles.isNotEmpty()) {
                             TextButton(onClick = {
