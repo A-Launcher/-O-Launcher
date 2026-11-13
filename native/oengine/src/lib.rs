@@ -273,8 +273,18 @@ unsafe fn dispatch_native_input_event(
     event: OEngineNativeInputEvent,
 ) {
     match event.device {
-        1 => { // KEYBOARD: translate O Engine transition values to GLFW action values.
-            if let Some(action) = glfw_action_from_oengine(event.action) {
+        1 => { // KEYBOARD: translate transitions and deliver committed Unicode text.
+            if event.action == 5 {
+                if event.codepoint != 0 && event.codepoint <= 0x10ffff &&
+                    !(0xd800..=0xdfff).contains(&event.codepoint) {
+                    if let Some(callback) = callbacks.character {
+                        callback(window, event.codepoint);
+                    }
+                    if let Some(callback) = callbacks.character_mods {
+                        callback(window, event.codepoint, event.modifiers);
+                    }
+                }
+            } else if let Some(action) = glfw_action_from_oengine(event.action) {
                 if let Some(callback) = callbacks.key {
                     callback(window, event.code, event.scan_code, action, event.modifiers);
                 }
@@ -1770,6 +1780,23 @@ mod native_input_dispatch_tests {
         assert_eq!(*trace.lock().unwrap(), vec![
             (1, 87, 42), (7, 1, 1), (2, 119, 0), (7, 119, 1), (4, 0, 1), (3, 12, 34), (5, 1, -2), (6, 0, 0)
         ]);
+    }
+
+    #[test]
+    fn committed_text_emits_unicode_character_callbacks_without_key_transitions() {
+        let _serial = DISPATCH_TEST_LOCK.lock().unwrap();
+        let trace = TRACE.get_or_init(|| Mutex::new(Vec::new()));
+        trace.lock().unwrap().clear();
+        let callbacks = OEngineNativeInputCallbacks {
+            key: Some(key), character: Some(character), character_mods: Some(character_mods),
+            ..Default::default()
+        };
+        unsafe {
+            dispatch_native_input_event(ptr::null_mut(), &callbacks, OEngineNativeInputEvent {
+                device: 1, action: 5, codepoint: 0x1f30d, modifiers: 3, ..Default::default()
+            });
+        }
+        assert_eq!(*trace.lock().unwrap(), vec![(2, 0x1f30d, 0), (7, 0x1f30d, 3)]);
     }
 
     #[test]
