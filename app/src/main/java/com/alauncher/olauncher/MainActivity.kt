@@ -4344,6 +4344,7 @@ private fun NewInstanceWizard(
     var nameDialog by remember { mutableStateOf(false) }
     var compatibleLoaderVersions by remember(loader, selectedVersion) { mutableStateOf<List<OEngineLoaderVersionCatalog.LoaderVersion>>(emptyList()) }
     var loadingCompatibleVersions by remember { mutableStateOf(false) }
+    var loaderVersionLoadFailed by remember { mutableStateOf(false) }
     LaunchedEffect(loader, selectedVersion) {
         val engineLoader = when (loader) {
             "Fabric" -> OEngineModLoader.FABRIC
@@ -4357,6 +4358,7 @@ private fun NewInstanceWizard(
             compatibleLoaderVersions = emptyList()
         } else {
             loadingCompatibleVersions = true
+            loaderVersionLoadFailed = false
             try {
                 compatibleLoaderVersions = OEngineLoaderVersionCatalog.fetch(engineLoader, selectedVersion)
                 if (selectedLoaderVersion != null && compatibleLoaderVersions.none { it.version == selectedLoaderVersion }) {
@@ -4364,6 +4366,7 @@ private fun NewInstanceWizard(
                 }
             } catch (_: Exception) {
                 compatibleLoaderVersions = emptyList()
+                loaderVersionLoadFailed = true
             } finally { loadingCompatibleVersions = false }
         }
     }
@@ -4509,6 +4512,7 @@ private fun NewInstanceWizard(
                                                 loader == "Vanilla" -> "Not required"
                                                 loader == "OptiFine" -> "Official installer"
                                                 loadingCompatibleVersions -> "Loading compatible versions…"
+                                                loaderVersionLoadFailed -> "Couldn't load releases — check connection"
                                                 compatibleLoaderVersions.isEmpty() -> "No compatible releases found"
                                                 else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Choose a loader version"
                                             },
