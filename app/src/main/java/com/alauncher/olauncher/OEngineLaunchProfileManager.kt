@@ -174,10 +174,10 @@ object OEngineLaunchProfileManager {
     }
 
     private fun readProfile(directory: File): OEngineLaunchProfile? = runCatching {
-        val profilesCandidate = File(directory.parentFile, PROFILE_DIR)
-        require(!Files.isSymbolicLink(profilesCandidate.toPath()))
-        val profilesRoot = profilesCandidate.canonicalFile
-        require(profilesRoot.parentFile == directory.parentFile.canonicalFile)
+        val profilesDirectory = directory.parentFile
+        require(!Files.isSymbolicLink(profilesDirectory.toPath()))
+        val profilesRoot = profilesDirectory.canonicalFile
+        require(profilesRoot.parentFile == profilesDirectory.parentFile.canonicalFile)
         require(directory.canonicalFile.parentFile == profilesRoot)
         val metadata = File(directory, METADATA_FILE)
         require(!Files.isSymbolicLink(metadata.toPath()) && metadata.isFile)

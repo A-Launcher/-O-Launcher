@@ -126,7 +126,7 @@ class OEngineInputTest {
 
 
     @Test fun androidDpadOnlySourceIsClassifiedAsGamepad() {
-        assertTrue(isOEngineGamepadSource(0x00000200)) // SOURCE_DPAD
+        assertTrue(isOEngineGamepadSource(0x00000201)) // SOURCE_DPAD includes SOURCE_CLASS_BUTTON
         assertTrue(isOEngineGamepadSource(0x00000401)) // SOURCE_GAMEPAD
         assertTrue(isOEngineGamepadSource(0x01000010)) // SOURCE_JOYSTICK
         assertFalse(isOEngineGamepadSource(0x00000101)) // SOURCE_KEYBOARD
