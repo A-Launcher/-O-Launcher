@@ -57,21 +57,20 @@ object OEngineJvmNativeBridge {
     /** Sends a validated Android input batch into Rust's queue shared with the native GLFW backend. */
     internal fun enqueueInputEvents(events: List<OEngineInputEvent>): Int {
         require(events.isNotEmpty() && events.size <= 128) { "Native input batches must contain 1–128 events." }
-        require(events.none { it.action == OEngineInputAction.TEXT }) {
-            "Bulk text input is not supported by the native GLFW event bridge yet."
-        }
+        val nativeEvents = expandOEngineTextEvents(events)
+        check(nativeEvents.isNotEmpty()) { "Expanded native input batch is empty." }
         check(nativeLibraryLoaded) { "O Engine native bridge is not loaded." }
         return nativeEnqueueInputBatch(
-            events.map { it.device.ordinal }.toIntArray(),
-            events.map { it.action.ordinal }.toIntArray(),
-            events.map { it.code }.toIntArray(),
-            events.map { it.scanCode }.toIntArray(),
-            events.map { it.x }.toFloatArray(),
-            events.map { it.y }.toFloatArray(),
-            events.map { it.value }.toFloatArray(),
-            events.map { it.timestampNanos }.toLongArray(),
-            events.map { it.modifiers }.toIntArray(),
-            events.map { it.codepoint }.toIntArray()
+            nativeEvents.map { it.device.ordinal }.toIntArray(),
+            nativeEvents.map { it.action.ordinal }.toIntArray(),
+            nativeEvents.map { it.code }.toIntArray(),
+            nativeEvents.map { it.scanCode }.toIntArray(),
+            nativeEvents.map { it.x }.toFloatArray(),
+            nativeEvents.map { it.y }.toFloatArray(),
+            nativeEvents.map { it.value }.toFloatArray(),
+            nativeEvents.map { it.timestampNanos }.toLongArray(),
+            nativeEvents.map { it.modifiers }.toIntArray(),
+            nativeEvents.map { it.codepoint }.toIntArray()
         )
     }
 
