@@ -487,6 +487,19 @@ class OEngineGameProcessClient(
     }
 
     fun invokeMain(mainClass: String, arguments: List<String>): Boolean {
+        if (mainClass.isBlank() || mainClass.length > 512 ||
+            !mainClass.matches(Regex("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+"))) {
+            onJvmMain(Result.failure(IllegalArgumentException("Minecraft main class is not a valid dotted Java binary class name.")))
+            return false
+        }
+        val argumentBytes = arguments.sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() + 4L }
+        if (arguments.size > 16_384 || arguments.any { it.length > 65_536 || '\\u0000' in it } ||
+            argumentBytes > 512L * 1024L) {
+            onJvmMain(Result.failure(IllegalArgumentException(
+                "Minecraft launch arguments exceed the IPC safety limit of 512 KiB."
+            )))
+            return false
+        }
         if (closed.get()) {
             onJvmMain(Result.failure(IllegalStateException("The game-process client is already closed.")))
             return false
