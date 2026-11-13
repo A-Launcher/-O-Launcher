@@ -1629,8 +1629,14 @@ private fun SettingsDestination(images: LauncherImages) {
 private fun SettingsGroup(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Surface(color = Panel, shape = RoundedCornerShape(20.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text(title, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
-            Text(subtitle, color = Muted, fontSize = 10.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(Modifier.width(4.dp).height(30.dp), color = Color(0xFFFFB51B), shape = RoundedCornerShape(3.dp)) {}
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
+                    Text(subtitle, color = Muted, fontSize = 10.sp)
+                }
+            }
+            Divider(color = Color(0xFFFFE5C5), thickness = 1.dp)
             content()
         }
     }
