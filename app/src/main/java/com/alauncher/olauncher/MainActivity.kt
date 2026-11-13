@@ -2148,21 +2148,31 @@ private fun MarketplaceDestination(images: LauncherImages, availableHeight: Dp, 
             verticalArrangement = Arrangement.spacedBy(14.dp * scale)
         ) {
             DestinationHero(images, "Marketplace", "Discover mods, worlds, resource packs and more", "COMMUNITY CONTENT")
-            Row(
-                Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(14.dp)).padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Surface(
+                Modifier.fillMaxWidth(),
+                color = Panel,
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Border)
             ) {
-                Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(19.dp))
-                Box(Modifier.weight(1f)) {
-                    BasicTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        singleLine = true,
-                        textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 12.sp)
-                    )
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = "Search", tint = Muted, modifier = Modifier.size(20.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (search.isBlank()) Text("Search mods, modpacks and more...", color = Muted, fontSize = 12.sp)
+                        BasicTextField(
+                            value = search,
+                            onValueChange = { search = it },
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Ink, fontSize = 12.sp)
+                        )
+                    }
+                    TextButton(onClick = { loadProjects() }, enabled = !loading) {
+                        Text("SEARCH", color = Ink, fontWeight = FontWeight.Black, fontSize = 10.sp)
+                    }
                 }
-                TextButton(onClick = { loadProjects() }, enabled = !loading) { Text("SEARCH", color = Ink, fontWeight = FontWeight.Bold) }
             }
             if (installedMinecraftVersions.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
