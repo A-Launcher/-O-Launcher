@@ -212,15 +212,16 @@ fun OEngineTouchControlsOverlay(
     var showLabelEditor by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var labelDraft by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
     val toggled = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() }
+    val latestOnKey by androidx.compose.runtime.rememberUpdatedState(onKey)
     DisposableEffect(Unit) {
         onDispose {
             toggled.forEach { (id, pressed) ->
-                if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                if (pressed) controls.firstOrNull { it.id == id }?.let { latestOnKey(it.keyCode, false) }
             }
         }
     }
     fun releaseToggle(id: String) {
-        OEngineTouchControls.keyCodeToRelease(controls.toList(), id, toggled[id] == true)?.let { onKey(it, false) }
+        OEngineTouchControls.keyCodeToRelease(controls.toList(), id, toggled[id] == true)?.let { latestOnKey(it, false) }
         toggled.remove(id)
     }
     val keyChoices = listOf(
@@ -237,7 +238,7 @@ fun OEngineTouchControlsOverlay(
                 if (!editing) {
                     // Entering the editor must not leave a toggle key held in Minecraft.
                     toggled.forEach { (id, pressed) ->
-                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { latestOnKey(it.keyCode, false) }
                     }
                     toggled.clear()
                 }
@@ -279,7 +280,7 @@ fun OEngineTouchControlsOverlay(
                     if (!raw.isNullOrBlank()) {
                         runCatching { OEngineTouchControls.decode(raw) }.onSuccess { imported ->
                             toggled.forEach { (id, pressed) ->
-                                if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                                if (pressed) controls.firstOrNull { it.id == id }?.let { latestOnKey(it.keyCode, false) }
                             }
                             controls.clear(); controls.addAll(imported)
                             selectedId = imported.firstOrNull { it.id == "jump" }?.id ?: imported.first().id
@@ -302,7 +303,7 @@ fun OEngineTouchControlsOverlay(
                     // toggle before clearing its bookkeeping, or Minecraft may keep the
                     // corresponding key down until the game process is restarted.
                     toggled.forEach { (id, pressed) ->
-                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { latestOnKey(it.keyCode, false) }
                     }
                     val updated = OEngineTouchControls.applyPreset(controls.toList(), presets[presetIndex])
                     controls.clear(); controls.addAll(updated)
@@ -313,7 +314,7 @@ fun OEngineTouchControlsOverlay(
                 androidx.compose.material3.TextButton(onClick = {
                     val reset = OEngineTouchControls.reset()
                     toggled.forEach { (id, pressed) ->
-                        if (pressed) controls.firstOrNull { it.id == id }?.let { onKey(it.keyCode, false) }
+                        if (pressed) controls.firstOrNull { it.id == id }?.let { latestOnKey(it.keyCode, false) }
                     }
                     controls.clear(); controls.addAll(reset); selectedId = "jump"; toggled.clear()
                     onLayoutChanged(reset)
@@ -420,7 +421,7 @@ val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
                         else if (editing) androidx.compose.ui.graphics.Color(0xFFFFD27A) else androidx.compose.ui.graphics.Color(0x66FFFFFF),
                         RoundedCornerShape(12.dp)
                     )
-                    .pointerInput(control.id, editing, control.toggle) {
+                    .pointerInput(control.id, control.keyCode, editing, control.toggle) {
                         if (editing) {
                             detectDragGestures(
                                 onDragStart = { selectedId = control.id },
@@ -442,10 +443,10 @@ val i = keyChoices.indexOf(selected.keyCode).let { if (it < 0) 0 else it }
                                 if (control.toggle) {
                                     val pressed = !(toggled[control.id] ?: false)
                                     toggled[control.id] = pressed
-                                    onKey(control.keyCode, pressed)
+                                    latestOnKey(control.keyCode, pressed)
                                 } else {
-                                    onKey(control.keyCode, true)
-                                    try { waitForUpOrCancellation() } finally { onKey(control.keyCode, false) }
+                                    latestOnKey(control.keyCode, true)
+                                    try { waitForUpOrCancellation() } finally { latestOnKey(control.keyCode, false) }
                                 }
                             }
                         }
