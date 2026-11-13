@@ -4323,7 +4323,12 @@ private fun NewInstanceWizard(
                                         row.forEach { option ->
                                             Surface(Modifier.weight(1f).height(43.dp).clickable { onLoaderChange(option) }, color = if (loader == option) gold else Color(0xFFFFF8EE),
                                                 shape = RoundedCornerShape(15.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFF3BD6A))) {
-                                                Box(contentAlignment = Alignment.Center) { Text(option.uppercase(), color = brown, fontSize = 12.sp, fontWeight = FontWeight.Black) }
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                        if (loader == option) Text("✓", color = Color(0xFF8A542B), fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                                        Text(option.uppercase(), color = brown, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                                    }
+                                                }
                                             }
                                         }
                                     }
