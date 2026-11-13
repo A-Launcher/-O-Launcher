@@ -36,11 +36,32 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
-      - name: Install Android NDK
+      - name: Install Android NDK (retry transient SDK download failures)
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          NDK_VERSION="28.2.13676358"
+          NDK_DIR="$ANDROID_HOME/ndk/$NDK_VERSION"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+
+          # GitHub-hosted runners occasionally receive truncated NDK archives
+          # ("Premature EOF"). Remove partial installs and retry the package
+          # download rather than failing the only four-ABI native build.
+          installed=false
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" "ndk;$NDK_VERSION" && test -x "$NDK_DIR/ndk-build"; then
+              installed=true
+              break
+            fi
+            echo "NDK installation attempt $attempt failed; clearing partial package."
+            rm -rf "$NDK_DIR" "$ANDROID_HOME/.temp"
+            sleep $((attempt * 10))
+          done
+          if [ "$installed" != true ]; then
+            echo "Could not install Android NDK $NDK_VERSION after three attempts."
+            exit 1
+          fi
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> "$GITHUB_ENV"
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build four Android ABIs
