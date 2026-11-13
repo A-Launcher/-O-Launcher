@@ -1435,7 +1435,15 @@ private fun SkinDestination(images: LauncherImages) {
             }
             Surface(modifier = Modifier.weight(1f).height(340.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
                 Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("IMPORT A SKIN", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Ink)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("IMPORT A SKIN", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Ink)
+                            Text("PLAYER CUSTOMIZATION", color = Color(0xFF9B6A35), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        }
+                        Surface(color = Color(0xFFFFE8BE), shape = RoundedCornerShape(9.dp)) {
+                            Text("PNG", Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = Color(0xFF754A25), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        }
+                    }
                     Text("Bring your own character design. O Launcher accepts standard Minecraft skin PNG files.", color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                     Surface(color = Color(0xFFFFF1D9), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
