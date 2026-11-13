@@ -53,6 +53,58 @@ object OEngineInstanceManager {
         return instance
     }
 
+    fun rename(context: Context, id: String, displayName: String): OEngineInstance {
+        require(id != DEFAULT_ID) { "The Default instance cannot be renamed." }
+        val clean = sanitizeDisplayName(displayName)
+        require(clean.isNotBlank()) { "Enter a valid instance name." }
+        val current = list(context).firstOrNull { it.id == id }
+            ?: throw IllegalArgumentException("Unknown O Launcher instance.")
+        val oldDirectory = File(File(context.filesDir, "minecraft/instances"), id)
+        require(oldDirectory.isDirectory && oldDirectory.canonicalFile.parentFile ==
+            File(context.filesDir, "minecraft/instances").canonicalFile) {
+            "The instance directory is invalid."
+        }
+        val newId = instanceIdFor(clean)
+        val newDirectory = File(oldDirectory.parentFile, newId)
+        require(newId == id || !newDirectory.exists()) { "An instance with this name already exists." }
+        val metadata = File(oldDirectory, "instance.properties")
+        val sharesGameFolder = current.root.canonicalFile ==
+            File(context.filesDir, "minecraft").canonicalFile
+        val contents = "name=$clean\\nsharedGameFolder=$sharesGameFolder\\n"
+        if (newId == id) {
+            metadata.writeText(contents)
+        } else {
+            require(oldDirectory.renameTo(newDirectory)) { "Could not rename the instance directory." }
+            try {
+                File(newDirectory, "instance.properties").writeText(contents)
+            } catch (error: Exception) {
+                newDirectory.renameTo(oldDirectory)
+                throw error
+            }
+            if (activeId(context) == id) {
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putString(ACTIVE_KEY, newId).commit()
+            }
+        }
+        return list(context).first { it.id == newId }
+    }
+
+    fun delete(context: Context, id: String) {
+        require(id != DEFAULT_ID) { "The Default instance cannot be deleted." }
+        val directory = File(File(context.filesDir, "minecraft/instances"), id)
+        require(directory.isDirectory && directory.canonicalFile.parentFile ==
+            File(context.filesDir, "minecraft/instances").canonicalFile) {
+            "The instance directory is invalid."
+        }
+        if (activeId(context) == id) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(ACTIVE_KEY, DEFAULT_ID).commit()
+        }
+        if (!directory.deleteRecursively()) {
+            throw IllegalStateException("Could not completely delete the instance directory.")
+        }
+    }
+
     fun create(context: Context, displayName: String, sharedGameFolder: Boolean = false): OEngineInstance {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
