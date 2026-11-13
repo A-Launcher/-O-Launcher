@@ -1876,16 +1876,18 @@ private fun AccountDestination(images: LauncherImages) {
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("olauncher_accounts", android.content.Context.MODE_PRIVATE) }
     var hasRecoveredMicrosoftAccount by remember { mutableStateOf(MicrosoftTokenVault.load(context) != null) }
+    var isOffline by remember { mutableStateOf(prefs.getBoolean("is_offline", false)) }
     var playerName by remember { mutableStateOf(
-        if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_name", "Saved Microsoft account") ?: "Saved Microsoft account"
+        if (isOffline) prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
+        else if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_name", "Saved Microsoft account") ?: "Saved Microsoft account"
         else prefs.getString("offline_name", "Not signed in") ?: "Not signed in"
     ) }
     var playerUuid by remember { mutableStateOf(
-        if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_uuid", "") ?: ""
+        if (isOffline) prefs.getString("offline_uuid", "") ?: ""
+        else if (hasRecoveredMicrosoftAccount) prefs.getString("microsoft_uuid", "") ?: ""
         else prefs.getString("offline_uuid", "") ?: ""
     ) }
     var offlineName by remember { mutableStateOf("") }
-    var isOffline by remember { mutableStateOf(prefs.getBoolean("is_offline", false)) }
     var device by remember { mutableStateOf<MicrosoftDeviceCode?>(null) }
     var status by remember { mutableStateOf(
         when {
@@ -1910,18 +1912,23 @@ private fun AccountDestination(images: LauncherImages) {
                 prefs.edit()
                     .putString("microsoft_name", account.name)
                     .putString("microsoft_uuid", account.uuid)
-                    .putBoolean("is_offline", false)
                     .apply()
-                playerName = account.name
-                playerUuid = account.uuid
-                isOffline = false
-                signedIn = true
                 hasRecoveredMicrosoftAccount = false
-                status = "Microsoft session restored. Minecraft Java profile verified."
+                if (!isOffline) {
+                    prefs.edit().putBoolean("is_offline", false).apply()
+                    playerName = account.name
+                    playerUuid = account.uuid
+                    signedIn = true
+                    status = "Microsoft session restored. Minecraft Java profile verified."
+                } else {
+                    status = "Offline profile selected. Your Microsoft account remains saved for later."
+                }
             } catch (e: Exception) {
                 hasRecoveredMicrosoftAccount = true
-                status = e.message?.takeIf { it.isNotBlank() }
-                    ?: "Saved Microsoft session could not be restored. Please sign in again."
+                if (!isOffline) {
+                    status = e.message?.takeIf { it.isNotBlank() }
+                        ?: "Saved Microsoft session could not be restored. Please sign in again."
+                }
             } finally {
                 busy = false
             }
