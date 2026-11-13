@@ -4474,7 +4474,32 @@ private fun NewInstanceWizard(
                                     Box(Modifier.fillMaxWidth()) {
                                         WizardBox(selectedVersion, Modifier.fillMaxWidth().height(48.dp).clickable { versionMenu = true }, brown)
                                     }
-                                    DropdownMenu(versionMenu, { versionMenu = false }) { versions.take(80).forEach { v -> DropdownMenuItem(text = { Text(v) }, onClick = { onVersionChange(v); versionMenu = false }) } }
+                                    DropdownMenu(
+                                        expanded = versionMenu,
+                                        onDismissRequest = { versionMenu = false },
+                                        modifier = Modifier.heightIn(max = 420.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        containerColor = Color(0xFFFFF8EE),
+                                        tonalElevation = 4.dp,
+                                        shadowElevation = 8.dp
+                                    ) {
+                                        versions.take(80).forEach { v ->
+                                            val isSelected = selectedVersion == v
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        v,
+                                                        color = brown,
+                                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium
+                                                    )
+                                                },
+                                                leadingIcon = {
+                                                    if (isSelected) Text("✓", color = Color(0xFF9B5A1B), fontWeight = FontWeight.Black)
+                                                },
+                                                onClick = { onVersionChange(v); versionMenu = false }
+                                            )
+                                        }
+                                    }
                                 }
                                 WizardTitle("LOADER VERSION", brown)
                                 Box {
@@ -4491,9 +4516,30 @@ private fun NewInstanceWizard(
                                             showArrow = loader != "Vanilla" && loader != "OptiFine" && compatibleLoaderVersions.isNotEmpty()
                                         )
                                     }
-                                    DropdownMenu(loaderMenu, { loaderMenu = false }) {
+                                    DropdownMenu(
+                                        expanded = loaderMenu,
+                                        onDismissRequest = { loaderMenu = false },
+                                        modifier = Modifier.heightIn(max = 420.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        containerColor = Color(0xFFFFF8EE),
+                                        tonalElevation = 4.dp,
+                                        shadowElevation = 8.dp
+                                    ) {
                                         compatibleLoaderVersions.take(80).forEach { v ->
-                                            DropdownMenuItem(text = { Text(v.version) }, onClick = { onLoaderVersionChange(v.version); loaderMenu = false })
+                                            val isSelected = selectedLoaderVersion == v.version
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(
+                                                        v.version + if (v.stable) "  •  Stable" else "",
+                                                        color = brown,
+                                                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium
+                                                    )
+                                                },
+                                                leadingIcon = {
+                                                    if (isSelected) Text("✓", color = Color(0xFF9B5A1B), fontWeight = FontWeight.Black)
+                                                },
+                                                onClick = { onLoaderVersionChange(v.version); loaderMenu = false }
+                                            )
                                         }
                                     }
                                 }
