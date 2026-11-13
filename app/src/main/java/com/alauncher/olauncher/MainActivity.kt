@@ -1892,8 +1892,9 @@ private fun AccountDestination(images: LauncherImages) {
     var device by remember { mutableStateOf<MicrosoftDeviceCode?>(null) }
     var status by remember { mutableStateOf(
         when {
-            hasRecoveredMicrosoftAccount -> "Saved Microsoft account recovered. Re-authentication is required before online play."
+            isOffline && hasRecoveredMicrosoftAccount -> "Offline profile selected. Your saved Microsoft account needs re-authentication before online play."
             isOffline -> "Offline profile saved on this device."
+            hasRecoveredMicrosoftAccount -> "Saved Microsoft account recovered. Re-authentication is required before online play."
             else -> "Connect a Microsoft account that owns Minecraft: Java Edition."
         }
     ) }
@@ -1927,8 +1928,10 @@ private fun AccountDestination(images: LauncherImages) {
                 }
             } catch (e: Exception) {
                 hasRecoveredMicrosoftAccount = true
-                if (!isOffline) {
-                    status = e.message?.takeIf { it.isNotBlank() }
+                status = if (isOffline) {
+                    "Offline profile remains selected. Your saved Microsoft account could not be restored; sign in again to use online play."
+                } else {
+                    e.message?.takeIf { it.isNotBlank() }
                         ?: "Saved Microsoft session could not be restored. Please sign in again."
                 }
             } finally {
