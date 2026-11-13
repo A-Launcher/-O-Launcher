@@ -7,13 +7,28 @@
 
 #define OENGINE_INPUT_MAX_RESET_RELEASES 1031u
 
-/* Keep field order and integer values aligned with OEngineInputDevice/Action.
- * DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 are O Engine values;
+/* Keep these values aligned with OEngineInputDevice/OEngineInputAction ordinals.
+ * TEXT carries one committed Unicode scalar per event; it is never a key transition.
  * oengine_input_dispatch converts digital actions to GLFW PRESS=1, RELEASE=0, REPEAT=2.
  */
+enum OEngineInputDevice {
+    OENGINE_INPUT_TOUCH = 0,
+    OENGINE_INPUT_KEYBOARD = 1,
+    OENGINE_INPUT_MOUSE = 2,
+    OENGINE_INPUT_GAMEPAD = 3
+};
+
+enum OEngineInputAction {
+    OENGINE_INPUT_DOWN = 0,
+    OENGINE_INPUT_UP = 1,
+    OENGINE_INPUT_REPEAT = 2,
+    OENGINE_INPUT_MOVE = 3,
+    OENGINE_INPUT_SCROLL = 4,
+    OENGINE_INPUT_TEXT = 5
+};
 typedef struct OEngineNativeInputEvent {
     int32_t device;          /* TOUCH=0, KEYBOARD=1, MOUSE=2, GAMEPAD=3 */
-    int32_t action;          /* DOWN=0, UP=1, REPEAT=2, MOVE=3, SCROLL=4 */
+    int32_t action;          /* OEngineInputAction; TEXT=5 carries codepoint. */
     int32_t code;
     float x;
     float y;
