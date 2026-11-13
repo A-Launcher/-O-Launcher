@@ -2,6 +2,14 @@
 
 #include <stddef.h>
 
+_Static_assert(OENGINE_INPUT_TOUCH == 0 && OENGINE_INPUT_KEYBOARD == 1 &&
+               OENGINE_INPUT_MOUSE == 2 && OENGINE_INPUT_GAMEPAD == 3,
+               "Android input device ordinals changed");
+_Static_assert(OENGINE_INPUT_DOWN == 0 && OENGINE_INPUT_UP == 1 &&
+               OENGINE_INPUT_REPEAT == 2 && OENGINE_INPUT_MOVE == 3 &&
+               OENGINE_INPUT_SCROLL == 4 && OENGINE_INPUT_TEXT == 5,
+               "Android input action ordinals changed");
+
 _Static_assert(sizeof(OEngineNativeInputCallbacks) == 7 * sizeof(void *),
                "callback table must contain seven native function pointers");
 _Static_assert(offsetof(OEngineNativeInputEvent, device) == 0,
@@ -68,7 +76,7 @@ int main(void) {
     callbacks.character_mods = char_mods_callback;
     callbacks.platform_event = platform_callback;
     event.device = 1;
-    event.action = 0;
+    event.action = OENGINE_INPUT_DOWN;
     event.scan_code = 30;
     return callbacks.key == NULL || callbacks.character_mods == NULL ||
            callbacks.platform_event == NULL || event.device != 1;
