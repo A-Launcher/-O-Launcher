@@ -4427,50 +4427,65 @@ private fun WizardChoiceCard(emoji: String, title: String, description: String, 
 }
 @Composable
 private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
+    // A crisp 16-pixel grid gives each choice a distinct silhouette without
+    // relying on platform-dependent emoji rendering.
     val fox = listOf(
-        "....OO....",
-        "...OOOO...",
-        "..OOOOOO..",
-        ".OOOCCOOO.",
-        "OOOCCCCOOO",
-        "OOCCBBCCOO",
-        "OOCCBBCCOO",
-        ".OOCCCCOO.",
-        "..OOCCOO..",
-        "...OOOO...",
-        "...O..O...",
-        "..OO..OO.."
+        "....OO......OO..",
+        "...OOO......OOO.",
+        "..OOOOO....OOOOO",
+        ".OOOOOOO..OOOOOO",
+        "OOOOOOOOOOOOOOOO",
+        "OOOOOOOOOOOOOOOO",
+        "OOOCCCCCCCCCCOOO",
+        "OOCCCCCCCCCCCCOO",
+        "OOCCCDDDDDDCCCOO",
+        "OOCCCDDDDDDCCCOO",
+        ".OOCCCCCCCCCCOO.",
+        "..OOCCCCCCCCOO..",
+        "...OOOCCCCOOO...",
+        "....OOOCCOOO....",
+        ".....OO..OO.....",
+        "....OO....OO...."
     )
     val wolf = listOf(
-        "...BBBB...",
-        "..BWWWWB..",
-        ".BBWWWWBB.",
-        "BBWWWWWWBB",
-        "BBWWWWWWBB",
-        "BBWWBBWWBB",
-        ".BWWBBBBW.",
-        "..WWBBBB..",
-        "...WWWW...",
-        "..WW..WW..",
-        ".WWW..WWW.",
-        "............"
+        "....BBBB..BBBB..",
+        "...BBBBB..BBBBB.",
+        "..BBBBBBBBBBBBBB",
+        ".BBBBBBBBBBBBBBB",
+        "BBBBBBBBBBBBBBBB",
+        "BBWWWWWWWWWWWWBB",
+        "BBWWWWWWWWWWWWBB",
+        "BBWWWDDWWDDWWWBB",
+        ".BWWWWDDWWDDWWB.",
+        ".BWWWWWWWWWWWWB.",
+        "..BWWWWWWWWWWB..",
+        "...BWWWWWWWWB...",
+        "....BWWWWWWB....",
+        ".....BWWWWB.....",
+        "......BB..BB....",
+        ".....BBB..BBB..."
     )
     val rows = if (kind.contains("🦊")) fox else wolf
+    val palette = mapOf(
+        'O' to Color(0xFFE87932),
+        'C' to Color(0xFFFFE8C9),
+        'B' to Color(0xFF594438),
+        'W' to Color(0xFFB7A99A),
+        'D' to Color(0xFF30221E)
+    )
     androidx.compose.foundation.Canvas(modifier = modifier.heightIn(min = 130.dp, max = 220.dp)) {
-        val cell = minOf(size.width / 12f, size.height / 12f)
-        val left = (size.width - cell * 12f) / 2f
-        val top = (size.height - cell * 12f) / 2f
+        val cell = minOf(size.width / 16f, size.height / 16f)
+        val left = (size.width - cell * 16f) / 2f
+        val top = (size.height - cell * 16f) / 2f
         rows.forEachIndexed { y, line ->
             line.forEachIndexed { x, pixel ->
-                val color = when (pixel) {
-                    'O' -> Color(0xFFE87932)
-                    'C' -> Color(0xFFFFE8C9)
-                    'B' -> Color(0xFF39251F)
-                    'W' -> Color(0xFFB7A99A)
-                    else -> Color.Transparent
-                }
-                if (color != Color.Transparent) {
-                    drawRect(color, androidx.compose.ui.geometry.Offset(left + x * cell, top + y * cell), androidx.compose.ui.geometry.Size(cell + 0.7f, cell + 0.7f))
+                val color = palette[pixel]
+                if (color != null) {
+                    drawRect(
+                        color = color,
+                        topLeft = androidx.compose.ui.geometry.Offset(left + x * cell, top + y * cell),
+                        size = androidx.compose.ui.geometry.Size(cell + 0.45f, cell + 0.45f)
+                    )
                 }
             }
         }
