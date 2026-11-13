@@ -3030,6 +3030,11 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
     var newLoaderVersion by remember { mutableStateOf<String?>(null) }
     var activeInstance by remember { mutableStateOf(OEngineInstanceManager.active(context)) }
     var instances by remember { mutableStateOf(OEngineInstanceManager.list(context)) }
+    var showInstanceManager by remember { mutableStateOf(false) }
+    var renameInstanceTarget by remember { mutableStateOf<OEngineInstance?>(null) }
+    var renameInstanceDraft by remember { mutableStateOf("") }
+    var deleteInstanceTarget by remember { mutableStateOf<OEngineInstance?>(null) }
+    var instanceActionStatus by remember { mutableStateOf<String?>(null) }
 
     val optiFineInstallerPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -3218,8 +3223,86 @@ private fun InstallationsDestination(images: LauncherImages, onBrowseModpacks: (
                         }, modifier = Modifier.fillMaxWidth().height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink), shape = RoundedCornerShape(14.dp)) {
                             Text("＋ CREATE NEW INSTANCE", fontWeight = FontWeight.Black)
                         }
+                        Button(onClick = { showInstanceManager = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE7D9C4), contentColor = Ink), shape = RoundedCornerShape(12.dp)) {
+                            Text("MANAGE INSTANCES", fontWeight = FontWeight.Bold)
+                        }
+                        instanceActionStatus?.let { Text(it, color = Muted, fontSize = 11.sp) }
                         Text("Each instance has its own versions, libraries, assets, saves and configuration.", color = Muted, fontSize = 11.sp)
                     }
+                }
+                if (showInstanceManager) {
+                    AlertDialog(
+                        onDismissRequest = { showInstanceManager = false },
+                        title = { Text("MANAGE INSTANCES") },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                instances.forEach { item ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(item.name, fontWeight = FontWeight.Bold, color = Ink)
+                                            Text(if (item.id == "default") "Protected default instance" else if (item.id == activeInstance.id) "Currently active" else "Separate instance", color = Muted, fontSize = 10.sp)
+                                        }
+                                        if (item.id != "default") {
+                                            TextButton(onClick = {
+                                                renameInstanceTarget = item
+                                                renameInstanceDraft = item.name
+                                                showInstanceManager = false
+                                            }) { Text("RENAME") }
+                                            TextButton(onClick = {
+                                                deleteInstanceTarget = item
+                                                showInstanceManager = false
+                                            }) { Text("DELETE", color = Color(0xFF9B3D32)) }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = { TextButton(onClick = { showInstanceManager = false }) { Text("DONE") } }
+                    )
+                }
+                renameInstanceTarget?.let { target ->
+                    AlertDialog(
+                        onDismissRequest = { renameInstanceTarget = null },
+                        title = { Text("RENAME INSTANCE") },
+                        text = { OutlinedTextField(value = renameInstanceDraft, onValueChange = { renameInstanceDraft = it }, singleLine = true, label = { Text("Instance name") }) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                runCatching { OEngineInstanceManager.rename(context, target.id, renameInstanceDraft) }
+                                    .onSuccess { renamed ->
+                                        instances = OEngineInstanceManager.list(context)
+                                        if (activeInstance.id == target.id) activeInstance = renamed
+                                        instanceActionStatus = "Renamed instance to \${renamed.name}."
+                                        preparedLaunchPlan = null
+                                    }
+                                    .onFailure { instanceActionStatus = it.message ?: "Could not rename instance." }
+                                renameInstanceTarget = null
+                            }) { Text("SAVE") }
+                        },
+                        dismissButton = { TextButton(onClick = { renameInstanceTarget = null }) { Text("CANCEL") } }
+                    )
+                }
+                deleteInstanceTarget?.let { target ->
+                    AlertDialog(
+                        onDismissRequest = { deleteInstanceTarget = null },
+                        title = { Text("DELETE INSTANCE?") },
+                        text = { Text("Delete \${target.name} and all files stored inside its instance folder? This cannot be undone. A shared Minecraft game folder will not be deleted.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) { runCatching { OEngineInstanceManager.delete(context, target.id) } }
+                                    result.onSuccess {
+                                        instances = OEngineInstanceManager.list(context)
+                                        activeInstance = OEngineInstanceManager.active(context)
+                                        preparedLaunchPlan = null
+                                        launchPlanStatus = "Instance deleted. Active instance: \${activeInstance.name}."
+                                        instanceActionStatus = "Deleted \${target.name}."
+                                    }.onFailure { instanceActionStatus = it.message ?: "Could not delete instance." }
+                                }
+                                deleteInstanceTarget = null
+                            }) { Text("DELETE", color = Color(0xFF9B3D32)) }
+                        },
+                        dismissButton = { TextButton(onClick = { deleteInstanceTarget = null }) { Text("CANCEL") } }
+                    )
                 }
                 Surface(color = Color(0xFFFFF2DF), shape = RoundedCornerShape(17.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
                     Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
