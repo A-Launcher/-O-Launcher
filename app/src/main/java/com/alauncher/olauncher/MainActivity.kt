@@ -4503,7 +4503,20 @@ private fun NewInstanceWizard(
                             Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                 WizardTitle("PERFORMANCE", brown)
                                 WizardTitle("MEMORY (RAM)", brown)
-                                Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                                Surface(
+                                    color = Color(0xFFFFE8B8),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE7B75F))
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("ALLOCATED MEMORY", color = Color(0xFF8B5A2B), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
+                                        Text(if (useLauncherRam) "5000 MB" else "$ram MB", color = brown, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
                                 Slider(
                                     value = ram.toFloat(),
                                     onValueChange = { onRamChange(it.toInt()) },
