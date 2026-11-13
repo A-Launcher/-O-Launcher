@@ -4511,10 +4511,32 @@ private fun NewInstanceWizard(
                             }
                             }
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("$loader • Minecraft $selectedVersion • " + if (useLauncherRam) "Default RAM" else "$ram MB", Modifier.weight(1f), color = brown, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD36B), contentColor = brown)) { Text("CANCEL", fontWeight = FontWeight.Black) }
-                            Button(onClick = onCreate, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF77D900), contentColor = Color.White)) { Text("＋ CREATE", fontWeight = FontWeight.Black) }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Surface(
+                                Modifier.weight(1f),
+                                color = Color(0xFFFFF3DF),
+                                shape = RoundedCornerShape(16.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0C47E))
+                            ) {
+                                Text(
+                                    "$loader  •  Minecraft $selectedVersion  •  " + if (useLauncherRam) "Default RAM" else "$ram MB",
+                                    Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+                                    color = brown, fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Button(
+                                onClick = onClose,
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD36B), contentColor = brown)
+                            ) { Text("CANCEL", fontWeight = FontWeight.Black) }
+                            Button(
+                                onClick = onCreate,
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF77D900), contentColor = Color.White)
+                            ) { Text("＋ CREATE", fontWeight = FontWeight.Black) }
                         }
                     }
                 }
