@@ -4428,6 +4428,11 @@ private fun NewInstanceWizard(
                             ) {
                             Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                                 WizardTitle("PROFILE DETAILS", brown)
+                                Surface(
+                                    Modifier.fillMaxWidth().height(2.dp),
+                                    color = Color(0xFFEBCB91),
+                                    shape = RoundedCornerShape(2.dp)
+                                ) {}
                                 WizardTitle("NAME", brown)
                                 WizardBox(name.ifBlank { "Tap to enter instance name" }, Modifier.fillMaxWidth().height(45.dp).clickable { nameDialog = true }, brown, showArrow = false)
                                 WizardTitle("LOADER", brown)
@@ -4502,6 +4507,11 @@ private fun NewInstanceWizard(
                             ) {
                             Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                                 WizardTitle("PERFORMANCE", brown)
+                                Surface(
+                                    Modifier.fillMaxWidth().height(2.dp),
+                                    color = Color(0xFFEBCB91),
+                                    shape = RoundedCornerShape(2.dp)
+                                ) {}
                                 WizardTitle("MEMORY (RAM)", brown)
                                 Surface(
                                     color = Color(0xFFFFE8B8),
