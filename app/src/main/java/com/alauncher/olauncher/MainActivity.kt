@@ -4561,20 +4561,45 @@ private fun NewInstanceWizard(
             }
         }
     }
-    if (nameDialog) AlertDialog(onDismissRequest = { nameDialog = false }, title = { Text("Instance name") },
+    if (nameDialog) AlertDialog(
+        onDismissRequest = { nameDialog = false },
+        shape = RoundedCornerShape(24.dp),
+        containerColor = Color(0xFFFFF3DF),
+        tonalElevation = 8.dp,
+        titleContentColor = Color(0xFF51240E),
+        textContentColor = Color(0xFF72513A),
+        title = { Text("INSTANCE NAME", fontWeight = FontWeight.Black) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("Choose a name that helps you recognize this Minecraft setup.", color = Color(0xFF72513A), fontSize = 12.sp, lineHeight = 17.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text(
+                    "Choose a name that helps you recognize this Minecraft setup.",
+                    color = Color(0xFF72513A), fontSize = 12.sp, lineHeight = 17.sp
+                )
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     label = { Text("INSTANCE NAME") },
-                    placeholder = { Text("e.g. Survival World") }
+                    placeholder = { Text("e.g. Survival World") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFE59A18),
+                        unfocusedBorderColor = Color(0xFFE8C58E),
+                        focusedLabelColor = Color(0xFF8B4B1F),
+                        cursorColor = Color(0xFF8B4B1F),
+                        focusedTextColor = Color(0xFF51240E),
+                        unfocusedTextColor = Color(0xFF51240E)
+                    )
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { nameDialog = false }) { Text("DONE") } })
+        confirmButton = {
+            TextButton(
+                onClick = { nameDialog = false },
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF8B4B1F))
+            ) { Text("DONE", fontWeight = FontWeight.Black) }
+        }
+    )
 }
 
 @Composable
