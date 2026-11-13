@@ -56,3 +56,21 @@ class OEngineInputBindings(bindings: List<OEngineControlBinding>) {
     fun resolve(device: OEngineInputDevice, code: Int): OEngineControlBinding? = byPhysical[device to code]
     fun all(): List<OEngineControlBinding> = byControl.values.sortedBy { it.controlId }
 }
+
+
+/**
+ * Converts Android IME text commits into ordered GLFW character events.
+ * A single committed string may contain multiple Unicode code points.
+ */
+internal fun expandOEngineTextEvents(events: List<OEngineInputEvent>): List<OEngineInputEvent> =
+    events.flatMap { event ->
+        if (event.action != OEngineInputAction.TEXT) {
+            listOf(event)
+        } else {
+            event.text!!.codePoints().toArray().map { codepoint ->
+                event.copy(codepoint = codepoint)
+            }
+        }
+    }.also {
+        require(it.size <= 128) { "Expanded native input batches must contain at most 128 events." }
+    }
