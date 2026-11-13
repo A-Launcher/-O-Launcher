@@ -993,14 +993,14 @@ private fun LauncherFilesDestination(images: LauncherImages) {
     )
 
     Column(Modifier.fillMaxWidth().fillMaxHeight().padding(bottom = 5.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(25.dp))) {
+        Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(25.dp))) {
             Image(images.hero, "Nether-themed File Manager banner", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xC91B0808), Color(0x6B300B13), Color.Transparent))))
-            Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                Text("📁", fontSize = 62.sp)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("File Manager", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.Black)
-                    Text("Browse, manage and organize your files.", color = Color.White, fontSize = 14.sp)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xD91B0808), Color(0x84300B13), Color(0x10200000)))))
+            Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 30.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Text("📁", fontSize = 76.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text("File Manager", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black, letterSpacing = (-.5).sp)
+                    Text("Browse, manage and organize your files.", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -1183,7 +1183,7 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                                         group.forEach { file ->
                                             Surface(
-                                                modifier = Modifier.weight(1f).height(145.dp).combinedClickable(onClick = {
+                                                modifier = Modifier.weight(1f).height(158.dp).combinedClickable(onClick = {
                                                     if (selectionMode) toggleSelected(file)
                                                     else if (file.isDirectory) navigateTo(file)
                                                     else if (file.extension.lowercase() in listOf("txt", "json", "properties", "cfg", "log", "yml", "yaml", "dat")) {
@@ -1194,15 +1194,26 @@ private fun LauncherFilesDestination(images: LauncherImages) {
                                             else message = "Could not preview ${file.name}."
                                         } else detailsFile = file
                                                 }, onLongClick = { renameName = file.name; pendingRename = file }),
-                                                color = if (selectedFiles.contains(file)) Color(0xFFFFD98A) else Color(0xFFFFF2E2),
-                                                shape = RoundedCornerShape(18.dp),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0DDC7))
+                                                color = if (selectedFiles.contains(file)) Color(0xFFFFE19A) else Color(0xFFFFF8F0),
+                                                shape = RoundedCornerShape(20.dp),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF4DEC7)),
+                                                shadowElevation = if (selectedFiles.contains(file)) 3.dp else 1.dp
                                             ) {
                                                 Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                                     if (selectionMode) Checkbox(checked = selectedFiles.contains(file), onCheckedChange = { toggleSelected(file) })
-                                                    Text(if (file.isDirectory) "📁" else if (file.extension.lowercase() in listOf("png", "jpg", "jpeg")) "🖼️" else if (file.extension.lowercase() == "zip") "🧰" else if (file.extension.lowercase() in listOf("dat", "log")) "📃" else "📄", fontSize = 42.sp)
-                                                    Text(file.name, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                    Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 10.sp)
+                                                    Text(
+                                                        if (file.isDirectory) "📁"
+                                                        else when (file.extension.lowercase()) {
+                                                            "png", "jpg", "jpeg", "webp" -> "🖼️"
+                                                            "zip", "jar" -> "🧰"
+                                                            "dat", "log" -> "📃"
+                                                            "txt", "json", "properties", "cfg" -> "📄"
+                                                            else -> "〈/〉"
+                                                        },
+                                                        fontSize = if (file.isDirectory) 54.sp else 47.sp
+                                                    )
+                                                    Text(file.name, color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    Text(if (file.isDirectory) "Folder" else OEngineInstalledContentManager.formatSize(file.length()), color = Muted, fontSize = 11.sp)
                                                 }
                                             }
                                         }
