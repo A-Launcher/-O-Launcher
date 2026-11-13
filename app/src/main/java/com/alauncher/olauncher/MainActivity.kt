@@ -1847,8 +1847,16 @@ private fun AccountDestination(images: LauncherImages) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Surface(Modifier.weight(1f).heightIn(min = 340.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
                 Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Image(images.avatar, contentDescription = "Offline player", modifier = Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp)), contentScale = ContentScale.Crop)
-                    Text("Offline Account", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp))) {
+                        Image(images.avatar, contentDescription = "Offline player", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD91A1009)))).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text("LOCAL PROFILE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF75B95B)))
+                        Text("Offline Account", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    }
                     Text("Play without signing in to Microsoft.", color = Muted, fontSize = 11.sp)
                     if (showOfflineForm) {
                         OutlinedTextField(value = offlineName, onValueChange = { offlineName = it; offlineError = "" }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Player name") }, placeholder = { Text("Enter Minecraft name") })
@@ -1877,10 +1885,16 @@ private fun AccountDestination(images: LauncherImages) {
             }
             Surface(Modifier.weight(1f).heightIn(min = 340.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
                 Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp)).background(Brush.linearGradient(listOf(Color(0xFFBFE8FF), Color(0xFFFFE4BD)))), contentAlignment = Alignment.Center) {
-                        Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.size(112.dp), contentScale = ContentScale.Fit)
+                    Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp)).background(Brush.linearGradient(listOf(Color(0xFFBFE8FF), Color(0xFFFFE4BD))))) {
+                        Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.align(Alignment.Center).size(112.dp), contentScale = ContentScale.Fit)
+                        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xA91A2630)))).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                            Text("ONLINE PROFILE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        }
                     }
-                    Text("Microsoft Account", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFF4D9CCB)))
+                        Text("Microsoft Account", color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                    }
                     Text("Recommended for online play.", color = Muted, fontSize = 11.sp)
                     Surface(color = Color(0xFFFFE8B8), shape = RoundedCornerShape(14.dp)) {
                         Text("♛  O Launcher recommends playing with it.", Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = Color(0xFF72501F), fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1919,8 +1933,14 @@ private fun AccountDestination(images: LauncherImages) {
             }
         }
         Surface(Modifier.fillMaxWidth(), color = Panel, shape = RoundedCornerShape(18.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border)) {
-            Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (signedIn) "CONNECTED · $playerName" else if (isOffline) "OFFLINE · $playerName" else if (hasRecoveredMicrosoftAccount) "SAVED MICROSOFT ACCOUNT" else "NO ACCOUNT SELECTED", color = Ink, fontWeight = FontWeight.Black, fontSize = 12.sp)
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Box(Modifier.width(4.dp).height(27.dp).clip(RoundedCornerShape(3.dp)).background(Gold))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("ACCOUNT STATUS", color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                        Text(if (signedIn) "CONNECTED · $playerName" else if (isOffline) "OFFLINE · $playerName" else if (hasRecoveredMicrosoftAccount) "SAVED MICROSOFT ACCOUNT" else "NO ACCOUNT SELECTED", color = Ink, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+                }
                 Text(status, color = Muted, fontSize = 10.sp)
                 if (device != null) Text("Code: ${device!!.userCode}  •  ${device!!.verificationUri}", color = Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 if (playerUuid.isNotBlank()) Text("UUID: $playerUuid", color = Muted, fontSize = 9.sp)
