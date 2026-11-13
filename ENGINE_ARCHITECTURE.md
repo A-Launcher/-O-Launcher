@@ -237,3 +237,12 @@ The current launch path is connected across Compose, Kotlin IPC, and Rust native
 8. Main-class lookup and thrown Java exceptions are returned as bounded stack-trace diagnostics. The Kotlin IPC client rejects invalid class names, NUL-containing arguments, oversized individual arguments, and aggregate argument payloads above 512 KiB before Binder dispatch.
 
 This is an implementation path, not proof of a playable game. Remaining launch gates include successful Android CI for the current revision, physical-device JVM creation with each supported runtime/ABI, verified LTW symbol routing through the exact Minecraft LWJGL binaries, a working game window and title screen, gameplay/input/audio validation, and coordinated JVM shutdown/recovery. No claim of successful Minecraft gameplay should be made until those checks pass.
+
+
+## LTW Android render-target launch gate
+
+Minecraft main dispatch now requires all three runtime prerequisites in the isolated game process: HotSpot created, the exact LTW/LWJGL native-loader hook installed, and a live Android Surface attached and made current through the LTW-owned EGL session. The service records the active GLES version and renderer before dispatching Minecraft main. Surface detach or attach failure clears the render-target-ready state, so a stale or lost Android window cannot be mistaken for a playable target.
+
+The Rust native CI also verifies that the LTW EGL JNI entry points are exported by each Android ABI shared library: session create/destroy, window attach/detach/queue, pending-window processing, buffer swap, and EGL diagnostics. This catches missing native symbols at build time instead of waiting for an Android UnsatisfiedLinkError.
+
+A passing native build and exported-symbol check still do not prove the first Minecraft title screen. That final gate requires an Android device/runtime combination and successful Minecraft rendering.
