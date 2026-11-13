@@ -5,12 +5,17 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 
+/** Shared source classification: many Android controllers report their D-pad separately. */
+internal fun isOEngineGamepadSource(sources: Int): Boolean =
+    sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
+        sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK ||
+        sources and InputDevice.SOURCE_DPAD == InputDevice.SOURCE_DPAD
+
 /** Converts Android hardware/touch events into the explicit GLFW-compatible input model. */
 object OEngineAndroidInputAdapter {
     fun fromKeyEvent(event: KeyEvent): OEngineInputEvent? {
         val sources = event.source or (event.device?.sources ?: 0)
-        val isGamepad = sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-            sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+        val isGamepad = isOEngineGamepadSource(sources)
         val device = if (isGamepad) OEngineInputDevice.GAMEPAD else OEngineInputDevice.KEYBOARD
         val action = when {
             event.action == KeyEvent.ACTION_UP -> OEngineInputAction.UP
@@ -45,8 +50,7 @@ object OEngineAndroidInputAdapter {
 
     fun fromMotionEvent(event: MotionEvent): List<OEngineInputEvent> {
         val source = event.source
-        val isGamepad = source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD ||
-            source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
+        val isGamepad = isOEngineGamepadSource(source)
         val isRelativeMouse = android.os.Build.VERSION.SDK_INT >= 26 &&
             source and InputDevice.SOURCE_MOUSE_RELATIVE == InputDevice.SOURCE_MOUSE_RELATIVE
         val isTouchpad = android.os.Build.VERSION.SDK_INT >= 26 &&
