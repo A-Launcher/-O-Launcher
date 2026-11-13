@@ -95,6 +95,8 @@ class OEngineGameProcessService : Service() {
     @Volatile private var rendererLibraryName: String? = null
     @Volatile private var androidGlfwLibraryFile: File? = null
     @Volatile private var rendererHookInstalled = false
+    /** True only after the initial Android Surface has been made current through LTW. */
+    @Volatile private var gameWindowAttached = false
     @Volatile private var eglBootstrap: OEngineEglBootstrap? = null
     /** Surface IPC remains responsive while the JVM owner thread is executing Minecraft main. */
     private val surfaceMessenger: Messenger by lazy {
@@ -104,6 +106,7 @@ class OEngineGameProcessService : Service() {
             when (message.what) {
                 MSG_ATTACH_GAME_SURFACE -> handleQueuedSurfaceAttach(message)
                 MSG_DETACH_GAME_SURFACE -> {
+                    gameWindowAttached = false
                     try {
                         // Queue first. nativeSurfaceDestroyed marks the Surface unavailable and
                         // wakes GLFW; its owner thread drains the LTW detach and switches to the
@@ -152,6 +155,7 @@ class OEngineGameProcessService : Service() {
             OEngineSessionLog.append(this, "GAME_SURFACE_CHANGE_QUEUED",
                 "Replacement Surface queued for GLFW owner-thread application • " + width + "x" + height)
         } catch (error: Throwable) {
+            gameWindowAttached = false
             if (candidateWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateWindow) }
             if (queuedWindow) {
                 runCatching { eglBootstrap?.queueDetachWindow() }
@@ -190,6 +194,7 @@ class OEngineGameProcessService : Service() {
                         OEngineAndroidGlfwBootstrap.surfaceCreated(surface)
                         egl.attachWindow(candidateNativeWindow, width, height)
                         candidateNativeWindow = 0L // LTW session now owns and releases this ANativeWindow reference.
+                        gameWindowAttached = true
                         surface.release()
                         receivedSurface = null
                         OEngineSessionLog.append(this, "GAME_SURFACE_ATTACHED", "LTW-tracked EGL window surface and ANativeWindow reference ready • " + width + "x" + height)
@@ -197,6 +202,7 @@ class OEngineGameProcessService : Service() {
                         reply.data.putString(KEY_PROBE_STATUS, "game_surface_attached")
                         reply.data.putString(KEY_PROBE_DETAIL, "Android Surface attached through LTW eglMakeCurrent; LTW context tracking is active.")
                     } catch (error: Throwable) {
+                        gameWindowAttached = false
                         if (candidateNativeWindow != 0L) runCatching { OEngineJvmNativeBridge.releaseNativeWindow(candidateNativeWindow) }
                         else runCatching { eglBootstrap?.detachWindow() }
                         runCatching { OEngineAndroidGlfwBootstrap.surfaceDestroyed() }
@@ -210,6 +216,7 @@ class OEngineGameProcessService : Service() {
                     true
                 }
                 MSG_DETACH_GAME_SURFACE -> {
+                    gameWindowAttached = false
                     try {
                         OEngineAndroidGlfwBootstrap.surfaceDestroyed()
                         eglBootstrap?.detachWindow()
@@ -359,6 +366,17 @@ class OEngineGameProcessService : Service() {
                         require(mainClass.isNotBlank()) { "Minecraft main class is empty." }
                         check(jvmCreated) { "HotSpot has not been created successfully in the isolated game process." }
                         check(rendererHookInstalled) { "A renderer must be preloaded and its LWJGL hook installed before Minecraft main can run." }
+                        check(gameWindowAttached) {
+                            "Minecraft main cannot start until a live Android Surface is attached and current through LTW EGL."
+                        }
+                        val activeEgl = eglBootstrap
+                            ?: throw IllegalStateException("The LTW EGL session was lost before Minecraft main dispatch.")
+                        OEngineSessionLog.append(
+                            this,
+                            "MINECRAFT_RENDER_TARGET_READY",
+                            "Attached LTW target • GLES " + activeEgl.glesMajor + " • " +
+                                activeEgl.glVersion + " • " + activeEgl.glRenderer
+                        )
                         require(arguments.size <= 16_384 && arguments.all { it.length <= 65_536 && '\u0000' !in it }) {
                             "Minecraft game arguments exceed the IPC safety limits."
                         }
