@@ -1503,7 +1503,35 @@ private fun SkinDestination(images: LauncherImages) {
                     ) {
                         Text(if (uploadingSkin) "APPLYING SKIN…" else "APPLY TO JAVA PROFILE", fontWeight = FontWeight.Black, fontSize = 10.sp)
                     }
-                    Text(message, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color(0xFFFFF8EE),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0D7B7))
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (uploadingSkin) Icons.Filled.Sync else Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = Color(0xFF9A6A48),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    if (uploadingSkin) "APPLYING TO PROFILE" else "SKIN STATUS",
+                                    color = Color(0xFF9A6A48),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = .8.sp
+                                )
+                                Text(message, color = Muted, fontSize = 10.sp, lineHeight = 14.sp)
+                            }
+                        }
+                    }
                 }
             }
         }
