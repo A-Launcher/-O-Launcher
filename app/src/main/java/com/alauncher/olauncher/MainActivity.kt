@@ -1687,7 +1687,7 @@ private fun SettingsDestination(images: LauncherImages) {
                     Icon(Icons.Filled.ArrowBack, contentDescription = null)
                     Text("ALL SETTINGS")
                 }
-                Text(selectedSection!!, color = Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+                Text(selectedSection!!, color = Ink, fontSize = 21.sp, fontWeight = FontWeight.Black)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1929,11 +1929,24 @@ private fun AccountDestination(images: LauncherImages) {
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        DestinationHero(images, "Account Type", "Choose how you want to play Minecraft Java Edition", "PLAYER ACCOUNT")
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Surface(Modifier.weight(1f).heightIn(min = 340.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
+        Box(Modifier.fillMaxWidth().height(205.dp).clip(RoundedCornerShape(26.dp))) {
+            Image(images.hero, "Nether landscape account background", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x331A0808), Color(0xA8FFF0D8), Color(0xBFFFF0D8)))))
+            Column(Modifier.align(Alignment.Center).padding(horizontal = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("MINECRAFT", color = Color(0xFF302019), fontSize = 34.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.2).sp)
+                Text("JAVA EDITION", color = Color(0xFF302019), fontSize = 17.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("✦", color = Color(0xFFE49A16), fontSize = 26.sp)
+                    Text("Account Type", color = Color(0xFF3B2418), fontSize = 29.sp, fontWeight = FontWeight.Black)
+                    Text("✦", color = Color(0xFFE49A16), fontSize = 26.sp)
+                }
+                Text("Choose how you want to play", color = Color(0xFF3B2418), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            Surface(Modifier.weight(1f).heightIn(min = 390.dp), color = Color(0xFDFEF3E5), shape = RoundedCornerShape(28.dp), border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD9A1)), shadowElevation = 5.dp) {
                 Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp))) {
+                    Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(22.dp))) {
                         Image(images.avatar, contentDescription = "Offline player", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xD91A1009)))).padding(horizontal = 12.dp, vertical = 10.dp)) {
                             Text("LOCAL PROFILE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
@@ -1971,7 +1984,7 @@ private fun AccountDestination(images: LauncherImages) {
             }
             Surface(Modifier.weight(1f).heightIn(min = 340.dp), color = Panel, shape = RoundedCornerShape(24.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Border), shadowElevation = 2.dp) {
                 Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(17.dp)).background(Brush.linearGradient(listOf(Color(0xFFBFE8FF), Color(0xFFFFE4BD))))) {
+                    Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFFBFE8FF), Color(0xFFFFE4BD))))) {
                         Image(images.logo, contentDescription = "Minecraft Java Edition", modifier = Modifier.align(Alignment.Center).size(112.dp), contentScale = ContentScale.Fit)
                         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xA91A2630)))).padding(horizontal = 12.dp, vertical = 10.dp)) {
                             Text("ONLINE PROFILE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
