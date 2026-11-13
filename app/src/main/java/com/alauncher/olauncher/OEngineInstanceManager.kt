@@ -2,6 +2,10 @@ package com.alauncher.olauncher
 
 import android.content.Context
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.Properties
 
 data class OEngineInstance(val id: String, val name: String, val root: File)
 
@@ -22,17 +26,51 @@ object OEngineInstanceManager {
     internal fun gameRootFor(base: File, instanceDirectory: File, sharedGameFolder: Boolean): File =
         if (sharedGameFolder) base else File(instanceDirectory, "game")
 
+    /** Returns only the real instances directory directly inside the Minecraft root. */
+    internal fun instancesRootFor(base: File, create: Boolean = false): File? {
+        if (Files.isSymbolicLink(base.toPath())) return null
+        if (!base.exists() && create && !base.mkdirs()) return null
+        if (!base.isDirectory) return null
+        val canonicalBase = runCatching { base.canonicalFile }.getOrNull() ?: return null
+        val candidate = File(base, "instances")
+        if (Files.isSymbolicLink(candidate.toPath())) return null
+        if (!candidate.exists() && create && !candidate.mkdir()) return null
+        if (!candidate.isDirectory) return null
+        val canonical = runCatching { candidate.canonicalFile }.getOrNull() ?: return null
+        return canonical.takeIf { it.parentFile == canonicalBase }
+    }
+
+    internal fun isSafeInstanceDirectory(root: File, directory: File): Boolean =
+        !Files.isSymbolicLink(directory.toPath()) &&
+            directory.isDirectory &&
+            directory.name.matches(Regex("[a-z0-9][a-z0-9-]{0,79}")) &&
+            runCatching { directory.canonicalFile.parentFile == root.canonicalFile }.getOrDefault(false)
+
+    private fun safeGameRoot(base: File, directory: File, shared: Boolean): File? {
+        if (shared) return base.canonicalFile
+        val game = File(directory, "game")
+        if (Files.isSymbolicLink(game.toPath())) return null
+        val canonical = runCatching { game.canonicalFile }.getOrNull() ?: return null
+        return canonical.takeIf { it.parentFile == directory.canonicalFile }
+    }
+
     fun list(context: Context): List<OEngineInstance> {
         val base = File(context.filesDir, "minecraft")
         val result = mutableListOf(OEngineInstance(DEFAULT_ID, "Default", base))
-        File(base, "instances").listFiles()?.filter { it.isDirectory }?.forEach { directory ->
+        val instancesRoot = instancesRootFor(base) ?: return result
+        instancesRoot.listFiles().orEmpty().forEach { directory ->
+            if (!isSafeInstanceDirectory(instancesRoot, directory)) return@forEach
             val metadata = File(directory, "instance.properties")
-            val lines = if (metadata.isFile) runCatching { metadata.readLines() }.getOrDefault(emptyList()) else emptyList()
-            val name = lines.firstOrNull { it.startsWith("name=") }?.substringAfter("name=")?.take(48)
-            val sharesGameFolder = lines.firstOrNull { it.startsWith("sharedGameFolder=") }
-                ?.substringAfter("=")?.toBooleanStrictOrNull() == true
-            val gameRoot = gameRootFor(base, directory, sharesGameFolder)
-            result.add(OEngineInstance(directory.name, name?.ifBlank { null } ?: directory.name, gameRoot))
+            if (Files.isSymbolicLink(metadata.toPath())) return@forEach
+            val properties = Properties()
+            if (metadata.isFile) {
+                runCatching { metadata.inputStream().use { properties.load(it) } }
+                    .onFailure { return@forEach }
+            }
+            val name = properties.getProperty("name")?.take(48)?.takeIf { it.isNotBlank() } ?: directory.name
+            val shared = properties.getProperty("sharedGameFolder")?.toBooleanStrictOrNull() == true
+            val gameRoot = safeGameRoot(base, directory, shared) ?: return@forEach
+            result += OEngineInstance(directory.name, name, gameRoot)
         }
         return result.distinctBy { it.id }.sortedBy { if (it.id == DEFAULT_ID) 0 else 1 }
     }
@@ -45,11 +83,29 @@ object OEngineInstanceManager {
 
     fun select(context: Context, id: String): OEngineInstance {
         val instance = list(context).firstOrNull { it.id == id }
-            ?: throw IllegalArgumentException("Unknown O Launcher instance.")
-        if (!instance.root.exists() && !instance.root.mkdirs()) {
+            ?: throw IllegalArgumentException("Unknown or unsafe O Launcher instance.")
+        val base = File(context.filesDir, "minecraft")
+        val instancesRoot = instancesRootFor(base)
+        if (id != DEFAULT_ID) {
+            require(instancesRoot != null &&
+                isSafeInstanceDirectory(instancesRoot, File(instancesRoot, id))) {
+                "The instance directory is unsafe."
+            }
+        }
+        val root = instance.root
+        require(!Files.isSymbolicLink(root.toPath())) { "The game directory cannot be a symbolic link." }
+        if (!root.exists() && !root.mkdirs()) {
             throw IllegalStateException("Could not create instance game directory.")
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(ACTIVE_KEY, id).apply()
+        if (id != DEFAULT_ID) {
+            val directory = File(instancesRoot!!, id)
+            require(safeGameRoot(base, directory, root.canonicalFile == base.canonicalFile) == root.canonicalFile) {
+                "The instance game directory resolves outside its allowed location."
+            }
+        }
+        val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(ACTIVE_KEY, id).commit()
+        check(saved) { "Could not save the active instance selection." }
         return instance
     }
 
@@ -58,39 +114,45 @@ object OEngineInstanceManager {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val current = list(context).firstOrNull { it.id == id }
-            ?: throw IllegalArgumentException("Unknown O Launcher instance.")
-        val parent = File(context.filesDir, "minecraft/instances").canonicalFile
+            ?: throw IllegalArgumentException("Unknown or unsafe O Launcher instance.")
+        val base = File(context.filesDir, "minecraft")
+        val parent = instancesRootFor(base) ?: throw IllegalStateException("The instances directory is unsafe.")
         val directory = File(parent, id)
-        require(directory.isDirectory && directory.canonicalFile.parentFile == parent) {
-            "The instance directory is invalid."
-        }
+        require(isSafeInstanceDirectory(parent, directory)) { "The instance directory is invalid." }
         val metadata = File(directory, "instance.properties")
-        val sharesGameFolder = current.root.canonicalFile ==
-            File(context.filesDir, "minecraft").canonicalFile
         val temporary = File(directory, "instance.properties.tmp")
-        temporary.writeText("name=$clean\nsharedGameFolder=$sharesGameFolder\n")
-        if (!temporary.renameTo(metadata)) {
-            temporary.delete()
-            throw IllegalStateException("Could not save the new instance name.")
+        require(!Files.isSymbolicLink(metadata.toPath()) && !Files.isSymbolicLink(temporary.toPath())) {
+            "The instance metadata path is unsafe."
         }
-        // Keep the stable directory ID: profiles, installer handoffs and saved settings
-        // are keyed by it and must survive a display-name change.
+        val shared = current.root.canonicalFile == base.canonicalFile
+        temporary.writeText("name=$clean\nsharedGameFolder=$shared\n")
+        try {
+            try {
+                Files.move(temporary.toPath(), metadata.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), metadata.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw IllegalStateException("Could not save the new instance name.", error)
+        }
         return list(context).first { it.id == id }
     }
 
     fun delete(context: Context, id: String) {
         require(id != DEFAULT_ID) { "The Default instance cannot be deleted." }
-        val directory = File(File(context.filesDir, "minecraft/instances"), id)
-        require(directory.isDirectory && directory.canonicalFile.parentFile ==
-            File(context.filesDir, "minecraft/instances").canonicalFile) {
-            "The instance directory is invalid."
+        val base = File(context.filesDir, "minecraft")
+        val parent = instancesRootFor(base) ?: throw IllegalStateException("The instances directory is unsafe.")
+        val directory = File(parent, id)
+        require(isSafeInstanceDirectory(parent, directory)) { "The instance directory is invalid." }
+        require(directory.deleteRecursively()) {
+            "Could not completely delete the instance directory."
         }
         if (activeId(context) == id) {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(ACTIVE_KEY, DEFAULT_ID).commit()
-        }
-        if (!directory.deleteRecursively()) {
-            throw IllegalStateException("Could not completely delete the instance directory.")
+            check(saved) { "The instance was deleted, but the active selection could not be reset." }
         }
     }
 
@@ -98,25 +160,33 @@ object OEngineInstanceManager {
         val clean = sanitizeDisplayName(displayName)
         require(clean.isNotBlank()) { "Enter a valid instance name." }
         val id = instanceIdFor(clean)
-        val instancesRoot = File(context.filesDir, "minecraft/instances").canonicalFile
-        if (!instancesRoot.exists() && !instancesRoot.mkdirs()) {
-            throw IllegalStateException("Could not create the instances folder.")
-        }
+        val base = File(context.filesDir, "minecraft")
+        val instancesRoot = instancesRootFor(base, create = true)
+            ?: throw IllegalStateException("Could not create or validate the instances directory.")
         val directory = File(instancesRoot, id)
         require(directory.canonicalFile.parentFile == instancesRoot && !directory.exists()) {
             "An instance with this name already exists or its path is invalid."
         }
-        if (!directory.mkdir()) throw IllegalStateException("Could not create the instance directory.")
+        require(directory.mkdir()) { "Could not create the instance directory." }
         try {
-            val game = if (sharedGameFolder) File(context.filesDir, "minecraft") else File(directory, "game")
-            if (!game.exists() && !game.mkdirs()) {
+            val game = gameRootFor(base, directory, sharedGameFolder)
+            if (sharedGameFolder) {
+                if (!base.exists() && !base.mkdirs()) throw IllegalStateException("Could not create the shared game directory.")
+            } else if (!game.exists() && !game.mkdir()) {
                 throw IllegalStateException("Could not create the instance game directory.")
+            }
+            require(!Files.isSymbolicLink(game.toPath()) &&
+                (sharedGameFolder || game.canonicalFile.parentFile == directory.canonicalFile)) {
+                "The new instance game directory is unsafe."
             }
             val metadata = File(directory, "instance.properties")
             val temporary = File(directory, "instance.properties.tmp")
             temporary.writeText("name=$clean\nsharedGameFolder=$sharedGameFolder\n")
-            if (!temporary.renameTo(metadata)) {
-                throw IllegalStateException("Could not save instance settings.")
+            try {
+                Files.move(temporary.toPath(), metadata.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temporary.toPath(), metadata.toPath(), StandardCopyOption.REPLACE_EXISTING)
             }
             return OEngineInstance(id, clean, game)
         } catch (error: Exception) {
