@@ -4509,7 +4509,8 @@ private fun NewInstanceWizard(
                                                 loader == "Vanilla" -> "Not required"
                                                 loader == "OptiFine" -> "Official installer"
                                                 loadingCompatibleVersions -> "Loading compatible versions…"
-                                                else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Latest compatible"
+                                                compatibleLoaderVersions.isEmpty() -> "No compatible releases found"
+                                                else -> selectedLoaderVersion?.takeIf { it.isNotBlank() } ?: "Choose a loader version"
                                             },
                                             Modifier.fillMaxWidth().height(48.dp).clickable { if (compatibleLoaderVersions.isNotEmpty()) loaderMenu = true },
                                             brown,
