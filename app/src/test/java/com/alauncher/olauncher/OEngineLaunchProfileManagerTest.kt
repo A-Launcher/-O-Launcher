@@ -131,4 +131,56 @@ class OEngineLaunchProfileManagerTest {
         }
     }
 
+    @Test fun rejectsProfileGameDirectorySymlinkEscapingItsProfile() {
+        val root = Files.createTempDirectory("oengine-profile-game-link").toFile()
+        val outside = Files.createTempDirectory("oengine-profile-game-outside").toFile()
+        try {
+            val profile = OEngineLaunchProfileManager.create(
+                root, "Safe", "1.20.1", OEngineModLoader.VANILLA
+            )
+            val externalFile = java.io.File(outside, "keep.txt")
+            externalFile.writeText("untouched")
+            try {
+                Files.createSymbolicLink(profile.gameDirectory.toPath(), outside.toPath())
+            } catch (_: UnsupportedOperationException) {
+                return
+            } catch (_: java.io.IOException) {
+                return
+            }
+            assertTrue(OEngineLaunchProfileManager.list(root).isEmpty())
+            assertTrue(runCatching {
+                OEngineLaunchProfileManager.select(root, profile.id)
+            }.isFailure)
+            assertEquals("untouched", externalFile.readText())
+        } finally {
+            root.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test fun ignoresProfilesWithMetadataSymlinkedOutsideTheirDirectory() {
+        val root = Files.createTempDirectory("oengine-profile-metadata-link").toFile()
+        val outside = Files.createTempFile("oengine-profile-metadata", ".properties").toFile()
+        try {
+            val profile = OEngineLaunchProfileManager.create(
+                root, "Safe", "1.20.1", OEngineModLoader.VANILLA
+            )
+            outside.writeText("id=${profile.id}\\nname=External\\nminecraftVersion=1.20.1\\nloader=vanilla\\n")
+            val metadata = java.io.File(profile.gameDirectory.parentFile, "profile.properties")
+            assertTrue(metadata.delete())
+            try {
+                Files.createSymbolicLink(metadata.toPath(), outside.toPath())
+            } catch (_: UnsupportedOperationException) {
+                return
+            } catch (_: java.io.IOException) {
+                return
+            }
+            assertTrue(OEngineLaunchProfileManager.list(root).isEmpty())
+            assertNull(OEngineLaunchProfileManager.active(root))
+        } finally {
+            root.deleteRecursively()
+            outside.delete()
+        }
+    }
+
 }
