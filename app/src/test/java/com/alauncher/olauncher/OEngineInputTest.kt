@@ -26,6 +26,32 @@ class OEngineInputTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun expandsCommittedUnicodeTextIntoOrderedGlfwCharacterEvents() {
+        val before = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.DOWN, 65)
+        val text = OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.TEXT, 0,
+            text = "Hi 🌍", modifiers = 2, timestampNanos = 99L
+        )
+        val after = OEngineInputEvent(OEngineInputDevice.KEYBOARD, OEngineInputAction.UP, 65)
+        val expanded = expandOEngineTextEvents(listOf(before, text, after))
+        assertEquals(listOf(OEngineInputAction.DOWN, OEngineInputAction.TEXT, OEngineInputAction.TEXT,
+            OEngineInputAction.TEXT, OEngineInputAction.TEXT, OEngineInputAction.TEXT, OEngineInputAction.UP),
+            expanded.map { it.action })
+        assertEquals(listOf(72, 105, 32, 0x1f30d), expanded.subList(1, 5).map { it.codepoint })
+        assertTrue(expanded.subList(1, 5).all { it.modifiers == 2 && it.timestampNanos == 99L })
+    }
+
+    @Test fun rejectsTextExpansionThatExceedsNativeBatchCapacity() {
+        val text = OEngineInputEvent(
+            OEngineInputDevice.KEYBOARD, OEngineInputAction.TEXT, 0,
+            text = "x".repeat(129)
+        )
+        try {
+            expandOEngineTextEvents(listOf(text))
+            fail("Expanded text batches over 128 code points must be rejected.")
+        } catch (_: IllegalArgumentException) { }
+    }
+
     @Test fun rejectsInvalidEventPayloads() {
         try {
             OEngineInputEvent(OEngineInputDevice.MOUSE, OEngineInputAction.TEXT, 0, text = "x")
