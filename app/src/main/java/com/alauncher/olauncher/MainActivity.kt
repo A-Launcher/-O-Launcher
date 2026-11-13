@@ -4375,28 +4375,41 @@ private fun NewInstanceWizard(
             Surface(Modifier.width(maxWidth.coerceAtMost(1120.dp)).fillMaxHeight(.96f), color = cream, shape = RoundedCornerShape(28.dp),
                 border = androidx.compose.foundation.BorderStroke(4.dp, Color(0xFFFFC13A)), shadowElevation = 22.dp) {
                 Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Surface(
-                        Modifier.fillMaxWidth().height(76.dp),
-                        color = Color(0xFFFFD77A),
-                        shape = RoundedCornerShape(38.dp),
-                        border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFB52A)),
-                        shadowElevation = 5.dp
-                    ) {
-                        Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (step == 1) {
+                    if (step == 0) {
+                        Box(Modifier.fillMaxWidth().height(104.dp)) {
+                            Column(Modifier.align(Alignment.BottomStart), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Surface(color = Color(0xFFFFC52F), shape = RoundedCornerShape(30.dp),
+                                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFE38B)), shadowElevation = 4.dp) {
+                                    Text("NEW INSTANCE", Modifier.padding(horizontal = 25.dp, vertical = 7.dp), color = brown, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                                }
+                                Text("What do you want to create?", color = brown, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                            }
+                            Surface(Modifier.align(Alignment.TopEnd).size(58.dp).clickable(onClick = onClose), color = Color(0xFFFFD34F), shape = CircleShape,
+                                border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFF1B7)), shadowElevation = 4.dp) {
+                                Box(contentAlignment = Alignment.Center) { Text("×", color = brown, fontSize = 37.sp, fontWeight = FontWeight.Black) }
+                            }
+                        }
+                    } else {
+                        Surface(
+                            Modifier.fillMaxWidth().height(76.dp),
+                            color = Color(0xFFFFD77A),
+                            shape = RoundedCornerShape(38.dp),
+                            border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFB52A)),
+                            shadowElevation = 5.dp
+                        ) {
+                            Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Surface(Modifier.size(54.dp).clickable { onStepChange(0) }, color = Color(0xFFFFF3D9), shape = CircleShape,
                                     border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFB52A)), shadowElevation = 2.dp) {
                                     Box(contentAlignment = Alignment.Center) { Text("←", color = brown, fontSize = 30.sp, fontWeight = FontWeight.Black) }
                                 }
-                                Text("🟩", fontSize = 37.sp)
-                            }
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Text(if (step == 0) "NEW INSTANCE" else "CREATE INSTANCE", color = brown, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                                Text(if (step == 0) "What do you want to create?" else "NORMAL PROFILE • $loader", color = brown, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Surface(Modifier.size(54.dp).clickable(onClick = onClose), color = Color(0xFFFFF3D9), shape = CircleShape,
-                                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFB52A)), shadowElevation = 2.dp) {
-                                Box(contentAlignment = Alignment.Center) { Text("×", color = brown, fontSize = 31.sp, fontWeight = FontWeight.Black) }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                    Text("CREATE INSTANCE", color = brown, fontSize = 25.sp, fontWeight = FontWeight.Black)
+                                    Text("NORMAL PROFILE • $loader", color = brown, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Surface(Modifier.size(54.dp).clickable(onClick = onClose), color = Color(0xFFFFF3D9), shape = CircleShape,
+                                    border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFB52A)), shadowElevation = 2.dp) {
+                                    Box(contentAlignment = Alignment.Center) { Text("×", color = brown, fontSize = 31.sp, fontWeight = FontWeight.Black) }
+                                }
                             }
                         }
                     }
@@ -4513,14 +4526,17 @@ private fun NewInstanceWizard(
 
 @Composable
 private fun WizardChoiceCard(emoji: String, title: String, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(modifier.fillMaxHeight().clickable(onClick = onClick), color = Color(0xFFFFF5E5), shape = RoundedCornerShape(22.dp),
-        border = androidx.compose.foundation.BorderStroke(3.dp, Color(0xFFFFC04A)), shadowElevation = 7.dp) {
-        Column(Modifier.fillMaxSize().padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+    Surface(modifier.fillMaxHeight().clickable(onClick = onClick), color = Color(0xFFFFF8EB), shape = RoundedCornerShape(26.dp),
+        border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFC04A)), shadowElevation = 9.dp) {
+        Column(Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
             WizardAnimalArtwork(emoji, Modifier.fillMaxWidth().weight(1f))
-            Text(title, color = Color(0xFF51240E), fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text(description, color = Color(0xFF72513A), fontSize = 15.sp, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 8.dp))
-            Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFB51B), contentColor = Color(0xFF51240E)), shape = RoundedCornerShape(16.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)) {
-                Text("SELECT  →", fontSize = 17.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(if (title == "NORMAL") "🟩" else "🎒", fontSize = 39.sp)
+                Text(if (title == "NORMAL") "Normal" else "Modpack", color = Color(0xFF51240E), fontSize = 27.sp, fontWeight = FontWeight.Black)
+            }
+            Text(description, color = Color(0xFF72513A), fontSize = 16.sp, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 12.dp))
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(58.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFBE20), contentColor = Color(0xFF51240E)), shape = RoundedCornerShape(32.dp), elevation = ButtonDefaults.buttonElevation(defaultElevation = 5.dp)) {
+                Text("Select  ➜", fontSize = 22.sp, fontWeight = FontWeight.Black)
             }
         }
     }
