@@ -4592,6 +4592,13 @@ private fun NewInstanceWizard(
                                     Text("12 GB", color = brown.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                                 WizardSwitch("USE LAUNCHER DEFAULT (5000 MB)", useLauncherRam, onUseLauncherRamChange, brown)
+                                Text(
+                                    if (useLauncherRam) "Manual RAM control is disabled while the launcher default is active."
+                                    else "Custom RAM allocation will be saved with this instance.",
+                                    color = Color(0xFF8B6A4C),
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                )
                                 WizardTitle("JAVA RUNTIME", brown); WizardBox("Automatic (Recommended)", Modifier.fillMaxWidth().height(48.dp), brown, showArrow = false)
                                 WizardTitle("RENDERER", brown); WizardBox("Launcher Default", Modifier.fillMaxWidth().height(48.dp), brown, showArrow = false)
                                 WizardSwitch("SHARED GAME FOLDER\nUse common worlds, resource packs and options.", sharedGameFolder, onSharedGameFolderChange, brown)
