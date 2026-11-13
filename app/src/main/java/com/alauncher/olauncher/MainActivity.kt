@@ -4543,68 +4543,108 @@ private fun WizardChoiceCard(emoji: String, title: String, description: String, 
 }
 @Composable
 private fun WizardAnimalArtwork(kind: String, modifier: Modifier = Modifier) {
-    // A crisp 16-pixel grid gives each choice a distinct silhouette without
-    // relying on platform-dependent emoji rendering.
-    val fox = listOf(
-        "....OO......OO..",
-        "...OOO......OOO.",
-        "..OOOOO....OOOOO",
-        ".OOOOOOO..OOOOOO",
-        "OOOOOOOOOOOOOOOO",
-        "OOOOOOOOOOOOOOOO",
-        "OOOCCCCCCCCCCOOO",
-        "OOCCCCCCCCCCCCOO",
-        "OOCCCDDDDDDCCCOO",
-        "OOCCCDDDDDDCCCOO",
-        ".OOCCCCCCCCCCOO.",
-        "..OOCCCCCCCCOO..",
-        "...OOOCCCCOOO...",
-        "....OOOCCOOO....",
-        ".....OO..OO.....",
-        "....OO....OO...."
-    )
-    val wolf = listOf(
-        "....BBBB..BBBB..",
-        "...BBBBB..BBBBB.",
-        "..BBBBBBBBBBBBBB",
-        ".BBBBBBBBBBBBBBB",
-        "BBBBBBBBBBBBBBBB",
-        "BBWWWWWWWWWWWWBB",
-        "BBWWWWWWWWWWWWBB",
-        "BBWWWDDWWDDWWWBB",
-        ".BWWWWDDWWDDWWB.",
-        ".BWWWWWWWWWWWWB.",
-        "..BWWWWWWWWWWB..",
-        "...BWWWWWWWWB...",
-        "....BWWWWWWB....",
-        ".....BWWWWB.....",
-        "......BB..BB....",
-        ".....BBB..BBB..."
-    )
-    val rows = if (kind.contains("🦊")) fox else wolf
-    val palette = mapOf(
-        'O' to Color(0xFFE87932),
-        'C' to Color(0xFFFFE8C9),
-        'B' to Color(0xFF594438),
-        'W' to Color(0xFFB7A99A),
-        'D' to Color(0xFF30221E)
-    )
-    androidx.compose.foundation.Canvas(modifier = modifier.heightIn(min = 130.dp, max = 220.dp)) {
-        val cell = minOf(size.width / 16f, size.height / 16f)
-        val left = (size.width - cell * 16f) / 2f
-        val top = (size.height - cell * 16f) / 2f
-        rows.forEachIndexed { y, line ->
-            line.forEachIndexed { x, pixel ->
-                val color = palette[pixel]
-                if (color != null) {
-                    drawRect(
-                        color = color,
-                        topLeft = androidx.compose.ui.geometry.Offset(left + x * cell, top + y * cell),
-                        size = androidx.compose.ui.geometry.Size(cell + 0.45f, cell + 0.45f)
-                    )
-                }
-            }
+    val isFox = kind.contains("🦊")
+    androidx.compose.foundation.Canvas(modifier = modifier.heightIn(min = 150.dp, max = 250.dp)) {
+        val w = size.width
+        val h = size.height
+        fun rect(x: Float, y: Float, rw: Float, rh: Float, color: Color) {
+            drawRect(color, androidx.compose.ui.geometry.Offset(x * w, y * h),
+                androidx.compose.ui.geometry.Size(rw * w, rh * h))
         }
+        fun circle(x: Float, y: Float, r: Float, color: Color) {
+            drawCircle(color, r * h, androidx.compose.ui.geometry.Offset(x * w, y * h))
+        }
+        fun block(x: Float, y: Float, bw: Float, bh: Float, color: Color) {
+            drawRoundRect(color, androidx.compose.ui.geometry.Offset(x * w, y * h),
+                androidx.compose.ui.geometry.Size(bw * w, bh * h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f))
+        }
+        drawRect(
+            brush = Brush.verticalGradient(
+                if (isFox) listOf(Color(0xFFFF9B55), Color(0xFFFFD477), Color(0xFF8CBA65))
+                else listOf(Color(0xFF58A9E9), Color(0xFFB9DDF3), Color(0xFFE8F5FF))
+            ),
+            size = size
+        )
+        if (isFox) {
+            // Warm autumn village, distant hills and a glowing sunset.
+            circle(.83f, .28f, .12f, Color(0xFFFFF2A6))
+            for (i in 0..5) {
+                val x = (i * .19f) - .02f
+                circle(x, .25f + (i % 2) * .05f, .07f, Color(0xFFFFD06A).copy(alpha = .55f))
+            }
+            rect(0f, .58f, 1f, .42f, Color(0xFF668F45))
+            rect(0f, .72f, 1f, .28f, Color(0xFF47733B))
+            // Timber cottages on the left and right horizon.
+            block(.03f, .40f, .19f, .25f, Color(0xFF68452E))
+            block(.06f, .45f, .13f, .18f, Color(0xFFFFD18A))
+            block(.02f, .36f, .21f, .08f, Color(0xFF713B27))
+            block(.78f, .47f, .17f, .20f, Color(0xFF70472D))
+            block(.81f, .51f, .11f, .14f, Color(0xFFFFD18A))
+            block(.76f, .43f, .21f, .08f, Color(0xFF713B27))
+            for (i in 0..12) {
+                val x = (i * 73 % 100) / 100f
+                circle(x, .68f + (i % 3) * .08f, .025f, if (i % 2 == 0) Color(0xFFFFD64C) else Color(0xFF9BCB55))
+            }
+            // Autumn tree canopy.
+            block(.02f, .12f, .035f, .48f, Color(0xFF75432A))
+            for (i in 0..7) circle(.02f + (i % 4) * .055f, .18f + (i / 4) * .12f, .07f,
+                listOf(Color(0xFFFF7D22), Color(0xFFE94F16), Color(0xFFFFB52C))[i % 3])
+        } else {
+            // Snowy pine forest and a distant winter castle.
+            rect(0f, .66f, 1f, .34f, Color(0xFFB9D8E9))
+            rect(0f, .80f, 1f, .20f, Color(0xFFEAF5FA))
+            for (i in 0..8) {
+                val x = (i * .13f) - .03f
+                val y = .25f + (i % 3) * .08f
+                block(x + .035f, y + .16f, .025f, .27f, Color(0xFF624D43))
+                block(x, y + .05f, .095f, .20f, Color(0xFF235B59))
+                block(x + .015f, y, .065f, .15f, Color(0xFF347F78))
+                block(x + .01f, y + .04f, .075f, .025f, Color(0xFFEAF7FF))
+            }
+            // Castle towers at the right.
+            block(.73f, .29f, .23f, .42f, Color(0xFF596D91))
+            block(.78f, .19f, .06f, .52f, Color(0xFF7788A7))
+            block(.89f, .13f, .07f, .58f, Color(0xFF7788A7))
+            block(.76f, .15f, .10f, .07f, Color(0xFF384D72))
+            block(.87f, .09f, .11f, .07f, Color(0xFF384D72))
+            for (i in 0..5) block(.77f + (i % 3) * .065f, .39f + (i / 3) * .13f, .025f, .06f, Color(0xFFFFD27C))
+            for (i in 0..10) circle((i * 37 % 100) / 100f, .15f + (i % 4) * .16f, .006f, Color.White)
+        }
+        // Shared stone ledge beneath the companion.
+        block(.14f, .79f, .72f, .12f, if (isFox) Color(0xFF806044) else Color(0xFF8297A7))
+        block(.18f, .76f, .64f, .05f, if (isFox) Color(0xFFB8A16A) else Color(0xFFDCEAF2))
+        // Large blocky fox / wolf companion, with ears, muzzle, scarf and paws.
+        val fur = if (isFox) Color(0xFFE97825) else Color(0xFFD7DCE2)
+        val lightFur = if (isFox) Color(0xFFFFE5C3) else Color(0xFFF8FAFC)
+        val dark = if (isFox) Color(0xFF6B3926) else Color(0xFF56616D)
+        block(.39f, .24f, .09f, .19f, dark)
+        block(.52f, .22f, .09f, .21f, dark)
+        block(.40f, .27f, .07f, .15f, fur)
+        block(.53f, .25f, .07f, .17f, fur)
+        block(.38f, .38f, .25f, .25f, fur)
+        block(.35f, .48f, .30f, .16f, fur)
+        block(.40f, .56f, .12f, .20f, lightFur)
+        block(.55f, .54f, .11f, .22f, lightFur)
+        block(.39f, .72f, .08f, .09f, dark)
+        block(.56f, .72f, .08f, .09f, dark)
+        block(.58f, .39f, .12f, .10f, lightFur)
+        block(.65f, .42f, .07f, .07f, lightFur)
+        block(.69f, .43f, .035f, .035f, dark)
+        block(.61f, .37f, .025f, .035f, Color(0xFF251F1B))
+        circle(.62f, .38f, .009f, Color.White)
+        // Bright red neckerchief.
+        block(.43f, .48f, .19f, .055f, Color(0xFFB92324))
+        block(.57f, .51f, .045f, .14f, Color(0xFFB92324))
+        block(.59f, .63f, .04f, .07f, Color(0xFF8F1B1D))
+        // Tail on the left, tipped in pale fur.
+        block(.25f, .55f, .16f, .10f, fur)
+        block(.20f, .53f, .10f, .12f, lightFur)
+        // Glowing travel lantern.
+        block(.31f, .47f, .09f, .035f, dark)
+        block(.33f, .50f, .055f, .14f, Color(0xFF5A3924))
+        block(.34f, .52f, .035f, .09f, Color(0xFFFFB72D))
+        circle(.36f, .56f, .07f, Color(0xFFFFC24B).copy(alpha = .22f))
     }
 }
 
