@@ -31,13 +31,13 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 - The Android app and UI are Kotlin + Jetpack Compose.
 - Minecraft version metadata, client JAR, compatible library artifacts, assets, and launch-plan preparation exist.
 - Android Java runtime archive download and guarded TAR/XZ extraction exist.
-- OLauncherEngine currently owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview.
-- The Rust native JVM diagnostic is packaged in the Android APK for all four Android ABIs. It retains one successfully validated `libjvm.so` handle for the app process lifetime and refuses to map a different runtime afterward. This is a prerequisite for a future same-handle bootstrap, not VM creation; ART/OpenJDK coexistence and actual `JNI_CreateJavaVM` remain unverified.
+- OLauncherEngine owns runtime paths, runtime discovery, a real java -version subprocess probe, and a guarded launch-command preview. It also prepares a typed in-process JVM bootstrap plan; the isolated :game service now preloads LTW, creates HotSpot through JNI_CreateJavaVM, installs the native-loader hook, and dispatches the authenticated Minecraft main class on the VM-creating thread. This path is implemented but remains device-unverified.
+- The Rust native JVM bridge is packaged in the Android APK for all four Android ABIs. It retains one validated `libjvm.so` handle, creates one HotSpot VM in the isolated :game process through JNI_CreateJavaVM, verifies core Java classes and a Java smoke-test main, installs version-specific native-library hooks, and invokes Minecraft main on the same VM-creating HandlerThread. ART/OpenJDK coexistence, real runtime compatibility, and a successful Minecraft title-screen launch remain device-unverified.
 - OEngineGraphics can create a temporary Android EGL pbuffer context, probe OpenGL ES 3 then ES 2, collect driver identity/extensions, and release EGL resources.
 - OEngineEglSession provides a thread-confined Android EGL window-surface/context lifecycle with make-current, swap-interval, buffer-swap, and deterministic teardown operations.
 - OEngineGraphicsBackend is the engine-facing graphics contract; OEngineGraphicsCompatibilityGate explicitly rejects treating an OpenGL ES context as desktop OpenGL. GLES extension enumeration uses the API appropriate to ES 2 versus ES 3.
 - OEngineRendererArtifactGate validates renderer artifact metadata, private-directory containment, ELF class, and ELF machine against the declared Android ABI before a future adapter can load it. It never loads native code.\n- OEngineGraphicsStack tracks the latest upstream targets: LTW at commit `3f1f4df6c80c925ea34067b1d943a84acce0184d` (the upstream repository has no published release tag in the inspected page), MobileGlues 2.0.0, and LWJGL 3.4.3 as a reference. LTW and MobileGlues are alternative renderer providers, not layers to load simultaneously. The preflight inspects game-pinned LWJGL modules and applies MobileGlues' documented GLES 3.0 minimum (3.2 preferred). Neither renderer is installed, loaded, or bundled yet. The native artifact gate is ready for verified artifacts, but no upstream provider loader contract has been activated.
-- The EGL window session is an Android OpenGL ES foundation, not desktop OpenGL; it does not provide GLFW/LWJGL compatibility. The graphics compatibility layer and actual Minecraft process launch are not complete.
+- The EGL window session is an Android OpenGL ES foundation, not desktop OpenGL; it does not provide GLFW/LWJGL compatibility. The in-process JVM and authenticated Minecraft main-dispatch pipeline are implemented. The graphics compatibility layer is not yet proven against Minecraft's exact LWJGL/EGL calls, so a playable launch is not yet verified.
 - A successful CI build proves compilation, not that a downloaded runtime starts on a physical phone. Device verification is required.
 
 ## Next engineering gates
@@ -55,7 +55,7 @@ O Launcher is an original Android Minecraft Java launcher. Its engine is develop
 
 ## JVM bootstrap design
 
-The next runtime milestone is specified in [`JVM_BOOTSTRAP_DESIGN.md`](JVM_BOOTSTRAP_DESIGN.md). It defines isolated game-process ownership, Android linker preparation, VM creation and teardown phases, cross-VM JNI rules, and device acceptance gates. The current native library probe remains diagnostic only; it must not be treated as a working JVM launcher.
+The design in [`JVM_BOOTSTRAP_DESIGN.md`](JVM_BOOTSTRAP_DESIGN.md) remains the reference for isolated game-process ownership, Android linker preparation, VM creation/teardown, cross-VM JNI rules, and device acceptance. The implementation has advanced beyond the original diagnostic-only stage: the native bridge now creates HotSpot and invokes Minecraft main. Physical-device validation, renderer interoperability, graceful VM shutdown, and full crash recovery remain open gates.
 
 ## Quality gates
 
@@ -136,9 +136,9 @@ The launch preview now includes this structural JVM plan when a matching runtime
 
 ## Native JVM Invocation API diagnostic bridge
 
-The app now builds and packages the original Rust `cdylib`, `liboengine_native.so`, for arm64-v8a, armeabi-v7a, x86 and x86_64. Its Kotlin bridge is lazy: it is not loaded during normal launcher startup. When explicitly called with a structurally valid JVM plan, the Rust diagnostic opens that plan's `libjvm.so`, checks that both `JNI_CreateJavaVM` and `JNI_GetCreatedJavaVMs` are exported, retains the validated handle for process lifetime, and returns a structured status. It does not create a VM or execute Minecraft.
+The app builds and packages the original Rust `cdylib`, `liboengine_native.so`, for arm64-v8a, armeabi-v7a, x86 and x86_64. Its Kotlin bridge is lazy and is loaded only when the game process needs it. The bridge validates and retains the selected `libjvm.so`, creates a single HotSpot VM with `JNI_CreateJavaVM`, verifies Java core classes and a smoke-test class, and keeps the VM-creating thread attached for the session. The same thread invokes the selected Minecraft main class with the authenticated argument array. Main-class lookup and Java exceptions now return bounded stack-trace diagnostics; nested Java binary class names are accepted.
 
-Android CI cross-compiles the Rust crate before Gradle, packages the four ABI libraries from `app/src/main/jniLibs`, and inspects the APK for both the JVM probe and LWJGL hook JNI exports. This verifies packaging and symbol export only. A device-side probe is still required to establish whether each downloaded Android JRE can actually be opened from O Launcher's linker namespace; successful symbol discovery is not a green light to create the VM. The next native milestone is a guarded, one-shot VM creation path with version-specific class-loader/native-library hooks and an explicit teardown/failure model.
+Android CI cross-compiles the Rust crate before Gradle, packages the four ABI libraries from `app/src/main/jniLibs`, and inspects the APK for both the JVM probe and LWJGL hook JNI exports. CI verifies packaging and symbol export, while runtime compatibility still requires a physical-device test. The one-shot VM path and version-specific native-library hook are implemented; graceful VM teardown and ART/OpenJDK coexistence remain explicit failure/lifecycle work.
 
 
 ## Version-aware LWJGL native resolver
@@ -221,3 +221,19 @@ MojoExec is an engineering reference for native process/JVM execution, not a dep
 Microsoft authentication is implemented as a device-code flow and offline profiles are stored locally. Ely.by is an optional future account provider and must use its documented authentication/session protocol; it must not be presented as a Microsoft-authenticated account or silently substituted into Mojang's official authentication flow. Account provider, identity, token storage and launch-session construction must remain explicit and separate.
 
 These components are architecture requirements, not claims that every provider or feature is already operational. Each provider must pass artifact, ABI, license, lifecycle and real-device tests before it is offered as launch-ready.
+
+
+## Current in-process Minecraft JVM launch path (implementation status)
+
+The current launch path is connected across Compose, Kotlin IPC, and Rust native code:
+
+1. The launcher prepares a version-specific launch plan and authenticated game arguments.
+2. The :game Android service prepares the LTW/Android GLFW environment before HotSpot starts.
+3. The service validates the runtime, staged LWJGL native modules, renderer alias, and libjvm path.
+4. The Rust bridge retains the selected JVM library and creates one HotSpot VM with the JNI Invocation API.
+5. The VM bootstrap verifies Java core classes and runs a small Java main smoke test.
+6. The Rust bridge installs the Java-major-specific native-library hook; Kotlin then installs the O Engine LWJGL resolver hook against the exact game class.
+7. After the game surface is ready, the authenticated Minecraft main class is invoked on the same HandlerThread that created HotSpot.
+8. Main-class lookup and thrown Java exceptions are returned as bounded stack-trace diagnostics. The Kotlin IPC client rejects invalid class names, NUL-containing arguments, oversized individual arguments, and aggregate argument payloads above 512 KiB before Binder dispatch.
+
+This is an implementation path, not proof of a playable game. Remaining launch gates include successful Android CI for the current revision, physical-device JVM creation with each supported runtime/ABI, verified LTW symbol routing through the exact Minecraft LWJGL binaries, a working game window and title screen, gameplay/input/audio validation, and coordinated JVM shutdown/recovery. No claim of successful Minecraft gameplay should be made until those checks pass.
